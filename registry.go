@@ -83,9 +83,12 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 }
 
-func InitDBClient() error {
+func InitDBClient(addr string) error {
 	var err error
-	client, err = kivik.New(ctx, "couch", "http://localhost:5984/")
+	client, err = kivik.New(ctx, "couch", (&url.URL{
+		Scheme: "http",
+		Host:   addr,
+	}).String())
 	if err != nil {
 		return err
 	}

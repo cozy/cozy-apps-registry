@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo"
@@ -189,20 +191,38 @@ func httpErrorHandler(err error, c echo.Context) {
 }
 
 func main() {
-	var err error
-	if err = InitDBClient(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	helpFlag := flag.Bool("h", false, "print usage")
+	portFlag := flag.Int("port", 8080, "specify the port to listen on")
+	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
+	couchFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
+	tokenFlag := flag.String("gen-token", "", "used to generate an editor token")
+	flag.Parse()
+
+	if *helpFlag == true {
+		flag.PrintDefaults()
+		return
 	}
 
+	var err error
 	editorReg, err = NewFileEditorRegistry("./editors")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		printAndExit(err.Error())
 	}
 
-	token, _ := GenerateEditorToken(editorReg, &EditorTokenOptions{Editor: "Cozy"})
-	fmt.Println(base64.StdEncoding.EncodeToString(token))
+	if *tokenFlag != "" {
+		token, err := GenerateEditorToken(editorReg, &EditorTokenOptions{
+			Editor: *tokenFlag,
+		})
+		if err != nil {
+			printAndExit(err.Error())
+		}
+		fmt.Println(base64.StdEncoding.EncodeToString(token))
+		return
+	}
+
+	if err = InitDBClient(*couchFlag); err != nil {
+		printAndExit(err.Error())
+	}
 
 	e := echo.New()
 	e.HideBanner = true
@@ -225,11 +245,16 @@ func main() {
 	apps.GET("/:app/:version", getVersion)
 	apps.GET("/:app/:channel/latest", getLatestVersion)
 
-	fmt.Println("Listening...")
-	if err := e.Start("localhost:8080"); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	address := *hostFlag + ":" + strconv.Itoa(*portFlag)
+	fmt.Printf("Listening on %s...", address)
+	if err := e.Start(address); err != nil {
+		printAndExit(err.Error())
 	}
+}
+
+func printAndExit(v string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, v, a...)
+	os.Exit(1)
 }
 
 func validateAppRequest(c echo.Context, app *App) error {
