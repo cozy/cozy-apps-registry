@@ -56,7 +56,7 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor, ver.Name); err != nil {
+	if err = checkPermissions(c, app.Editor, app.Name); err != nil {
 		return err
 	}
 	if err = CreateVersion(ver); err != nil {
@@ -83,7 +83,7 @@ func checkPermissions(c echo.Context, editorName, appName string) error {
 	}
 	if err := VerifyEditorToken(editorReg, editorName, appName, token); err != nil {
 		if err != errUnauthorized {
-			fmt.Printf("Received bad token=%s for editor=%s and application=%s\n",
+			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s\n",
 				token, editorName, appName)
 		}
 		return errUnauthorized
@@ -165,31 +165,6 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func httpErrorHandler(err error, c echo.Context) {
-	var (
-		code = http.StatusInternalServerError
-		msg  interface{}
-	)
-
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		msg = he.Message
-	} else {
-		msg = err.Error()
-	}
-	if _, ok := msg.(string); ok {
-		msg = echo.Map{"message": msg}
-	}
-
-	if !c.Response().Committed {
-		if c.Request().Method == echo.HEAD {
-			c.NoContent(code)
-		} else {
-			c.JSON(code, msg)
-		}
-	}
-}
-
 func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
 	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
@@ -247,7 +222,7 @@ func main() {
 }
 
 func printAndExit(v string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, v, a...)
+	fmt.Fprintf(os.Stderr, v+"\n", a...)
 	os.Exit(1)
 }
 
@@ -259,7 +234,7 @@ func validateAppRequest(c echo.Context, app *App) error {
 		return errAppNameMismatch
 	}
 	if err := IsValidApp(app); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error)
+		return wrapErr(err, http.StatusBadRequest)
 	}
 	return nil
 }
@@ -278,7 +253,42 @@ func validateVersionRequest(c echo.Context, ver *Version) error {
 		return errVersionMismatch
 	}
 	if err := IsValidVersion(ver); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error)
+		return wrapErr(err, http.StatusBadRequest)
 	}
 	return nil
+}
+
+func httpErrorHandler(err error, c echo.Context) {
+	var (
+		code = http.StatusInternalServerError
+		msg  interface{}
+	)
+
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		msg = he.Message
+	} else {
+		msg = err.Error()
+	}
+	if _, ok := msg.(string); ok {
+		msg = echo.Map{"message": msg}
+	}
+
+	if !c.Response().Committed {
+		if c.Request().Method == echo.HEAD {
+			c.NoContent(code)
+		} else {
+			c.JSON(code, msg)
+		}
+	}
+}
+
+func wrapErr(err error, code int) error {
+	if err == nil {
+		return nil
+	}
+	if errHTTP, ok := err.(*echo.HTTPError); ok {
+		return errHTTP
+	}
+	return echo.NewHTTPError(code, err.Error())
 }

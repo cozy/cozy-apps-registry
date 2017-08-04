@@ -90,7 +90,7 @@ func InitDBClient(addr string) error {
 		Host:   addr,
 	}).String())
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not reach CouchDB: %s", err.Error())
 	}
 
 	for _, dbName := range dbs {
@@ -99,10 +99,12 @@ func InitDBClient(addr string) error {
 			return err
 		}
 		if !ok {
+			fmt.Printf("Creating database %s...", dbName)
 			if err = client.CreateDB(ctx, dbName); err != nil {
+				fmt.Println("failed")
 				return err
 			}
-			fmt.Printf("Created database %s\n", dbName)
+			fmt.Println("ok")
 		}
 	}
 
