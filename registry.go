@@ -17,7 +17,6 @@ import (
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb"
-	_ "github.com/flimzy/kivik/driver/memory"
 )
 
 const maxManifestSize = 10 * 1024 * 1024
