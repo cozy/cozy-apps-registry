@@ -96,7 +96,7 @@ func FindLatestVersion(appName string, channel Channel) (*Version, error) {
 				continue
 			}
 		}
-		if latest == nil || !isVersionLess(doc, latest) {
+		if latest == nil || isVersionLess(latest, doc) {
 			latest = doc
 		}
 	}
