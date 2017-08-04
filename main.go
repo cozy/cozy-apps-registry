@@ -191,17 +191,11 @@ func httpErrorHandler(err error, c echo.Context) {
 }
 
 func main() {
-	helpFlag := flag.Bool("h", false, "print usage")
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
 	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
 	couchFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
 	tokenFlag := flag.String("gen-token", "", "used to generate an editor token")
 	flag.Parse()
-
-	if *helpFlag == true {
-		flag.PrintDefaults()
-		return
-	}
 
 	var err error
 	editorReg, err = NewFileEditorRegistry("./editors")
@@ -246,7 +240,7 @@ func main() {
 	apps.GET("/:app/:channel/latest", getLatestVersion)
 
 	address := *hostFlag + ":" + strconv.Itoa(*portFlag)
-	fmt.Printf("Listening on %s...", address)
+	fmt.Printf("Listening on %s...\n", address)
 	if err := e.Start(address); err != nil {
 		printAndExit(err.Error())
 	}

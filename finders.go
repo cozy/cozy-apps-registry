@@ -74,7 +74,7 @@ func FindVersion(appName, version string) (*Version, error) {
 }
 
 func FindLatestVersion(appName string, channel string) (*Version, error) {
-	ch, err := channelFromString(channel)
+	ch, err := strToChannel(channel)
 	if err != nil {
 		return nil, err
 	}

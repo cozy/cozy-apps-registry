@@ -381,7 +381,7 @@ func getManifestName(appType string) string {
 	panic(fmt.Errorf("Uknown application type %s", appType))
 }
 
-func channelFromString(channel string) (Channel, error) {
+func strToChannel(channel string) (Channel, error) {
 	switch channel {
 	case string(Stable):
 		return Stable, nil
