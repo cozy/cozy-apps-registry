@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,9 @@ import (
 )
 
 const maxManifestSize = 10 * 1024 * 1024
+
+var validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
+var validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 
 var client *kivik.Client
 var ctx = context.Background()
@@ -372,4 +376,17 @@ func getManifestName(appType string) string {
 		return "manifest.konnector"
 	}
 	panic(fmt.Errorf("Uknown application type %s", appType))
+}
+
+func channelFromString(channel string) (Channel, error) {
+	switch channel {
+	case string(Stable):
+		return Stable, nil
+	case string(Beta):
+		return Beta, nil
+	case string(Dev):
+		return Dev, nil
+	default:
+		return Stable, errBadChannel
+	}
 }

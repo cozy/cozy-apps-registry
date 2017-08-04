@@ -7,6 +7,9 @@ import (
 )
 
 func FindApp(appName string) (*App, error) {
+	if !validAppNameReg.MatchString(appName) {
+		return nil, errBadAppName
+	}
 	db, err := client.DB(ctx, appsDB)
 	if err != nil {
 		return nil, err
@@ -38,6 +41,12 @@ func FindApp(appName string) (*App, error) {
 }
 
 func FindVersion(appName, version string) (*Version, error) {
+	if !validAppNameReg.MatchString(appName) {
+		return nil, errBadAppName
+	}
+	if !validVersionReg.MatchString(version) {
+		return nil, errBadVersion
+	}
 	db, err := client.DB(ctx, versDB)
 	if err != nil {
 		return nil, err
@@ -64,7 +73,14 @@ func FindVersion(appName, version string) (*Version, error) {
 	return doc, nil
 }
 
-func FindLatestVersion(appName string, channel Channel) (*Version, error) {
+func FindLatestVersion(appName string, channel string) (*Version, error) {
+	ch, err := channelFromString(channel)
+	if err != nil {
+		return nil, err
+	}
+	if !validAppNameReg.MatchString(appName) {
+		return nil, errBadAppName
+	}
 	db, err := client.DB(ctx, versDB)
 	if err != nil {
 		return nil, err
@@ -86,13 +102,13 @@ func FindLatestVersion(appName string, channel Channel) (*Version, error) {
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
 		}
-		switch channel {
+		switch ch {
 		case Stable:
-			if ch := getVersionChannel(doc.Version); ch != Stable {
+			if c := getVersionChannel(doc.Version); c != Stable {
 				continue
 			}
 		case Beta:
-			if ch := getVersionChannel(doc.Version); ch != Stable && ch != Beta {
+			if c := getVersionChannel(doc.Version); c != Stable && c != Beta {
 				continue
 			}
 		}

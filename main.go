@@ -5,15 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
 
-var validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
-var validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 var validAppTypes = []string{
 	"webapp",
 	"konnector",
@@ -98,9 +95,6 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appName := c.Param("app")
-	if !validAppNameReg.MatchString(appName) {
-		return errBadAppName
-	}
 	doc, err := FindApp(appName)
 	if err != nil {
 		return err
@@ -114,12 +108,6 @@ func getApp(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appName := c.Param("app")
 	version := c.Param("version")
-	if !validAppNameReg.MatchString(appName) {
-		return errBadAppName
-	}
-	if !validVersionReg.MatchString(version) {
-		return errBadVersion
-	}
 	doc, err := FindVersion(appName, version)
 	if err != nil {
 		return err
@@ -133,14 +121,7 @@ func getVersion(c echo.Context) error {
 func getLatestVersion(c echo.Context) error {
 	appName := c.Param("app")
 	channel := c.Param("channel")
-	if !validAppNameReg.MatchString(appName) {
-		return errBadAppName
-	}
-	ch, err := validateChannel(channel)
-	if err != nil {
-		return err
-	}
-	doc, err := FindLatestVersion(appName, ch)
+	doc, err := FindLatestVersion(appName, channel)
 	if err != nil {
 		return err
 	}
@@ -281,17 +262,4 @@ func validateVersionRequest(c echo.Context, ver *Version) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error)
 	}
 	return nil
-}
-
-func validateChannel(channel string) (Channel, error) {
-	switch channel {
-	case string(Stable):
-		return Stable, nil
-	case string(Beta):
-		return Beta, nil
-	case string(Dev):
-		return Dev, nil
-	default:
-		return Stable, errBadChannel
-	}
 }
