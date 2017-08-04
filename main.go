@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -211,30 +209,14 @@ func main() {
 }
 
 func validateAppRequest(c echo.Context, app *App) error {
-	if appName := c.Param("app"); appName != "" && app.Name != appName {
+	appName := c.Param("app")
+	if app.Name == "" {
+		app.Name = appName
+	} else if app.Name != appName {
 		return errAppNameMismatch
 	}
-	var fields []string
-	if app.Name == "" || !validAppNameReg.MatchString(app.Name) {
-		fields = append(fields, "name")
-	}
-	if app.Editor == "" {
-		fields = append(fields, "editor")
-	}
-	if app.Description == "" {
-		fields = append(fields, "description")
-	}
-	if !stringInArray(app.Type, validAppTypes) {
-		fields = append(fields, "type")
-	}
-	if app.Repository != "" {
-		if _, err := url.Parse(app.Repository); err != nil {
-			fields = append(fields, "repository")
-		}
-	}
-	if len(fields) > 0 {
-		return fmt.Errorf("Application object is not valid, "+
-			"the following fields are erroneous: %s", strings.Join(fields, ", "))
+	if err := IsValidApp(app); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error)
 	}
 	return nil
 }
@@ -242,40 +224,18 @@ func validateAppRequest(c echo.Context, app *App) error {
 func validateVersionRequest(c echo.Context, ver *Version) error {
 	appName := c.Param("app")
 	version := c.Param("version")
-	if !validAppNameReg.MatchString(appName) {
-		return errBadAppName
+	if ver.Name == "" {
+		ver.Name = appName
+	} else if ver.Name != appName {
+		return errAppNameMismatch
 	}
 	if ver.Version == "" {
 		ver.Version = version
 	} else if ver.Version != version {
 		return errVersionMismatch
 	}
-	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
-		return errBadVersion
-	}
-	if ver.Name != appName {
-		return errAppNameMismatch
-	}
-	var fields []string
-	if !stringInArray(ver.Type, validAppTypes) {
-		fields = append(fields, "type")
-	}
-	if ver.URL == "" {
-		fields = append(fields, "url")
-	} else if _, err := url.Parse(ver.URL); err != nil {
-		fields = append(fields, "url")
-	}
-	if ver.Size <= 0 {
-		fields = append(fields, "size")
-	}
-	if ver.Sha256 == "" {
-		fields = append(fields, "sha256")
-	} else if h, err := hex.DecodeString(ver.Sha256); err != nil || len(h) != 32 {
-		fields = append(fields, "sha256")
-	}
-	if len(fields) > 0 {
-		return fmt.Errorf("Application object is not valid, "+
-			"the following fields are erroneous: %s", strings.Join(fields, ", "))
+	if err := IsValidVersion(ver); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error)
 	}
 	return nil
 }

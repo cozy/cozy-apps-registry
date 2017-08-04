@@ -12,11 +12,13 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb"
+	"github.com/labstack/echo"
 )
 
 const maxManifestSize = 10 * 1024 * 1024
@@ -37,8 +39,8 @@ const (
 type Channel string
 
 const (
-	Beta   Channel = "beta"
 	Stable Channel = "stable"
+	Beta   Channel = "beta"
 	Dev    Channel = "dev"
 )
 
@@ -100,36 +102,67 @@ func InitDBClient() error {
 	return nil
 }
 
-func CreateVersion(ver *Version) error {
-	app, err := FindApp(ver.Name)
-	if err != nil {
-		return err
+func IsValidApp(app *App) error {
+	var fields []string
+	if app.Name == "" || !validAppNameReg.MatchString(app.Name) {
+		return errBadAppName
 	}
-	if _, err = FindVersion(ver.Name, ver.Version); err != errVersionNotFound {
-		if err == nil {
-			return errVersionAlreadyExists
+	if app.Editor == "" {
+		fields = append(fields, "editor")
+	}
+	if app.Description == "" {
+		fields = append(fields, "description")
+	}
+	if !stringInArray(app.Type, validAppTypes) {
+		fields = append(fields, "type")
+	}
+	if app.Repository != "" {
+		if _, err := url.Parse(app.Repository); err != nil {
+			fields = append(fields, "repository")
 		}
-		return err
 	}
-
-	man, prefix, err := downloadAndCheckVersion(app, ver)
-	if err != nil {
-		return err
+	if len(fields) > 0 {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Errorf("Application object is not valid, "+
+				"the following fields are erroneous: %s", strings.Join(fields, ", ")))
 	}
+	return nil
+}
 
-	ver.Manifest = man
-	ver.TarPrefix = prefix
-	ver.CreatedAt = time.Now()
-
-	db, err := client.DB(ctx, versDB)
-	if err != nil {
-		return err
+func IsValidVersion(ver *Version) error {
+	if ver.Name == "" || !validAppNameReg.MatchString(ver.Name) {
+		return errBadAppName
 	}
-	_, _, err = db.CreateDoc(ctx, ver)
-	return err
+	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
+		return errBadVersion
+	}
+	var fields []string
+	if !stringInArray(ver.Type, validAppTypes) {
+		fields = append(fields, "type")
+	}
+	if ver.URL == "" {
+		fields = append(fields, "url")
+	} else if _, err := url.Parse(ver.URL); err != nil {
+		fields = append(fields, "url")
+	}
+	if ver.Size <= 0 {
+		fields = append(fields, "size")
+	}
+	if h, err := hex.DecodeString(ver.Sha256); err != nil || len(h) != 32 {
+		fields = append(fields, "sha256")
+	}
+	if len(fields) > 0 {
+		return fmt.Errorf("Version object is not valid, "+
+			"the following fields are erroneous: %s", strings.Join(fields, ", "))
+	}
+	return nil
 }
 
 func CreateApp(app *App) error {
+	if err := IsValidApp(app); err != nil {
+		return err
+	}
+
 	db, err := client.DB(ctx, appsDB)
 	if err != nil {
 		return err
@@ -169,6 +202,40 @@ func CreateApp(app *App) error {
 		app.Tags = oldApp.Tags
 	}
 	_, err = db.Put(ctx, app.ID, app)
+	return err
+}
+
+func CreateVersion(ver *Version) error {
+	if err := IsValidVersion(ver); err != nil {
+		return err
+	}
+
+	app, err := FindApp(ver.Name)
+	if err != nil {
+		return err
+	}
+	_, err = FindVersion(ver.Name, ver.Version)
+	if err != errVersionNotFound {
+		if err == nil {
+			return errVersionAlreadyExists
+		}
+		return err
+	}
+
+	man, prefix, err := downloadAndCheckVersion(app, ver)
+	if err != nil {
+		return err
+	}
+
+	ver.Manifest = man
+	ver.TarPrefix = prefix
+	ver.CreatedAt = time.Now()
+
+	db, err := client.DB(ctx, versDB)
+	if err != nil {
+		return err
+	}
+	_, _, err = db.CreateDoc(ctx, ver)
 	return err
 }
 
@@ -273,7 +340,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 
 	checkVals := map[string]interface{}{}
 	checkVals["editor"] = app.Editor
-	if getVersionChannel(ver.Version) == Stable {
+	if ch := getVersionChannel(ver.Version); ch == Stable || ch == Beta {
 		checkVals["version"] = ver.Version
 	}
 
