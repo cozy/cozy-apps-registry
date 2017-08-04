@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,6 +19,8 @@ var validAppTypes = []string{
 	"konnector",
 }
 
+var editorReg EditorRegistry
+
 func createApp(c echo.Context) (err error) {
 	app := &App{}
 	if err = c.Bind(app); err != nil {
@@ -26,8 +29,10 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	// TODO: check permission to create application
-	if err = CreateApp(app); err != nil {
+	if err = checkPermissions(c, app.Editor, app.Name); err != nil {
+		return err
+	}
+	if err = CreateOrUpdateApp(app); err != nil {
 		return err
 	}
 	app, err = FindApp(app.Name)
@@ -48,7 +53,13 @@ func createVersion(c echo.Context) (err error) {
 	if err = validateVersionRequest(c, ver); err != nil {
 		return err
 	}
-	// TODO: check permission to create version
+	app, err := FindApp(ver.Name)
+	if err != nil {
+		return err
+	}
+	if err = checkPermissions(c, app.Editor, ver.Name); err != nil {
+		return err
+	}
 	if err = CreateVersion(ver); err != nil {
 		return err
 	}
@@ -60,6 +71,25 @@ func createVersion(c echo.Context) (err error) {
 	ver.ID = ""
 	ver.Rev = ""
 	return c.JSON(http.StatusCreated, ver)
+}
+
+func checkPermissions(c echo.Context, editorName, appName string) error {
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	if !strings.HasPrefix(authHeader, "Token ") {
+		return errUnauthorized
+	}
+	token, err := base64.StdEncoding.DecodeString(authHeader[len("Token "):])
+	if err != nil {
+		return errUnauthorized
+	}
+	if err := VerifyEditorToken(editorReg, editorName, appName, token); err != nil {
+		if err != errUnauthorized {
+			fmt.Printf("Received bad token=%s for editor=%s and application=%s\n",
+				token, editorName, appName)
+		}
+		return errUnauthorized
+	}
+	return nil
 }
 
 func getAppsList(c echo.Context) error {
@@ -178,10 +208,20 @@ func httpErrorHandler(err error, c echo.Context) {
 }
 
 func main() {
-	if err := InitDBClient(); err != nil {
+	var err error
+	if err = InitDBClient(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	editorReg, err = NewFileEditorRegistry("./editors")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	token, _ := GenerateEditorToken(editorReg, &EditorTokenOptions{Editor: "Cozy"})
+	fmt.Println(base64.StdEncoding.EncodeToString(token))
 
 	e := echo.New()
 	e.HideBanner = true
@@ -193,11 +233,14 @@ func main() {
 	apps.POST("", createApp)
 	apps.POST("/", createApp)
 	apps.POST("/:app", createApp)
+	apps.POST("/:app/", createApp)
 	apps.POST("/:app/:version", createVersion)
+	apps.POST("/:app/:version/", createVersion)
 
 	apps.GET("", getAppsList)
 	apps.GET("/", getAppsList)
 	apps.GET("/:app", getApp)
+	apps.GET("/:app/", getApp)
 	apps.GET("/:app/:version", getVersion)
 	apps.GET("/:app/:channel/latest", getLatestVersion)
 

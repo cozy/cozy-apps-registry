@@ -158,7 +158,7 @@ func IsValidVersion(ver *Version) error {
 	return nil
 }
 
-func CreateApp(app *App) error {
+func CreateOrUpdateApp(app *App) error {
 	if err := IsValidApp(app); err != nil {
 		return err
 	}
@@ -183,6 +183,7 @@ func CreateApp(app *App) error {
 	}
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
+	app.Name = oldApp.Name
 	app.Type = oldApp.Type
 	app.Editor = oldApp.Editor
 	app.Versions = oldApp.Versions
