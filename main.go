@@ -193,7 +193,9 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
 	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
-	couchFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
+	couchAddrFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
+	couchUserFlag := flag.String("couchdb-user", "", "specify the user of couchdb")
+	couchPassFlag := flag.String("couchdb-password", "", "specify the password of couchdb")
 
 	editorRegistryFlag := flag.String("editor-registry", "couchdb", "used to specify the editors registry (text:./filename or couchdb)")
 
@@ -203,7 +205,7 @@ func main() {
 	addEditorFlag := flag.String("add-editor", "", "used to add an editor to the editor registry")
 	flag.Parse()
 
-	err := InitDBClient(*couchFlag)
+	err := InitDBClient(*couchAddrFlag, *couchUserFlag, *couchPassFlag)
 	if err != nil {
 		printAndExit("Could not reach CouchDB: %s", err.Error())
 	}
@@ -220,7 +222,7 @@ func main() {
 		filename := regOpts[1]
 		editorReg, err = NewFileEditorRegistry(filename)
 	case "couch", "couchdb":
-		editorReg, err = NewCouchdbEditorRegistry(*couchFlag)
+		editorReg, err = NewCouchdbEditorRegistry(*couchAddrFlag)
 	}
 	if err != nil {
 		printAndExit("Could not initialize the editor registry: %s", err.Error())

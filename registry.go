@@ -90,10 +90,19 @@ type Editor struct {
 	Secret []byte `json:"secret"`
 }
 
-func InitDBClient(addr string) error {
+func InitDBClient(addr, user, pass string) error {
 	var err error
+	var userInfo *url.Userinfo
+	if user != "" {
+		if pass != "" {
+			userInfo = url.UserPassword(user, pass)
+		} else {
+			userInfo = url.User(user)
+		}
+	}
 	client, err = kivik.New(ctx, "couch", (&url.URL{
 		Scheme: "http",
+		User:   userInfo,
 		Host:   addr,
 	}).String())
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -177,12 +176,9 @@ func (r *fileEditorReg) CreateEditorSecret(editorName string) error {
 		return err
 	}
 	secret := hex.EncodeToString(generateRandomBytes(32))
-	s := fmt.Sprintf("%s\t%s\n", editorName, secret)
-	if n, err := f.WriteString(s); err != nil || n != len(s) {
-		if err != nil {
-			return err
-		}
-		return io.ErrShortWrite
+	_, err = fmt.Fprintf(f, "%s\t%s", editorName, secret)
+	if err != nil {
+		return err
 	}
 	return nil
 }
