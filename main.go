@@ -165,28 +165,17 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 		switch req.Method {
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.Request().Header.Get(echo.HeaderContentType)
-			if !strings.HasPrefix(contentType, "application/json") {
+			if !strings.HasPrefix(contentType, echo.MIMEApplicationJSON) {
 				return echo.NewHTTPError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
 			}
 		}
 		acceptHeader := req.Header.Get("Accept")
-		if acceptHeader == "" || acceptHeader == "*/*" {
-			return next(c)
+		if acceptHeader != "" &&
+			!strings.Contains(acceptHeader, echo.MIMEApplicationJSON) &&
+			!strings.Contains(acceptHeader, "*/*") {
+			return echo.NewHTTPError(http.StatusNotAcceptable, "Accept header does not contain application/json")
 		}
-		for {
-			acceptHeader = strings.TrimLeftFunc(acceptHeader, func(r rune) bool { return r == ',' || r == ' ' })
-			if acceptHeader == "" {
-				return echo.NewHTTPError(http.StatusNotAcceptable, "Accept header does not contain application/json")
-			}
-			if strings.HasPrefix(acceptHeader, echo.MIMEApplicationJSON) ||
-				strings.HasPrefix(acceptHeader, "*/*") {
-				return next(c)
-			}
-			acceptHeader = strings.TrimLeftFunc(acceptHeader, func(r rune) bool { return r != ',' })
-			if acceptHeader == "" {
-				return echo.NewHTTPError(http.StatusNotAcceptable, "Accept header does not contain application/json")
-			}
-		}
+		return next(c)
 	}
 }
 
