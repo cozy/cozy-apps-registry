@@ -17,9 +17,7 @@ var validAppTypes = []string{
 	"konnector",
 }
 
-var editorReg EditorRegistry
-
-var filterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
+var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 func createApp(c echo.Context) (err error) {
 	app := &App{}
@@ -98,8 +96,8 @@ func getAppsList(c echo.Context) error {
 		if len(val) > 1024 {
 			return echo.NewHTTPError(http.StatusBadRequest)
 		}
-		if filterReg.MatchString(name) {
-			subs := filterReg.FindStringSubmatch(name)
+		if queryFilterReg.MatchString(name) {
+			subs := queryFilterReg.FindStringSubmatch(name)
 			if len(subs) == 2 {
 				filter[subs[1]] = val[0]
 			}
@@ -176,6 +174,73 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+func validateAppRequest(c echo.Context, app *App) error {
+	appName := c.Param("app")
+	if app.Name == "" {
+		app.Name = appName
+	} else if app.Name != appName {
+		return errAppNameMismatch
+	}
+	if err := IsValidApp(app); err != nil {
+		return wrapErr(err, http.StatusBadRequest)
+	}
+	return nil
+}
+
+func validateVersionRequest(c echo.Context, ver *Version) error {
+	appName := c.Param("app")
+	version := c.Param("version")
+	if ver.Name == "" {
+		ver.Name = appName
+	} else if ver.Name != appName {
+		return errAppNameMismatch
+	}
+	if ver.Version == "" {
+		ver.Version = version
+	} else if ver.Version != version {
+		return errVersionMismatch
+	}
+	if err := IsValidVersion(ver); err != nil {
+		return wrapErr(err, http.StatusBadRequest)
+	}
+	return nil
+}
+
+func httpErrorHandler(err error, c echo.Context) {
+	var (
+		code = http.StatusInternalServerError
+		msg  interface{}
+	)
+
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		msg = he.Message
+	} else {
+		msg = err.Error()
+	}
+	if _, ok := msg.(string); ok {
+		msg = echo.Map{"message": msg}
+	}
+
+	if !c.Response().Committed {
+		if c.Request().Method == echo.HEAD {
+			c.NoContent(code)
+		} else {
+			c.JSON(code, msg)
+		}
+	}
+}
+
+func wrapErr(err error, code int) error {
+	if err == nil {
+		return nil
+	}
+	if errHTTP, ok := err.(*echo.HTTPError); ok {
+		return errHTTP
+	}
+	return echo.NewHTTPError(code, err.Error())
+}
+
 func StartRouter(addr string) error {
 	e := echo.New()
 	e.HideBanner = true
@@ -196,7 +261,9 @@ func StartRouter(addr string) error {
 	apps.GET("/:app", getApp)
 	apps.GET("/:app/", getApp)
 	apps.GET("/:app/:version", getVersion)
+	apps.GET("/:app/:version/", getVersion)
 	apps.GET("/:app/:channel/latest", getLatestVersion)
+	apps.GET("/:app/:channel/latest/", getLatestVersion)
 
 	return e.Start(addr)
 }

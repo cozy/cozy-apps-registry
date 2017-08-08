@@ -29,7 +29,6 @@ var validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,
 
 var client *kivik.Client
 var ctx = context.Background()
-var dbs = []string{appsDB, versDB, editorsDB}
 var versionClient = http.Client{
 	Timeout: 20 * time.Second,
 }
@@ -40,6 +39,16 @@ const (
 	editorsDB = "registry-editors"
 )
 
+var dbs = []string{appsDB, versDB, editorsDB}
+
+var appsIndex = map[string]interface{}{
+	"fields": []string{"name", "type", "editor", "category", "tags"},
+}
+
+var versionsIndex = map[string]interface{}{
+	"fields": []string{"version", "name", "type"},
+}
+
 type Channel string
 
 const (
@@ -49,21 +58,23 @@ const (
 )
 
 type App struct {
-	ID             string       `json:"_id,omitempty"`
-	Rev            string       `json:"_rev,omitempty"`
-	Name           string       `json:"name"`
-	Type           string       `json:"type"`
-	Editor         string       `json:"editor"`
-	Description    string       `json:"description"`
-	Category       string       `json:"category"`
-	Repository     string       `json:"repository"`
-	CreatedAt      time.Time    `json:"created_at"`
-	UpdatedAt      time.Time    `json:"updated_at"`
-	Tags           []string     `json:"tags"`
-	LogoURL        string       `json:"logo_url"`
-	ScreenshotURLs []string     `json:"screenshot_urls"`
-	Versions       *AppVersions `json:"versions,omitempty"`
+	ID             string         `json:"_id,omitempty"`
+	Rev            string         `json:"_rev,omitempty"`
+	Name           string         `json:"name"`
+	Type           string         `json:"type"`
+	Editor         string         `json:"editor"`
+	Description    AppDescription `json:"description"`
+	Category       string         `json:"category"`
+	Repository     string         `json:"repository"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	Tags           []string       `json:"tags"`
+	LogoURL        string         `json:"logo_url"`
+	ScreenshotURLs []string       `json:"screenshot_urls"`
+	Versions       *AppVersions   `json:"versions,omitempty"`
 }
+
+type AppDescription map[string]string
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -132,10 +143,12 @@ func InitDBClient(addr, user, pass string) error {
 		return err
 	}
 
-	index := map[string]interface{}{
-		"fields": []string{"name", "type", "editor", "category", "tags"},
+	err = db.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
+	if err != nil {
+		return err
 	}
-	return db.CreateIndex(ctx, "apps-index", "apps-index", index)
+
+	return db.CreateIndex(ctx, "versions-index", "versions-index", versionsIndex)
 }
 
 func IsValidApp(app *App) error {
@@ -145,9 +158,6 @@ func IsValidApp(app *App) error {
 	}
 	if app.Editor == "" {
 		fields = append(fields, "editor")
-	}
-	if app.Description == "" {
-		fields = append(fields, "description")
 	}
 	if !stringInArray(app.Type, validAppTypes) {
 		fields = append(fields, "type")
@@ -226,7 +236,6 @@ func CreateOrUpdateApp(app *App) error {
 	app.Name = oldApp.Name
 	app.Type = oldApp.Type
 	app.Editor = oldApp.Editor
-	app.Versions = oldApp.Versions
 	app.CreatedAt = oldApp.CreatedAt
 	app.UpdatedAt = time.Now()
 	app.Versions = nil
@@ -236,7 +245,7 @@ func CreateOrUpdateApp(app *App) error {
 	if app.Repository == "" {
 		app.Repository = oldApp.Repository
 	}
-	if app.Description == "" {
+	if app.Description == nil {
 		app.Description = oldApp.Description
 	}
 	if app.Tags == nil {

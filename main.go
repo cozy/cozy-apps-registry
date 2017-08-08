@@ -4,14 +4,13 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/labstack/echo"
 )
+
+var editorReg EditorRegistry
 
 func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
@@ -91,71 +90,4 @@ func main() {
 func printAndExit(v string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, v+"\n", a...)
 	os.Exit(1)
-}
-
-func validateAppRequest(c echo.Context, app *App) error {
-	appName := c.Param("app")
-	if app.Name == "" {
-		app.Name = appName
-	} else if app.Name != appName {
-		return errAppNameMismatch
-	}
-	if err := IsValidApp(app); err != nil {
-		return wrapErr(err, http.StatusBadRequest)
-	}
-	return nil
-}
-
-func validateVersionRequest(c echo.Context, ver *Version) error {
-	appName := c.Param("app")
-	version := c.Param("version")
-	if ver.Name == "" {
-		ver.Name = appName
-	} else if ver.Name != appName {
-		return errAppNameMismatch
-	}
-	if ver.Version == "" {
-		ver.Version = version
-	} else if ver.Version != version {
-		return errVersionMismatch
-	}
-	if err := IsValidVersion(ver); err != nil {
-		return wrapErr(err, http.StatusBadRequest)
-	}
-	return nil
-}
-
-func httpErrorHandler(err error, c echo.Context) {
-	var (
-		code = http.StatusInternalServerError
-		msg  interface{}
-	)
-
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		msg = he.Message
-	} else {
-		msg = err.Error()
-	}
-	if _, ok := msg.(string); ok {
-		msg = echo.Map{"message": msg}
-	}
-
-	if !c.Response().Committed {
-		if c.Request().Method == echo.HEAD {
-			c.NoContent(code)
-		} else {
-			c.JSON(code, msg)
-		}
-	}
-}
-
-func wrapErr(err error, code int) error {
-	if err == nil {
-		return nil
-	}
-	if errHTTP, ok := err.(*echo.HTTPError); ok {
-		return errHTTP
-	}
-	return echo.NewHTTPError(code, err.Error())
 }
