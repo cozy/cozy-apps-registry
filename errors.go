@@ -6,7 +6,6 @@ import (
 	"github.com/labstack/echo"
 )
 
-var errNotImplemented = echo.NewHTTPError(http.StatusNotImplemented)
 var errUnauthorized = echo.NewHTTPError(http.StatusUnauthorized)
 var errUnknownEditor = echo.NewHTTPError(http.StatusUnauthorized, "Unknown editor name")
 var errBadChannel = echo.NewHTTPError(http.StatusBadRequest, "Channel should be \"stable\", \"beta\" or \"dev\"")

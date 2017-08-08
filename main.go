@@ -203,7 +203,8 @@ func main() {
 	}
 
 	if *tokenFlag != "" {
-		token, err := GenerateEditorToken(editorReg, &EditorTokenOptions{
+		var token []byte
+		token, err = GenerateEditorToken(editorReg, &EditorTokenOptions{
 			Editor: *tokenFlag,
 		})
 		if err != nil {

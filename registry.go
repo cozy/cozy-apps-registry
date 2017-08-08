@@ -94,7 +94,8 @@ func InitDBClient(addr string) error {
 	}
 
 	for _, dbName := range dbs {
-		ok, err := client.DBExists(ctx, dbName)
+		var ok bool
+		ok, err = client.DBExists(ctx, dbName)
 		if err != nil {
 			return err
 		}
@@ -116,12 +117,7 @@ func InitDBClient(addr string) error {
 	index := map[string]interface{}{
 		"fields": []string{"name", "type", "editor", "category", "tags"},
 	}
-	err = db.CreateIndex(ctx, "apps-index", "apps-index", index)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return db.CreateIndex(ctx, "apps-index", "apps-index", index)
 }
 
 func IsValidApp(app *App) error {
