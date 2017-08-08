@@ -49,18 +49,20 @@ const (
 )
 
 type App struct {
-	ID          string       `json:"_id,omitempty"`
-	Rev         string       `json:"_rev,omitempty"`
-	Name        string       `json:"name"`
-	Type        string       `json:"type"`
-	Editor      string       `json:"editor"`
-	Description string       `json:"description"`
-	Category    string       `json:"category"`
-	Repository  string       `json:"repository"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
-	Tags        []string     `json:"tags"`
-	Versions    *AppVersions `json:"versions,omitempty"`
+	ID             string       `json:"_id,omitempty"`
+	Rev            string       `json:"_rev,omitempty"`
+	Name           string       `json:"name"`
+	Type           string       `json:"type"`
+	Editor         string       `json:"editor"`
+	Description    string       `json:"description"`
+	Category       string       `json:"category"`
+	Repository     string       `json:"repository"`
+	CreatedAt      time.Time    `json:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	Tags           []string     `json:"tags"`
+	LogoURL        string       `json:"logo_url"`
+	ScreenshotURLs []string     `json:"screenshot_urls"`
+	Versions       *AppVersions `json:"versions,omitempty"`
 }
 
 type AppVersions struct {
@@ -213,6 +215,9 @@ func CreateOrUpdateApp(app *App) error {
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)
 		}
+		if app.ScreenshotURLs == nil {
+			app.ScreenshotURLs = make([]string, 0)
+		}
 		_, _, err = db.CreateDoc(ctx, app)
 		return err
 	}
@@ -236,6 +241,9 @@ func CreateOrUpdateApp(app *App) error {
 	}
 	if app.Tags == nil {
 		app.Tags = oldApp.Tags
+	}
+	if app.ScreenshotURLs == nil {
+		app.ScreenshotURLs = oldApp.ScreenshotURLs
 	}
 	_, err = db.Put(ctx, app.ID, app)
 	return err
