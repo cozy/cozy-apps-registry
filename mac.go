@@ -30,7 +30,6 @@ const macLen = 32
 type MACConfig struct {
 	Key    []byte
 	Name   string
-	MaxAge int64
 	MaxLen int
 }
 
@@ -57,7 +56,7 @@ func assertMACConfig(c *MACConfig) error {
 //  | name |    time |  blob  |     hmac |
 //  |      | 8 bytes |  ----  | 32 bytes |
 //
-func EncodeAuthMessage(c *MACConfig, value []byte) ([]byte, error) {
+func EncodeAuthMessage(c *MACConfig, maxAge time.Duration, value []byte) ([]byte, error) {
 	if err := assertMACConfig(c); err != nil {
 		return nil, err
 	}
@@ -66,14 +65,20 @@ func EncodeAuthMessage(c *MACConfig, value []byte) ([]byte, error) {
 	if maxLength == 0 {
 		maxLength = defaultMaxLen
 	}
+	if maxAge < 0 {
+		return nil, errors.New("Max age should be greater or equal to zero")
+	}
 
-	time := timestamp()
+	var ts int64
+	if maxAge > 0 {
+		ts = time.Now().Add(maxAge).Unix()
+	}
 
 	// Create message with MAC
-	size := len(c.Name) + binary.Size(time) + len(value) + macLen
+	size := len(c.Name) + binary.Size(ts) + len(value) + macLen
 	buf := bytes.NewBuffer(make([]byte, 0, size))
 	buf.Write([]byte(c.Name))
-	binary.Write(buf, binary.BigEndian, time)
+	binary.Write(buf, binary.BigEndian, ts)
 	buf.Write(value)
 
 	// Append mac
@@ -120,11 +125,12 @@ func DecodeAuthMessage(c *MACConfig, enc []byte) ([]byte, error) {
 
 	// Verify message with MAC
 	{
-		if len(dec) < macLen {
+		offset := len(dec) - macLen
+		if offset < 0 {
 			return nil, errMACInvalid
 		}
-		var mac = dec[len(dec)-macLen:]
-		dec = dec[:len(dec)-macLen]
+		var mac = dec[offset:]
+		dec = dec[:offset]
 		if !verifyMAC(c.Key, dec, mac) {
 			return nil, errMACInvalid
 		}
@@ -135,11 +141,14 @@ func DecodeAuthMessage(c *MACConfig, enc []byte) ([]byte, error) {
 	buf.Next(len(c.Name))
 
 	// Read time and verify time ranges
-	var time int64
-	if err = binary.Read(buf, binary.BigEndian, &time); err != nil {
+	var ts int64
+	if err = binary.Read(buf, binary.BigEndian, &ts); err != nil {
 		return nil, errMACInvalid
 	}
-	if c.MaxAge != 0 && time < timestamp()-c.MaxAge {
+	if ts < 0 {
+		return nil, errMACInvalid
+	}
+	if ts != 0 && time.Unix(ts, 0).Before(time.Now()) {
 		return nil, errMACExpired
 	}
 
@@ -158,10 +167,6 @@ func createMAC(key, value []byte) []byte {
 func verifyMAC(key, value []byte, mac []byte) bool {
 	expectedMAC := createMAC(key, value)
 	return hmac.Equal(mac, expectedMAC)
-}
-
-func timestamp() int64 {
-	return time.Now().UTC().Unix()
 }
 
 func base64Encode(value []byte) []byte {

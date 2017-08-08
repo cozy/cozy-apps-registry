@@ -102,6 +102,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var doc *Version
 		if err = rows.ScanDoc(&doc); err != nil {
@@ -149,6 +150,7 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var doc *Version
 		if err = rows.ScanDoc(&doc); err != nil {
@@ -211,6 +213,7 @@ func GetAppsList(filters map[string]string) ([]*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	res := make([]*App, 0)
 	for rows.Next() {
 		var doc *App

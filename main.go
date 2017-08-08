@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -193,38 +194,66 @@ func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
 	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
 	couchFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
-	tokenFlag := flag.String("gen-editor-token", "", "used to generate an editor token")
-	tokenEditor := flag.String("add-editor", "", "used to add an editor to the editor registry")
+
+	editorRegistryFlag := flag.String("editor-registry", "couchdb", "used to specify the editors registry (text:./filename or couchdb)")
+
+	genTokenFlag := flag.String("gen-token", "", "used to generate an editor token")
+	genTokenMaxAgeFlag := flag.String("gen-token-max-age", "", "used to generate an editor token")
+
+	addEditorFlag := flag.String("add-editor", "", "used to add an editor to the editor registry")
 	flag.Parse()
 
-	var err error
-	editorReg, err = NewFileEditorRegistry("./editors")
+	err := InitDBClient(*couchFlag)
 	if err != nil {
-		printAndExit(err.Error())
+		printAndExit("Could not reach CouchDB: %s", err.Error())
 	}
 
-	if *tokenEditor != "" {
-		err = editorReg.CreateEditorSecret(*tokenEditor)
-		if err != nil {
-			printAndExit(err.Error())
+	if *editorRegistryFlag == "" {
+		*editorRegistryFlag = "couchdb"
+	}
+	regOpts := strings.SplitN(*editorRegistryFlag, ":", 2)
+	switch regOpts[0] {
+	case "file":
+		if len(regOpts) != 2 {
+			printAndExit("Bad -editor-registry option: missing filename (ie -editor-registry text:./filename)")
 		}
-		return
+		filename := regOpts[1]
+		editorReg, err = NewFileEditorRegistry(filename)
+	case "couch", "couchdb":
+		editorReg, err = NewCouchdbEditorRegistry(*couchFlag)
+	}
+	if err != nil {
+		printAndExit("Could not initialize the editor registry: %s", err.Error())
 	}
 
-	if *tokenFlag != "" {
+	if *addEditorFlag != "" {
+		err = editorReg.CreateEditorSecret(*addEditorFlag)
+		if err != nil {
+			printAndExit("Could not add a new editor: %s", err.Error())
+		}
+		fmt.Printf(`Editor "%s" was added successfully\n`, *addEditorFlag)
+		os.Exit(0)
+	}
+
+	if *genTokenFlag != "" {
 		var token []byte
+		var maxAge time.Duration
+		if *genTokenMaxAgeFlag != "" {
+			maxAge, err = time.ParseDuration(*genTokenMaxAgeFlag)
+			if err != nil {
+				printAndExit("Bad -gen-token-max-age option: %s", err.Error())
+			}
+		}
 		token, err = GenerateEditorToken(editorReg, &EditorTokenOptions{
-			Editor: *tokenFlag,
+			Editor: *genTokenFlag,
+			MaxAge: maxAge,
 		})
 		if err != nil {
-			printAndExit(err.Error())
+			printAndExit("Could not generate editor token for %s: %s",
+				*genTokenFlag, err.Error())
 		}
 		fmt.Println(base64.StdEncoding.EncodeToString(token))
 		return
-	}
-
-	if err = InitDBClient(*couchFlag); err != nil {
-		printAndExit(err.Error())
 	}
 
 	e := echo.New()

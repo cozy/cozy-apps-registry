@@ -83,6 +83,13 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 }
 
+type Editor struct {
+	ID     string `json:"_id,omitempty"`
+	Rev    string `json:"_rev,omitempty"`
+	Name   string `json:"name"`
+	Secret []byte `json:"secret"`
+}
+
 func InitDBClient(addr string) error {
 	var err error
 	client, err = kivik.New(ctx, "couch", (&url.URL{

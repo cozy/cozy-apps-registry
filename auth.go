@@ -7,13 +7,16 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/flimzy/kivik"
 )
 
 const tokenName = "editor-token"
 
 type EditorTokenOptions struct {
-	Editor    string
-	AppPrefix string
+	Editor string
+	MaxAge time.Duration
 }
 
 type EditorRegistry interface {
@@ -26,13 +29,8 @@ func GenerateEditorToken(reg EditorRegistry, opts *EditorTokenOptions) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	msg := opts.Editor
-	if opts.AppPrefix == "" {
-		msg = msg + ":*"
-	} else {
-		msg = msg + ":" + opts.AppPrefix
-	}
-	return EncodeAuthMessage(tokenConfig(secret), []byte(msg))
+	msg := []byte(opts.Editor)
+	return EncodeAuthMessage(tokenConfig(secret), opts.MaxAge, msg)
 }
 
 func VerifyEditorToken(reg EditorRegistry, editorName, appName string, token []byte) error {
@@ -61,9 +59,51 @@ func tokenConfig(secret []byte) *MACConfig {
 	return &MACConfig{
 		Name:   tokenName,
 		Key:    secret,
-		MaxAge: 0,
 		MaxLen: 256,
 	}
+}
+
+type couchdbEditorReg struct {
+	db *kivik.DB
+}
+
+func NewCouchdbEditorRegistry(addr string) (EditorRegistry, error) {
+	db, err := client.DB(ctx, editorsDB)
+	if err != nil {
+		return nil, err
+	}
+	return &couchdbEditorReg{db}, nil
+}
+
+func (r *couchdbEditorReg) GetEditorSecret(editorName string) ([]byte, error) {
+	req := sprintfJSON(`
+{
+	"selector": { "name": %s },
+	"limit": 1
+}`, editorName)
+
+	rows, err := r.db.Find(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, errUnknownEditor
+	}
+	var doc *Editor
+	if err = rows.ScanDoc(&doc); err != nil {
+		return nil, err
+	}
+	return doc.Secret, nil
+}
+
+func (r *couchdbEditorReg) CreateEditorSecret(editorName string) error {
+	doc := &Editor{
+		Name:   editorName,
+		Secret: generateRandomBytes(32),
+	}
+	_, _, err := r.db.CreateDoc(ctx, doc)
+	return err
 }
 
 type fileEditorReg struct {
