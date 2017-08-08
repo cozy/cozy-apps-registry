@@ -92,7 +92,15 @@ func checkPermissions(c echo.Context, editorName, appName string) error {
 }
 
 func getAppsList(c echo.Context) error {
-	return errNotImplemented
+	docs, err := GetAppsList(nil)
+	if err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		doc.ID = ""
+		doc.Rev = ""
+	}
+	return c.JSON(http.StatusOK, docs)
 }
 
 func getApp(c echo.Context) error {
@@ -154,7 +162,8 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 			if acceptHeader == "" {
 				return echo.NewHTTPError(http.StatusNotAcceptable, "Accept header does not contain application/json")
 			}
-			if strings.HasPrefix(acceptHeader, echo.MIMEApplicationJSON) {
+			if strings.HasPrefix(acceptHeader, echo.MIMEApplicationJSON) ||
+				strings.HasPrefix(acceptHeader, "*/*") {
 				return next(c)
 			}
 			acceptHeader = strings.TrimLeftFunc(acceptHeader, func(r rune) bool { return r != ',' })

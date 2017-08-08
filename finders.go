@@ -1,10 +1,6 @@
 package main
 
-import (
-	"sort"
-	"strconv"
-	"strings"
-)
+import "sort"
 
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
@@ -174,94 +170,28 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 	}, nil
 }
 
-type versionsSlice []*Version
-
-func (v versionsSlice) Len() int           { return len(v) }
-func (v versionsSlice) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v versionsSlice) Less(i, j int) bool { return isVersionLess(v[i], v[j]) }
-
-func isVersionLess(a, b *Version) bool {
-	vi, expi, err := expandVersion(a.Version)
+func GetAppsList(filters map[string]string) ([]*App, error) {
+	db, err := client.DB(ctx, appsDB)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	vj, expj, err := expandVersion(b.Version)
-	if err != nil {
-		panic(err)
-	}
-	if vi[0] < vj[0] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] < vj[1] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] < vj[2] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] == vj[2] {
-		chi := getVersionChannel(a.Version)
-		chj := getVersionChannel(b.Version)
-		if chi == Beta && chj == Beta {
-			return expi < expj
-		}
-		if chi != chj {
-			if chi == Stable {
-				return true
-			}
-			if chj == Stable {
-				return false
-			}
-		}
-		return a.CreatedAt.Before(b.CreatedAt)
-	}
-	return false
-}
 
-func expandVersion(version string) (v [3]int, exp int, err error) {
-	sp := strings.SplitN(version, ".", 3)
-	if len(sp) != 3 {
-		goto ERROR
-	}
-	v[0], err = strconv.Atoi(sp[0])
+	req := sprintfJSON(`
+{
+	"selector": {},
+	"sort": [{ "name": "desc" }]
+}`)
+	rows, err := db.Find(ctx, req)
 	if err != nil {
-		goto ERROR
+		return nil, err
 	}
-	v[1], err = strconv.Atoi(sp[1])
-	if err != nil {
-		goto ERROR
+	var res []*App
+	for rows.Next() {
+		var doc *App
+		if err = rows.ScanDoc(&doc); err != nil {
+			return nil, err
+		}
+		res = append(res, doc)
 	}
-	switch getVersionChannel(version) {
-	case Stable:
-		v[2], err = strconv.Atoi(sp[2])
-		if err != nil {
-			goto ERROR
-		}
-	case Beta:
-		sp = strings.SplitN(sp[2], "-beta.", 2)
-		if len(sp) != 2 {
-			goto ERROR
-		}
-		v[2], err = strconv.Atoi(sp[0])
-		if err != nil {
-			goto ERROR
-		}
-		exp, err = strconv.Atoi(sp[1])
-		if err != nil {
-			goto ERROR
-		}
-	case Dev:
-		sp = strings.SplitN(sp[2], "-dev.", 2)
-		if len(sp) != 2 {
-			goto ERROR
-		}
-		v[2], err = strconv.Atoi(sp[0])
-		if err != nil {
-			goto ERROR
-		}
-	}
-	return
-
-ERROR:
-	err = errBadVersion
-	return
+	return res, nil
 }
