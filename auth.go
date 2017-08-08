@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -17,6 +18,7 @@ type EditorTokenOptions struct {
 
 type EditorRegistry interface {
 	GetEditorSecret(editorName string) ([]byte, error)
+	CreateEditorSecret(editorName string) error
 }
 
 func GenerateEditorToken(reg EditorRegistry, opts *EditorTokenOptions) ([]byte, error) {
@@ -120,4 +122,27 @@ func (r *fileEditorReg) GetEditorSecret(editorName string) ([]byte, error) {
 		return nil, err
 	}
 	return nil, errUnknownEditor
+}
+
+func (r *fileEditorReg) CreateEditorSecret(editorName string) error {
+	_, err := r.GetEditorSecret(editorName)
+	if err == nil {
+		return errEditorExists
+	}
+	if err != errUnknownEditor {
+		return err
+	}
+	f, err := os.OpenFile(r.filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0660)
+	if err != nil {
+		return err
+	}
+	secret := hex.EncodeToString(generateRandomBytes(32))
+	s := fmt.Sprintf("%s\t%s\n", editorName, secret)
+	if n, err := f.WriteString(s); err != nil || n != len(s) {
+		if err != nil {
+			return err
+		}
+		return io.ErrShortWrite
+	}
+	return nil
 }

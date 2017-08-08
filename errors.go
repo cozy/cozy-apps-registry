@@ -8,6 +8,7 @@ import (
 
 var errUnauthorized = echo.NewHTTPError(http.StatusUnauthorized)
 var errUnknownEditor = echo.NewHTTPError(http.StatusUnauthorized, "Unknown editor name")
+var errEditorExists = echo.NewHTTPError(http.StatusUnauthorized, "Editor already exists")
 var errBadChannel = echo.NewHTTPError(http.StatusBadRequest, "Channel should be \"stable\", \"beta\" or \"dev\"")
 
 var errAppNotFound = echo.NewHTTPError(http.StatusNotFound, "Application was not found")

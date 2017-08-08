@@ -193,13 +193,22 @@ func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
 	hostFlag := flag.String("host", "localhost", "specify the host to listen on")
 	couchFlag := flag.String("couchdb-addr", "localhost:5984", "specify the address of couchdb")
-	tokenFlag := flag.String("gen-token", "", "used to generate an editor token")
+	tokenFlag := flag.String("gen-editor-token", "", "used to generate an editor token")
+	tokenEditor := flag.String("add-editor", "", "used to add an editor to the editor registry")
 	flag.Parse()
 
 	var err error
 	editorReg, err = NewFileEditorRegistry("./editors")
 	if err != nil {
 		printAndExit(err.Error())
+	}
+
+	if *tokenEditor != "" {
+		err = editorReg.CreateEditorSecret(*tokenEditor)
+		if err != nil {
+			printAndExit(err.Error())
+		}
+		return
 	}
 
 	if *tokenFlag != "" {
