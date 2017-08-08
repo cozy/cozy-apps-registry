@@ -108,6 +108,19 @@ func InitDBClient(addr string) error {
 		}
 	}
 
+	db, err := client.DB(ctx, appsDB)
+	if err != nil {
+		return err
+	}
+
+	index := map[string]interface{}{
+		"fields": []string{"name", "type", "editor", "category", "tags"},
+	}
+	err = db.CreateIndex(ctx, "apps-index", "apps-index", index)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -181,8 +194,9 @@ func CreateOrUpdateApp(app *App) error {
 		return err
 	}
 	if err == errAppNotFound {
-		app.CreatedAt = time.Now()
-		app.UpdatedAt = time.Now()
+		now := time.Now()
+		app.CreatedAt = now
+		app.UpdatedAt = now
 		app.Versions = nil
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)

@@ -1,6 +1,15 @@
 package main
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
+
+var validFilters = []string{
+	"type",
+	"editor",
+	"category",
+}
 
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
@@ -98,6 +107,9 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
 		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
+		}
 		switch ch {
 		case Stable:
 			if c := getVersionChannel(doc.Version); c != Stable {
@@ -142,6 +154,9 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
 		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
+		}
 		allVersions = append(allVersions, doc)
 	}
 	sort.Sort(allVersions)
@@ -176,20 +191,34 @@ func GetAppsList(filters map[string]string) ([]*App, error) {
 		return nil, err
 	}
 
+	var selector string
+	for name, val := range filters {
+		if !stringInArray(name, validFilters) {
+			continue
+		}
+		if selector != "" {
+			selector += ","
+		}
+		selector += string(sprintfJSON("%s: %s", name, val))
+	}
+
 	req := sprintfJSON(`
 {
-	"selector": {},
-	"sort": [{ "name": "desc" }]
+	"selector": {` + selector + `},
+	"sort": [{ "name": "asc" }]
 }`)
 	rows, err := db.Find(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	var res []*App
+	res := make([]*App, 0)
 	for rows.Next() {
 		var doc *App
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
 		}
 		res = append(res, doc)
 	}

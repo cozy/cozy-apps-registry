@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,8 @@ var validAppTypes = []string{
 }
 
 var editorReg EditorRegistry
+
+var filterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 func createApp(c echo.Context) (err error) {
 	app := &App{}
@@ -92,7 +95,19 @@ func checkPermissions(c echo.Context, editorName, appName string) error {
 }
 
 func getAppsList(c echo.Context) error {
-	docs, err := GetAppsList(nil)
+	filter := make(map[string]string)
+	for name, val := range c.QueryParams() {
+		if len(val) > 1024 {
+			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if filterReg.MatchString(name) {
+			subs := filterReg.FindStringSubmatch(name)
+			if len(subs) == 2 {
+				filter[subs[1]] = val[0]
+			}
+		}
+	}
+	docs, err := GetAppsList(filter)
 	if err != nil {
 		return err
 	}
