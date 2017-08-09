@@ -245,8 +245,11 @@ func httpErrorHandler(err error, c echo.Context) {
 	if he, ok := err.(*Error); ok {
 		code = he.StatusCode()
 		msg = err.Error()
+	} else if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		msg = fmt.Sprintf("%s", he.Message)
 	} else {
-		msg = http.StatusText(code)
+		msg = err.Error()
 	}
 
 	if !c.Response().Committed {
