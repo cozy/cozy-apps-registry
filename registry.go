@@ -219,6 +219,7 @@ func CreateOrUpdateApp(app *App) error {
 	}
 	if err == errAppNotFound {
 		now := time.Now()
+		app.Editor = strings.ToLower(app.Editor)
 		app.CreatedAt = now
 		app.UpdatedAt = now
 		app.Versions = nil
