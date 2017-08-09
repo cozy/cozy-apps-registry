@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 )
 
 const tokenName = "editor-token"
+
+var editorReg = regexp.MustCompile("^[A-Za-z][A-Za-z0-9]*$")
 
 type EditorTokenOptions struct {
 	Editor string
@@ -24,7 +27,8 @@ type EditorRegistry interface {
 }
 
 func GenerateEditorToken(reg EditorRegistry, opts *EditorTokenOptions) ([]byte, error) {
-	secret, err := reg.GetEditorSecret(opts.Editor)
+	editorName := strings.ToLower(opts.Editor)
+	secret, err := reg.GetEditorSecret(editorName)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +37,7 @@ func GenerateEditorToken(reg EditorRegistry, opts *EditorTokenOptions) ([]byte, 
 }
 
 func VerifyEditorToken(reg EditorRegistry, editorName, appName string, token []byte) error {
+	editorName = strings.ToLower(editorName)
 	secret, err := reg.GetEditorSecret(editorName)
 	if err != nil {
 		return err
@@ -41,14 +46,7 @@ func VerifyEditorToken(reg EditorRegistry, editorName, appName string, token []b
 	if err != nil {
 		return err
 	}
-	msgSplit := strings.SplitN(string(msg), ":", 2)
-	if len(msgSplit) != 2 {
-		return errUnauthorized
-	}
-	if msgSplit[0] != editorName {
-		return errUnauthorized
-	}
-	if msgSplit[1] != "*" && !strings.HasPrefix(appName, msgSplit[1]) {
+	if string(msg) != editorName {
 		return errUnauthorized
 	}
 	return nil
@@ -98,7 +96,7 @@ func (r *couchdbEditorReg) GetEditorSecret(editorName string) ([]byte, error) {
 
 func (r *couchdbEditorReg) CreateEditorSecret(editorName string) error {
 	doc := &Editor{
-		Name:   editorName,
+		Name:   strings.ToLower(editorName),
 		Secret: generateRandomBytes(32),
 	}
 	_, _, err := r.db.CreateDoc(ctx, doc)
@@ -116,6 +114,7 @@ func NewFileEditorRegistry(filename string) (EditorRegistry, error) {
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
+	table := make(map[string]struct{})
 	for s.Scan() {
 		b := s.Text()
 		if len(b) == 0 || b[0] == '#' {
@@ -123,12 +122,18 @@ func NewFileEditorRegistry(filename string) (EditorRegistry, error) {
 		}
 		fields := strings.Fields(b)
 		if len(fields) < 2 {
-			return nil, fmt.Errorf("Editor registry in file %s: format of each line should be: \"editorname secret-in-hex\"",
+			return nil, fmt.Errorf("Editor registry in file %s: format of each line should be: \"editorname secret-in-base64\"",
 				filename)
 		}
-		token, err := hex.DecodeString(fields[1])
+		editorName := strings.ToLower(fields[0])
+		if _, ok := table[editorName]; ok {
+			return nil, fmt.Errorf("Editor registry in file %s: editor %s has more than one entry",
+				filename, editorName)
+		}
+		table[editorName] = struct{}{}
+		token, err := base64.StdEncoding.DecodeString(fields[1])
 		if err != nil {
-			return nil, fmt.Errorf("Editor registry in file %s: format of each line should be: \"editorname secret-in-hex\": %s",
+			return nil, fmt.Errorf("Editor registry in file %s: format of each line should be: \"editorname secret-in-base64\": %s",
 				filename, err.Error())
 		}
 		if len(token) < 16 {
@@ -152,10 +157,10 @@ func (r *fileEditorReg) GetEditorSecret(editorName string) ([]byte, error) {
 			continue
 		}
 		fields := strings.Fields(b)
-		if len(fields) < 2 || fields[0] != editorName {
+		if len(fields) < 2 || strings.ToLower(fields[0]) != editorName {
 			continue
 		}
-		return hex.DecodeString(fields[1])
+		return base64.StdEncoding.DecodeString(fields[1])
 	}
 	if err := s.Err(); err != nil {
 		return nil, err
@@ -164,6 +169,7 @@ func (r *fileEditorReg) GetEditorSecret(editorName string) ([]byte, error) {
 }
 
 func (r *fileEditorReg) CreateEditorSecret(editorName string) error {
+	editorName = strings.ToLower(editorName)
 	_, err := r.GetEditorSecret(editorName)
 	if err == nil {
 		return errEditorExists
@@ -175,8 +181,8 @@ func (r *fileEditorReg) CreateEditorSecret(editorName string) error {
 	if err != nil {
 		return err
 	}
-	secret := hex.EncodeToString(generateRandomBytes(32))
-	_, err = fmt.Fprintf(f, "%s\t%s", editorName, secret)
+	secret := base64.StdEncoding.EncodeToString(generateRandomBytes(32))
+	_, err = fmt.Fprintf(f, "%s\t%s\n", editorName, secret)
 	if err != nil {
 		return err
 	}

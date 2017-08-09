@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var editorReg EditorRegistry
+var editorRegistry EditorRegistry
 
 func main() {
 	portFlag := flag.Int("port", 8080, "specify the port to listen on")
@@ -42,20 +42,23 @@ func main() {
 			printAndExit("Bad -editor-registry option: missing filename (ie -editor-registry text:./filename)")
 		}
 		filename := regOpts[1]
-		editorReg, err = NewFileEditorRegistry(filename)
+		editorRegistry, err = NewFileEditorRegistry(filename)
 	case "couch", "couchdb":
-		editorReg, err = NewCouchdbEditorRegistry(*couchAddrFlag)
+		editorRegistry, err = NewCouchdbEditorRegistry(*couchAddrFlag)
 	}
 	if err != nil {
 		printAndExit("Could not initialize the editor registry: %s", err.Error())
 	}
 
 	if *addEditorFlag != "" {
-		err = editorReg.CreateEditorSecret(*addEditorFlag)
+		if !editorReg.MatchString(*addEditorFlag) {
+			printAndExit("Editor should only contain alphanumeric characters")
+		}
+		err = editorRegistry.CreateEditorSecret(*addEditorFlag)
 		if err != nil {
 			printAndExit("Could not add a new editor: %s", err.Error())
 		}
-		fmt.Printf(`Editor "%s" was added successfully\n`, *addEditorFlag)
+		fmt.Printf("Editor \"%s\" was added successfully\n", *addEditorFlag)
 		os.Exit(0)
 	}
 
@@ -68,7 +71,7 @@ func main() {
 				printAndExit("Bad -gen-token-max-age option: %s", err.Error())
 			}
 		}
-		token, err = GenerateEditorToken(editorReg, &EditorTokenOptions{
+		token, err = GenerateEditorToken(editorRegistry, &EditorTokenOptions{
 			Editor: *genTokenFlag,
 			MaxAge: maxAge,
 		})

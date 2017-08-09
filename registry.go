@@ -138,17 +138,22 @@ func InitDBClient(addr, user, pass string) error {
 		}
 	}
 
-	db, err := client.DB(ctx, appsDB)
+	appsDB, err := client.DB(ctx, appsDB)
 	if err != nil {
 		return err
 	}
 
-	err = db.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
+	err = appsDB.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
 	if err != nil {
 		return err
 	}
 
-	return db.CreateIndex(ctx, "versions-index", "versions-index", versionsIndex)
+	versDB, err := client.DB(ctx, versDB)
+	if err != nil {
+		return err
+	}
+
+	return versDB.CreateIndex(ctx, "versions-index", "versions-index", versionsIndex)
 }
 
 func IsValidApp(app *App) error {

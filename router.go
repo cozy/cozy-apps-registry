@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo"
@@ -76,14 +77,18 @@ func checkPermissions(c echo.Context, editorName, appName string) error {
 	if !strings.HasPrefix(authHeader, "Token ") {
 		return errUnauthorized
 	}
-	token, err := base64.StdEncoding.DecodeString(authHeader[len("Token "):])
+	tokenStr := authHeader[len("Token "):]
+	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
+		return errUnauthorized
+	}
+	token, err := base64.StdEncoding.DecodeString(tokenStr)
 	if err != nil {
 		return errUnauthorized
 	}
-	if err := VerifyEditorToken(editorReg, editorName, appName, token); err != nil {
+	if err := VerifyEditorToken(editorRegistry, editorName, appName, token); err != nil {
 		if err != errUnauthorized {
-			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s\n",
-				token, editorName, appName)
+			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s: %s\n",
+				token, editorName, appName, err.Error())
 		}
 		return errUnauthorized
 	}
@@ -92,18 +97,43 @@ func checkPermissions(c echo.Context, editorName, appName string) error {
 
 func getAppsList(c echo.Context) error {
 	filter := make(map[string]string)
-	for name, val := range c.QueryParams() {
+	var limit, skip int
+	var err error
+	for name, vals := range c.QueryParams() {
+		if len(vals) == 0 {
+			continue
+		}
+		val := vals[0]
 		if len(val) > 1024 {
 			return echo.NewHTTPError(http.StatusBadRequest)
+		}
+		if name == "limit" {
+			limit, err = strconv.Atoi(val)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+			continue
+		}
+		if name == "skip" {
+			skip, err = strconv.Atoi(val)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+			continue
 		}
 		if queryFilterReg.MatchString(name) {
 			subs := queryFilterReg.FindStringSubmatch(name)
 			if len(subs) == 2 {
-				filter[subs[1]] = val[0]
+				filter[subs[1]] = val
 			}
 		}
 	}
-	docs, err := GetAppsList(filter)
+
+	docs, err := GetAppsList(&AppsListOptions{
+		Filters: filter,
+		Limit:   limit,
+		Skip:    skip,
+	})
 	if err != nil {
 		return err
 	}

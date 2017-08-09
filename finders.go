@@ -11,6 +11,8 @@ var validFilters = []string{
 	"category",
 }
 
+const maxLimit = 200
+
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
 		return nil, errBadAppName
@@ -19,8 +21,7 @@ func FindApp(appName string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := sprintfJSON(`
-{
+	req := sprintfJSON(`{
   "selector": { "name": %s },
   "limit": 1
 }`, appName)
@@ -57,8 +58,7 @@ func FindVersion(appName, version string) (*Version, error) {
 		return nil, err
 	}
 
-	req := sprintfJSON(`
-{
+	req := sprintfJSON(`{
   "selector": { "name": %s, "version": %s },
   "limit": 1
 }`, appName, version)
@@ -92,8 +92,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 	}
 
 	var latest *Version
-	req := sprintfJSON(`
-{
+	req := sprintfJSON(`{
   "selector": { "name": %s },
   "limit": 2000
 }`, appName)
@@ -139,8 +138,7 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 
 	var allVersions versionsSlice
 
-	req := sprintfJSON(`
-{
+	req := sprintfJSON(`{
   "selector": { "name": %s },
   "fields": ["version", "created_at"],
   "limit": 2000
@@ -187,14 +185,20 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 	}, nil
 }
 
-func GetAppsList(filters map[string]string) ([]*App, error) {
+type AppsListOptions struct {
+	Limit   int
+	Skip    int
+	Filters map[string]string
+}
+
+func GetAppsList(opts *AppsListOptions) ([]*App, error) {
 	db, err := client.DB(ctx, appsDB)
 	if err != nil {
 		return nil, err
 	}
 
 	var selector string
-	for name, val := range filters {
+	for name, val := range opts.Filters {
 		if !stringInArray(name, validFilters) {
 			continue
 		}
@@ -204,11 +208,18 @@ func GetAppsList(filters map[string]string) ([]*App, error) {
 		selector += string(sprintfJSON("%s: %s", name, val))
 	}
 
-	req := sprintfJSON(`
-{
-	"selector": {` + selector + `},
-	"sort": [{ "name": "asc" }]
-}`)
+	if opts.Limit == 0 {
+		opts.Limit = 50
+	} else if opts.Limit > maxLimit {
+		opts.Limit = maxLimit
+	}
+
+	req := sprintfJSON(`{
+	"selector": {`+selector+`},
+	"sort": [{ "name": "asc" }],
+	"limit": %s,
+	"skip": %s
+}`, opts.Limit+1, opts.Skip)
 	rows, err := db.Find(ctx, req)
 	if err != nil {
 		return nil, err

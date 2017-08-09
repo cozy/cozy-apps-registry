@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"time"
@@ -46,8 +45,7 @@ func assertMACConfig(c *MACConfig) error {
 // EncodeAuthMessage associates the given value with a message authentication
 // code for integrity and authenticity.
 //
-// If the value, when base64 encoded with a fixed size header is longer than
-// the configured maximum length, it will panic.
+// If the value is longer than the configured maximum length, it will panic.
 //
 // Message format (name prefix is in MAC but removed from message):
 //
@@ -87,13 +85,7 @@ func EncodeAuthMessage(c *MACConfig, maxAge time.Duration, value []byte) ([]byte
 	// Skip name
 	buf.Next(len(c.Name))
 
-	// Check length
-	if base64.RawURLEncoding.EncodedLen(buf.Len()) > maxLength {
-		panic("the value is too long")
-	}
-
-	// Encode to base64
-	return base64Encode(buf.Bytes()), nil
+	return buf.Bytes(), nil
 }
 
 // DecodeAuthMessage verifies a message authentified with message
@@ -114,14 +106,8 @@ func DecodeAuthMessage(c *MACConfig, enc []byte) ([]byte, error) {
 		return nil, errMACTooLong
 	}
 
-	// Decode from base64
-	dec, err := base64Decode(enc)
-	if err != nil {
-		return nil, err
-	}
-
 	// Prepend name
-	dec = append([]byte(c.Name), dec...)
+	dec := append([]byte(c.Name), enc...)
 
 	// Verify message with MAC
 	{
@@ -142,7 +128,7 @@ func DecodeAuthMessage(c *MACConfig, enc []byte) ([]byte, error) {
 
 	// Read time and verify time ranges
 	var ts int64
-	if err = binary.Read(buf, binary.BigEndian, &ts); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &ts); err != nil {
 		return nil, errMACInvalid
 	}
 	if ts < 0 {
@@ -167,19 +153,4 @@ func createMAC(key, value []byte) []byte {
 func verifyMAC(key, value []byte, mac []byte) bool {
 	expectedMAC := createMAC(key, value)
 	return hmac.Equal(mac, expectedMAC)
-}
-
-func base64Encode(value []byte) []byte {
-	enc := make([]byte, base64.RawURLEncoding.EncodedLen(len(value)))
-	base64.RawURLEncoding.Encode(enc, value)
-	return enc
-}
-
-func base64Decode(value []byte) ([]byte, error) {
-	dec := make([]byte, base64.RawURLEncoding.DecodedLen(len(value)))
-	b, err := base64.RawURLEncoding.Decode(dec, value)
-	if err != nil {
-		return nil, err
-	}
-	return dec[:b], nil
 }
