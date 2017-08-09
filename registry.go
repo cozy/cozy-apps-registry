@@ -172,8 +172,8 @@ func IsValidApp(app *App) error {
 		}
 	}
 	if len(fields) > 0 {
-		return NewError(http.StatusBadRequest, "Application object is not valid, "+
-			"the following fields are erroneous: %s", strings.Join(fields, ", "))
+		return NewError(http.StatusBadRequest, "Invalid application, "+
+			"the following fields are missing or erroneous: %s", strings.Join(fields, ", "))
 	}
 	return nil
 }
@@ -198,8 +198,8 @@ func IsValidVersion(ver *Version) error {
 		fields = append(fields, "sha256")
 	}
 	if len(fields) > 0 {
-		return fmt.Errorf("Version object is not valid, "+
-			"the following fields are erroneous: %s", strings.Join(fields, ", "))
+		return fmt.Errorf("Invalid version, "+
+			"the following fields are missing or erroneous: %s", strings.Join(fields, ", "))
 	}
 	return nil
 }
