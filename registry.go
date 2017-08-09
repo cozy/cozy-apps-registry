@@ -186,9 +186,6 @@ func IsValidVersion(ver *Version) error {
 		return errBadVersion
 	}
 	var fields []string
-	if !stringInArray(ver.Type, validAppTypes) {
-		fields = append(fields, "type")
-	}
 	if ver.URL == "" {
 		fields = append(fields, "url")
 	} else if _, err := url.Parse(ver.URL); err != nil {
@@ -283,6 +280,7 @@ func CreateVersion(ver *Version) error {
 		return err
 	}
 
+	ver.Type = app.Type
 	ver.Manifest = man
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now()
