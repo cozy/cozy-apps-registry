@@ -19,7 +19,6 @@ import (
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb"
-	"github.com/labstack/echo"
 )
 
 const maxManifestSize = 10 * 1024 * 1024
@@ -173,9 +172,8 @@ func IsValidApp(app *App) error {
 		}
 	}
 	if len(fields) > 0 {
-		return echo.NewHTTPError(http.StatusBadRequest,
-			fmt.Errorf("Application object is not valid, "+
-				"the following fields are erroneous: %s", strings.Join(fields, ", ")))
+		return NewError(http.StatusBadRequest, "Application object is not valid, "+
+			"the following fields are erroneous: %s", strings.Join(fields, ", "))
 	}
 	return nil
 }
@@ -300,16 +298,23 @@ func CreateVersion(ver *Version) error {
 func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix string, err error) {
 	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
 	if err != nil {
+		err = NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s",
+			ver.URL, err.Error())
 		return
 	}
 	res, err := versionClient.Do(req)
 	if err != nil {
-		err = errVersionNotReachable
+		err = NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s",
+			ver.URL, err.Error())
 		return
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		err = errVersionNotReachable
+		err = NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: server responded with code %d",
+			ver.URL, res.StatusCode)
 		return
 	}
 
@@ -329,6 +334,9 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		"application/tar+gzip":
 		reader, err = gzip.NewReader(reader)
 		if err != nil {
+			err = NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s",
+				ver.URL, err.Error())
 			return nil, "", err
 		}
 	case "application/octet-stream":
@@ -347,6 +355,9 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 			break
 		}
 		if err != nil {
+			err = NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s",
+				ver.URL, err.Error())
 			return
 		}
 		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
@@ -369,30 +380,38 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		if nameSplit[1] == manName {
 			manRaw, err = ioutil.ReadAll(tarReader)
 			if err != nil {
+				err = NewError(http.StatusUnprocessableEntity,
+					"Could not reach version on specified url %s: %s",
+					ver.URL, err.Error())
 				return
 			}
 		}
 	}
 
 	if counter.Written() != ver.Size {
-		err = errVersionBadSize
+		err = NewError(http.StatusUnprocessableEntity,
+			"Size of the version does not match with the calculated one: expected %d and got %d",
+			ver.Size, counter.Written())
 		return
 	}
 
 	shasum, _ := hex.DecodeString(ver.Sha256)
 	if !bytes.Equal(shasum, h.Sum(nil)) {
-		err = errVersionBadChecksum
+		err = NewError(http.StatusUnprocessableEntity,
+			"Checksum does not match the calculated one")
 		return
 	}
 
 	if len(manRaw) == 0 {
-		err = errVersionNoManifest
+		err = NewError(http.StatusUnprocessableEntity,
+			"Application tarball does not contain a manifest")
 		return
 	}
 
 	var manifest map[string]interface{}
 	if err = json.Unmarshal(manRaw, &manifest); err != nil {
-		err = errVersionManifestInvalid
+		err = NewError(http.StatusUnprocessableEntity,
+			"Content of the manifest is not JSON valid: %s", err.Error())
 		return
 	}
 
@@ -403,7 +422,8 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 	}
 
 	if err = assertValues(manifest, checkVals); err != nil {
-		err = fmt.Errorf("Content of the manifest does not match version object: %s",
+		err = NewError(http.StatusUnprocessableEntity,
+			"Content of the manifest does not match version object: %s",
 			err.Error())
 		return
 	}

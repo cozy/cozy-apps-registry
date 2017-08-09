@@ -47,7 +47,7 @@ func VerifyEditorToken(reg EditorRegistry, editorName, appName string, token []b
 		return err
 	}
 	if string(msg) != editorName {
-		return errUnauthorized
+		return errMACInvalid
 	}
 	return nil
 }

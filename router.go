@@ -75,22 +75,20 @@ func createVersion(c echo.Context) (err error) {
 func checkPermissions(c echo.Context, editorName, appName string) error {
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 	if !strings.HasPrefix(authHeader, "Token ") {
-		return errUnauthorized
+		return NewError(http.StatusUnauthorized, "Authorization header has an unknown authentication scheme")
 	}
 	tokenStr := authHeader[len("Token "):]
 	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-		return errUnauthorized
+		return NewError(http.StatusUnauthorized, "Token too big")
 	}
 	token, err := base64.StdEncoding.DecodeString(tokenStr)
 	if err != nil {
-		return errUnauthorized
+		return NewError(http.StatusUnauthorized, "Could not decode token: %s", err.Error())
 	}
 	if err := VerifyEditorToken(editorRegistry, editorName, appName, token); err != nil {
-		if err != errUnauthorized {
-			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s: %s\n",
-				token, editorName, appName, err.Error())
-		}
-		return errUnauthorized
+		fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s: %s\n",
+			token, editorName, appName, err.Error())
+		return NewError(http.StatusUnauthorized, err.Error())
 	}
 	return nil
 }
@@ -105,19 +103,19 @@ func getAppsList(c echo.Context) error {
 		}
 		val := vals[0]
 		if len(val) > 1024 {
-			return echo.NewHTTPError(http.StatusBadRequest)
+			return NewError(http.StatusBadRequest, "Query param too big")
 		}
 		if name == "limit" {
 			limit, err = strconv.Atoi(val)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+				return NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
 			}
 			continue
 		}
 		if name == "skip" {
 			skip, err = strconv.Atoi(val)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+				return NewError(http.StatusBadRequest, "Query param skip is invalid: %s", err.Error())
 			}
 			continue
 		}
@@ -137,7 +135,9 @@ func getAppsList(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for _, doc := range docs {
+		// Do not show internal identifier and revision
 		doc.ID = ""
 		doc.Rev = ""
 	}
@@ -191,14 +191,14 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.Request().Header.Get(echo.HeaderContentType)
 			if !strings.HasPrefix(contentType, echo.MIMEApplicationJSON) {
-				return echo.NewHTTPError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
+				return NewError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
 			}
 		}
 		acceptHeader := req.Header.Get("Accept")
 		if acceptHeader != "" &&
 			!strings.Contains(acceptHeader, echo.MIMEApplicationJSON) &&
 			!strings.Contains(acceptHeader, "*/*") {
-			return echo.NewHTTPError(http.StatusNotAcceptable, "Accept header does not contain application/json")
+			return NewError(http.StatusNotAcceptable, "Accept header does not contain application/json")
 		}
 		return next(c)
 	}
@@ -239,25 +239,21 @@ func validateVersionRequest(c echo.Context, ver *Version) error {
 func httpErrorHandler(err error, c echo.Context) {
 	var (
 		code = http.StatusInternalServerError
-		msg  interface{}
+		msg  string
 	)
 
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		msg = he.Message
-	} else if he, ok := err.(*Error); ok {
+	if he, ok := err.(*Error); ok {
 		code = he.StatusCode()
 		msg = err.Error()
-	}
-	if _, ok := msg.(string); ok {
-		msg = echo.Map{"message": msg}
+	} else {
+		msg = http.StatusText(code)
 	}
 
 	if !c.Response().Committed {
 		if c.Request().Method == echo.HEAD {
 			c.NoContent(code)
 		} else {
-			c.JSON(code, msg)
+			c.JSON(code, echo.Map{"message": msg})
 		}
 	}
 }
@@ -266,13 +262,10 @@ func wrapErr(err error, code int) error {
 	if err == nil {
 		return nil
 	}
-	if errHTTP, ok := err.(*echo.HTTPError); ok {
-		return errHTTP
-	}
 	if errHTTP, ok := err.(*Error); ok {
 		return errHTTP
 	}
-	return echo.NewHTTPError(code, err.Error())
+	return NewError(code, err.Error())
 }
 
 func StartRouter(addr string) error {
