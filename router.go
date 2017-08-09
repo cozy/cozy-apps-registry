@@ -145,6 +145,9 @@ func getApp(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
 	return c.JSON(http.StatusOK, doc)
 }
 
@@ -158,6 +161,9 @@ func getVersion(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
 	return c.JSON(http.StatusOK, doc)
 }
 
@@ -171,6 +177,9 @@ func getLatestVersion(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
 	return c.JSON(http.StatusOK, doc)
 }
 
@@ -267,25 +276,22 @@ func StartRouter(addr string) error {
 	e := echo.New()
 	e.HideBanner = true
 	e.HTTPErrorHandler = httpErrorHandler
+	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
 	apps := e.Group("/apps", jsonEndpoint)
 	apps.POST("", createApp)
-	apps.POST("/", createApp)
 	apps.POST("/:app", createApp)
-	apps.POST("/:app/", createApp)
 	apps.POST("/:app/:version", createVersion)
-	apps.POST("/:app/:version/", createVersion)
 
 	apps.GET("", getAppsList)
-	apps.GET("/", getAppsList)
+	apps.HEAD("/:app", getApp)
 	apps.GET("/:app", getApp)
-	apps.GET("/:app/", getApp)
+	apps.HEAD("/:app/:version", getVersion)
 	apps.GET("/:app/:version", getVersion)
-	apps.GET("/:app/:version/", getVersion)
+	apps.HEAD("/:app/:channel/latest", getLatestVersion)
 	apps.GET("/:app/:channel/latest", getLatestVersion)
-	apps.GET("/:app/:channel/latest/", getLatestVersion)
 
 	return e.Start(addr)
 }
