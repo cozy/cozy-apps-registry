@@ -32,7 +32,7 @@ func GenerateEditorToken(reg EditorRegistry, opts *EditorTokenOptions) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	msg := []byte(opts.Editor)
+	msg := []byte(editorName)
 	return EncodeAuthMessage(tokenConfig(secret), opts.MaxAge, msg)
 }
 
