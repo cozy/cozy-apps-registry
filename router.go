@@ -34,10 +34,6 @@ func createApp(c echo.Context) (err error) {
 	if err = CreateOrUpdateApp(app); err != nil {
 		return err
 	}
-	app, err = FindApp(app.Name)
-	if err != nil {
-		return err
-	}
 	// Do not show internal identifier and revision
 	app.ID = ""
 	app.Rev = ""
@@ -60,10 +56,6 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	if err = CreateVersion(ver); err != nil {
-		return err
-	}
-	ver, err = FindVersion(ver.Name, ver.Version)
-	if err != nil {
 		return err
 	}
 	// Do not show internal identifier and revision
