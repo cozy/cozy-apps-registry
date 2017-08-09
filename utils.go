@@ -41,7 +41,7 @@ func assertValues(data map[string]interface{}, check map[string]interface{}) err
 			}
 		case string:
 			i, ok := actualVal.(string)
-			if !ok || i != v {
+			if !ok || strings.ToLower(i) != strings.ToLower(v) {
 				return fmt.Errorf("\"%s\" field does not match (%v != %v)",
 					checkedKey, i, v)
 			}
