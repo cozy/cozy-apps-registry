@@ -245,7 +245,8 @@ func httpErrorHandler(err error, c echo.Context) {
 	if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
 		msg = he.Message
-	} else {
+	} else if he, ok := err.(*Error); ok {
+		code = he.StatusCode()
 		msg = err.Error()
 	}
 	if _, ok := msg.(string); ok {
@@ -266,6 +267,9 @@ func wrapErr(err error, code int) error {
 		return nil
 	}
 	if errHTTP, ok := err.(*echo.HTTPError); ok {
+		return errHTTP
+	}
+	if errHTTP, ok := err.(*Error); ok {
 		return errHTTP
 	}
 	return echo.NewHTTPError(code, err.Error())

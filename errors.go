@@ -1,27 +1,46 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/labstack/echo"
 )
 
-var errUnauthorized = echo.NewHTTPError(http.StatusUnauthorized)
-var errUnknownEditor = echo.NewHTTPError(http.StatusUnauthorized, "Unknown editor name")
-var errEditorExists = echo.NewHTTPError(http.StatusUnauthorized, "Editor already exists")
-var errBadChannel = echo.NewHTTPError(http.StatusBadRequest, "Channel should be \"stable\", \"beta\" or \"dev\"")
+var errUnauthorized = NewError(http.StatusUnauthorized, "Unauthorized")
+var errUnknownEditor = NewError(http.StatusUnauthorized, "Editor not found")
+var errEditorExists = NewError(http.StatusUnauthorized, "Editor already exists")
+var errBadChannel = NewError(http.StatusBadRequest, `Channel should be "stable", "beta" or "dev"`)
 
-var errAppNotFound = echo.NewHTTPError(http.StatusNotFound, "Application was not found")
-var errAppNameMismatch = echo.NewHTTPError(http.StatusBadRequest, "Application name does not match the one specified in the body")
-var errBadAppName = echo.NewHTTPError(http.StatusBadRequest, "Bad application name: should contain only ascii letters, numbers and -")
+var errAppNotFound = NewError(http.StatusNotFound, "Application was not found")
+var errAppNameMismatch = NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
+var errBadAppName = NewError(http.StatusBadRequest, "Bad application name: should contain only ascii letters, numbers and -")
 
-var errVersionAlreadyExists = echo.NewHTTPError(http.StatusConflict, "Version already exists")
-var errVersionNotFound = echo.NewHTTPError(http.StatusNotFound, "Version was not found")
-var errVersionMismatch = echo.NewHTTPError(http.StatusBadRequest, "Version does not match the one specified in the body")
-var errBadVersion = echo.NewHTTPError(http.StatusBadRequest, "Bad version value")
+var errVersionAlreadyExists = NewError(http.StatusConflict, "Version already exists")
+var errVersionNotFound = NewError(http.StatusNotFound, "Version was not found")
+var errVersionMismatch = NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
+var errBadVersion = NewError(http.StatusBadRequest, "Bad version value")
 
-var errVersionNotReachable = echo.NewHTTPError(http.StatusUnprocessableEntity, "Could not reach version on specified url")
-var errVersionBadChecksum = echo.NewHTTPError(http.StatusUnprocessableEntity, "Checksum does not match the calculated one")
-var errVersionBadSize = echo.NewHTTPError(http.StatusUnprocessableEntity, "Size of the version does not match with the calculated one")
-var errVersionNoManifest = echo.NewHTTPError(http.StatusUnprocessableEntity, "Application tarball does not contain a manifest")
-var errVersionManifestInvalid = echo.NewHTTPError(http.StatusUnprocessableEntity, "Content of the manifest is not JSON valid")
+var errVersionNotReachable = NewError(http.StatusUnprocessableEntity, "Could not reach version on specified url")
+var errVersionBadChecksum = NewError(http.StatusUnprocessableEntity, "Checksum does not match the calculated one")
+var errVersionBadSize = NewError(http.StatusUnprocessableEntity, "Size of the version does not match with the calculated one")
+var errVersionNoManifest = NewError(http.StatusUnprocessableEntity, "Application tarball does not contain a manifest")
+var errVersionManifestInvalid = NewError(http.StatusUnprocessableEntity, "Content of the manifest is not JSON valid")
+
+type Error struct {
+	c int
+	e string
+}
+
+func NewError(code int, format string, a ...interface{}) error {
+	return &Error{
+		c: code,
+		e: fmt.Sprintf(format, a...),
+	}
+}
+
+func (e *Error) Error() string {
+	return e.e
+}
+
+func (e *Error) StatusCode() int {
+	return e.c
+}
