@@ -275,12 +275,13 @@ func CreateVersion(ver *Version) error {
 		return err
 	}
 
+	ver.Type = app.Type
+
 	man, prefix, err := downloadAndCheckVersion(app, ver)
 	if err != nil {
 		return err
 	}
 
-	ver.Type = app.Type
 	ver.Manifest = man
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now()
