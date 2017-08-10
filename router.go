@@ -154,6 +154,10 @@ func getApp(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appName := c.Param("app")
 	version := c.Param("version")
+	_, err := FindApp(appName)
+	if err != nil {
+		return err
+	}
 	doc, err := FindVersion(appName, version)
 	if err != nil {
 		return err
@@ -280,18 +284,18 @@ func StartRouter(addr string) error {
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 
-	apps := e.Group("/apps", jsonEndpoint)
-	apps.POST("", createApp)
-	apps.POST("/:app", createApp)
-	apps.POST("/:app/:version", createVersion)
+	registry := e.Group("/registry", jsonEndpoint)
+	registry.POST("", createApp)
+	registry.POST("/:app", createApp)
+	registry.POST("/:app/:version", createVersion)
 
-	apps.GET("", getAppsList)
-	apps.HEAD("/:app", getApp)
-	apps.GET("/:app", getApp)
-	apps.HEAD("/:app/:version", getVersion)
-	apps.GET("/:app/:version", getVersion)
-	apps.HEAD("/:app/:channel/latest", getLatestVersion)
-	apps.GET("/:app/:channel/latest", getLatestVersion)
+	registry.GET("", getAppsList)
+	registry.HEAD("/:app", getApp)
+	registry.GET("/:app", getApp)
+	registry.HEAD("/:app/:version", getVersion)
+	registry.GET("/:app/:version", getVersion)
+	registry.HEAD("/:app/:channel/latest", getLatestVersion)
+	registry.GET("/:app/:channel/latest", getLatestVersion)
 
 	return e.Start(addr)
 }
