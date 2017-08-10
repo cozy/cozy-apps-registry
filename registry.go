@@ -60,6 +60,7 @@ type App struct {
 	ID             string         `json:"_id,omitempty"`
 	Rev            string         `json:"_rev,omitempty"`
 	Name           string         `json:"name"`
+	FullName       AppFullName    `json:"full_name"`
 	Type           string         `json:"type"`
 	Editor         string         `json:"editor"`
 	Description    AppDescription `json:"description"`
@@ -74,6 +75,7 @@ type App struct {
 }
 
 type AppDescription map[string]string
+type AppFullName map[string]string
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -223,6 +225,12 @@ func CreateOrUpdateApp(app *App) error {
 		app.CreatedAt = now
 		app.UpdatedAt = now
 		app.Versions = nil
+		if app.FullName == nil {
+			app.FullName = make(AppFullName)
+		}
+		if app.Description == nil {
+			app.Description = make(AppDescription)
+		}
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)
 		}
@@ -245,6 +253,9 @@ func CreateOrUpdateApp(app *App) error {
 	}
 	if app.Repository == "" {
 		app.Repository = oldApp.Repository
+	}
+	if app.FullName == nil {
+		app.FullName = oldApp.FullName
 	}
 	if app.Description == nil {
 		app.Description = oldApp.Description
