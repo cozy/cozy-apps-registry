@@ -213,7 +213,7 @@ func validateAppRequest(c echo.Context, app *App) error {
 	appName := c.Param("app")
 	if app.Name == "" {
 		app.Name = appName
-	} else if app.Name != appName {
+	} else if appName != "" && app.Name != appName {
 		return errAppNameMismatch
 	}
 	if err := IsValidApp(app); err != nil {
