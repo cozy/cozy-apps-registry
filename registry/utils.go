@@ -1,4 +1,4 @@
-package main
+package registry
 
 import (
 	"encoding/json"
@@ -152,6 +152,6 @@ func expandVersion(version string) (v [3]int, exp int, err error) {
 	return
 
 ERROR:
-	err = errVersionInvalid
+	err = ErrVersionMismatch
 	return
 }

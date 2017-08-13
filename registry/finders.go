@@ -1,4 +1,4 @@
-package main
+package registry
 
 import (
 	"sort"
@@ -15,9 +15,9 @@ const maxLimit = 200
 
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errAppInvalid
+		return nil, ErrAppInvalid
 	}
-	db, err := client.DB(ctx, appsDB)
+	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func FindApp(appName string) (*App, error) {
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return nil, errAppNotFound
+		return nil, ErrAppNotFound
 	}
 	var doc *App
 	if err = rows.ScanDoc(&doc); err != nil {
@@ -48,12 +48,12 @@ func FindApp(appName string) (*App, error) {
 
 func FindVersion(appName, version string) (*Version, error) {
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errAppInvalid
+		return nil, ErrAppInvalid
 	}
 	if !validVersionReg.MatchString(version) {
-		return nil, errVersionInvalid
+		return nil, ErrVersionMismatch
 	}
-	db, err := client.DB(ctx, versDB)
+	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func FindVersion(appName, version string) (*Version, error) {
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return nil, errVersionNotFound
+		return nil, ErrVersionNotFound
 	}
 	var doc *Version
 	if err := rows.ScanDoc(&doc); err != nil {
@@ -84,9 +84,9 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errAppInvalid
+		return nil, ErrAppInvalid
 	}
-	db, err := client.DB(ctx, versDB)
+	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +125,13 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		}
 	}
 	if latest == nil {
-		return nil, errVersionNotFound
+		return nil, ErrVersionNotFound
 	}
 	return latest, nil
 }
 
 func FindAppVersions(appName string) (*AppVersions, error) {
-	db, err := client.DB(ctx, versDB)
+	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ type AppsListOptions struct {
 }
 
 func GetAppsList(opts *AppsListOptions) ([]*App, error) {
-	db, err := client.DB(ctx, appsDB)
+	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
 		return nil, err
 	}

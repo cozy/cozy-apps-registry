@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cozy/cozy-registry-v3/auth"
+	"github.com/cozy/cozy-registry-v3/registry"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +59,7 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := InitDBClient(couchAddrFlag, couchUserFlag, couchPassFlag)
+		client, err := registry.InitDBClient(couchAddrFlag, couchUserFlag, couchPassFlag)
 		if err != nil {
 			printAndExit("Could not reach CouchDB: %s", err)
 		}
@@ -73,7 +74,7 @@ var rootCmd = &cobra.Command{
 			filename := regOpts[1]
 			vault, err = auth.NewFileVault(filename)
 		case "couch", "couchdb":
-			vault, err = auth.NewCouchdbVault(client, editorsDB)
+			vault, err = auth.NewCouchdbVault(client, registry.EditorsDB)
 		default:
 			printAndExit("Bad -editor-registry option: unknown type %s", regOpts[0])
 		}

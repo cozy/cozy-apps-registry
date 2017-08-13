@@ -1,4 +1,4 @@
-package main
+package registry
 
 import (
 	"archive/tar"
@@ -29,18 +29,20 @@ const maxManifestSize = 100 * 1024 // 100 Ko
 var (
 	validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+
+	validAppTypes = []string{"webapp", "konnector"}
 )
 
 var (
-	errAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
-	errAppNameMismatch = errshttp.NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
-	errAppInvalid      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
+	ErrAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
+	ErrAppNameMismatch = errshttp.NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
+	ErrAppInvalid      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
 
-	errVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
-	errVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
-	errVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
-	errVersionInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
-	errChannelInvalid       = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
+	ErrVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
+	ErrVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
+	ErrVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
+	ErrVersionInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
+	ErrChannelInvalid       = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
 )
 
 var versionClient = http.Client{
@@ -48,16 +50,16 @@ var versionClient = http.Client{
 }
 
 const (
-	appsDB    = "registry-apps"
-	versDB    = "registry-versions"
-	editorsDB = "registry-editors"
+	AppsDB    = "registry-apps"
+	VersDB    = "registry-versions"
+	EditorsDB = "registry-editors"
 )
 
 var (
 	client *kivik.Client
 
 	ctx = context.Background()
-	dbs = []string{appsDB, versDB, editorsDB}
+	dbs = []string{AppsDB, VersDB, EditorsDB}
 
 	appsIndex = echo.Map{"fields": []string{"name", "type", "editor", "category", "tags"}}
 	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
@@ -113,7 +115,7 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 }
 
-func InitDBClient(addr, user, pass string) error {
+func InitDBClient(addr, user, pass string) (*kivik.Client, error) {
 	var err error
 
 	var userInfo *url.Userinfo
@@ -131,47 +133,52 @@ func InitDBClient(addr, user, pass string) error {
 		Host:   addr,
 	}).String())
 	if err != nil {
-		return fmt.Errorf("Could not reach CouchDB: %s", err.Error())
+		return nil, fmt.Errorf("Could not reach CouchDB: %s", err.Error())
 	}
 
 	for _, dbName := range dbs {
 		var ok bool
 		ok, err = client.DBExists(ctx, dbName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
 			fmt.Printf("Creating database %s...", dbName)
 			if err = client.CreateDB(ctx, dbName); err != nil {
 				fmt.Println("failed")
-				return err
+				return nil, err
 			}
 			fmt.Println("ok")
 		}
 	}
 
-	appsDB, err := client.DB(ctx, appsDB)
+	dbApps, err := client.DB(ctx, AppsDB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = appsDB.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
+	err = dbApps.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	versDB, err := client.DB(ctx, versDB)
+	dbVers, err := client.DB(ctx, VersDB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return versDB.CreateIndex(ctx, "versions-index", "versions-index", versIndex)
+	err = dbVers.CreateIndex(ctx, "versions-index", "versions-index", versIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
 }
 
 func IsValidApp(app *App) error {
 	var fields []string
 	if app.Name == "" || !validAppNameReg.MatchString(app.Name) {
-		return errAppInvalid
+		return ErrAppInvalid
 	}
 	if app.Editor == "" {
 		fields = append(fields, "editor")
@@ -193,10 +200,10 @@ func IsValidApp(app *App) error {
 
 func IsValidVersion(ver *Version) error {
 	if ver.Name == "" || !validAppNameReg.MatchString(ver.Name) {
-		return errAppInvalid
+		return ErrAppInvalid
 	}
 	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
-		return errVersionInvalid
+		return ErrVersionMismatch
 	}
 	var fields []string
 	if ver.URL == "" {
@@ -222,15 +229,15 @@ func CreateOrUpdateApp(app *App) error {
 		return err
 	}
 
-	db, err := client.DB(ctx, appsDB)
+	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
 		return err
 	}
 	oldApp, err := FindApp(app.Name)
-	if err != nil && err != errAppNotFound {
+	if err != nil && err != ErrAppNotFound {
 		return err
 	}
-	if err == errAppNotFound {
+	if err == ErrAppNotFound {
 		now := time.Now()
 		app.Editor = strings.ToLower(app.Editor)
 		app.CreatedAt = now
@@ -291,9 +298,9 @@ func CreateVersion(ver *Version) error {
 		return err
 	}
 	_, err = FindVersion(ver.Name, ver.Version)
-	if err != errVersionNotFound {
+	if err != ErrVersionNotFound {
 		if err == nil {
-			return errVersionAlreadyExists
+			return ErrVersionAlreadyExists
 		}
 		return err
 	}
@@ -309,7 +316,7 @@ func CreateVersion(ver *Version) error {
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now()
 
-	db, err := client.DB(ctx, versDB)
+	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return err
 	}
@@ -486,6 +493,6 @@ func strToChannel(channel string) (Channel, error) {
 	case string(Dev):
 		return Dev, nil
 	default:
-		return Stable, errChannelInvalid
+		return Stable, ErrChannelInvalid
 	}
 }

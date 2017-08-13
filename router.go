@@ -11,21 +11,17 @@ import (
 	"strings"
 
 	"github.com/cozy/cozy-registry-v3/errshttp"
+	"github.com/cozy/cozy-registry-v3/registry"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
 
-var validAppTypes = []string{
-	"webapp",
-	"konnector",
-}
-
 var errUnauthorized = errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 func createApp(c echo.Context) (err error) {
-	app := &App{}
+	app := &registry.App{}
 	if err = c.Bind(app); err != nil {
 		return err
 	}
@@ -35,7 +31,7 @@ func createApp(c echo.Context) (err error) {
 	if err = checkPermissions(c, app.Editor, ""); err != nil {
 		return err
 	}
-	if err = CreateOrUpdateApp(app); err != nil {
+	if err = registry.CreateOrUpdateApp(app); err != nil {
 		return err
 	}
 	// Do not show internal identifier and revision
@@ -45,21 +41,21 @@ func createApp(c echo.Context) (err error) {
 }
 
 func createVersion(c echo.Context) (err error) {
-	ver := &Version{}
+	ver := &registry.Version{}
 	if err = c.Bind(ver); err != nil {
 		return err
 	}
 	if err = validateVersionRequest(c, ver); err != nil {
 		return err
 	}
-	app, err := FindApp(ver.Name)
+	app, err := registry.FindApp(ver.Name)
 	if err != nil {
 		return err
 	}
 	if err = checkPermissions(c, app.Editor, ver.Sha256); err != nil {
 		return err
 	}
-	if err = CreateVersion(ver); err != nil {
+	if err = registry.CreateVersion(ver); err != nil {
 		return err
 	}
 	// Do not show internal identifier and revision
@@ -163,7 +159,7 @@ func getAppsList(c echo.Context) error {
 		}
 	}
 
-	docs, err := GetAppsList(&AppsListOptions{
+	docs, err := registry.GetAppsList(&registry.AppsListOptions{
 		Filters: filter,
 		Limit:   limit,
 		Skip:    skip,
@@ -182,7 +178,7 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appName := c.Param("app")
-	doc, err := FindApp(appName)
+	doc, err := registry.FindApp(appName)
 	if err != nil {
 		return err
 	}
@@ -198,11 +194,11 @@ func getApp(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appName := c.Param("app")
 	version := c.Param("version")
-	_, err := FindApp(appName)
+	_, err := registry.FindApp(appName)
 	if err != nil {
 		return err
 	}
-	doc, err := FindVersion(appName, version)
+	doc, err := registry.FindVersion(appName, version)
 	if err != nil {
 		return err
 	}
@@ -218,7 +214,7 @@ func getVersion(c echo.Context) error {
 func getLatestVersion(c echo.Context) error {
 	appName := c.Param("app")
 	channel := c.Param("channel")
-	doc, err := FindLatestVersion(appName, channel)
+	doc, err := registry.FindLatestVersion(appName, channel)
 	if err != nil {
 		return err
 	}
@@ -265,33 +261,33 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func validateAppRequest(c echo.Context, app *App) error {
+func validateAppRequest(c echo.Context, app *registry.App) error {
 	appName := c.Param("app")
 	if app.Name == "" {
 		app.Name = appName
 	} else if appName != "" && app.Name != appName {
-		return errAppNameMismatch
+		return registry.ErrAppNameMismatch
 	}
-	if err := IsValidApp(app); err != nil {
+	if err := registry.IsValidApp(app); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
 	}
 	return nil
 }
 
-func validateVersionRequest(c echo.Context, ver *Version) error {
+func validateVersionRequest(c echo.Context, ver *registry.Version) error {
 	appName := c.Param("app")
 	version := c.Param("version")
 	if ver.Name == "" {
 		ver.Name = appName
 	} else if ver.Name != appName {
-		return errAppNameMismatch
+		return registry.ErrAppNameMismatch
 	}
 	if ver.Version == "" {
 		ver.Version = version
 	} else if ver.Version != version {
-		return errVersionMismatch
+		return registry.ErrVersionMismatch
 	}
-	if err := IsValidVersion(ver); err != nil {
+	if err := registry.IsValidVersion(ver); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
 	}
 	return nil
