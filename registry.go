@@ -18,29 +18,31 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-registry-v3/errshttp"
+	"github.com/cozy/echo"
+
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb"
 )
 
-const maxManifestSize = 10 * 1024 * 1024
+const maxManifestSize = 100 * 1024 // 100 Ko
 
-var validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
-var validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+var (
+	validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
+	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+)
 
 var (
 	errAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
 	errAppNameMismatch = errshttp.NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
-	errBadAppName      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
+	errAppInvalid      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
 
 	errVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
 	errVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
 	errVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
-	errBadVersion           = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
-	errBadChannel           = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
+	errVersionInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
+	errChannelInvalid       = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
 )
 
-var client *kivik.Client
-var ctx = context.Background()
 var versionClient = http.Client{
 	Timeout: 20 * time.Second,
 }
@@ -51,15 +53,15 @@ const (
 	editorsDB = "registry-editors"
 )
 
-var dbs = []string{appsDB, versDB, editorsDB}
+var (
+	client *kivik.Client
 
-var appsIndex = map[string]interface{}{
-	"fields": []string{"name", "type", "editor", "category", "tags"},
-}
+	ctx = context.Background()
+	dbs = []string{appsDB, versDB, editorsDB}
 
-var versionsIndex = map[string]interface{}{
-	"fields": []string{"version", "name", "type"},
-}
+	appsIndex = echo.Map{"fields": []string{"name", "type", "editor", "category", "tags"}}
+	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
+)
 
 type Channel string
 
@@ -107,11 +109,13 @@ type Version struct {
 	URL       string          `json:"url"`
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
+	Signature []byte          `json:"signature,omitempty"`
 	TarPrefix string          `json:"tar_prefix"`
 }
 
 func InitDBClient(addr, user, pass string) error {
 	var err error
+
 	var userInfo *url.Userinfo
 	if user != "" {
 		if pass != "" {
@@ -120,6 +124,7 @@ func InitDBClient(addr, user, pass string) error {
 			userInfo = url.User(user)
 		}
 	}
+
 	client, err = kivik.New(ctx, "couch", (&url.URL{
 		Scheme: "http",
 		User:   userInfo,
@@ -160,13 +165,13 @@ func InitDBClient(addr, user, pass string) error {
 		return err
 	}
 
-	return versDB.CreateIndex(ctx, "versions-index", "versions-index", versionsIndex)
+	return versDB.CreateIndex(ctx, "versions-index", "versions-index", versIndex)
 }
 
 func IsValidApp(app *App) error {
 	var fields []string
 	if app.Name == "" || !validAppNameReg.MatchString(app.Name) {
-		return errBadAppName
+		return errAppInvalid
 	}
 	if app.Editor == "" {
 		fields = append(fields, "editor")
@@ -188,10 +193,10 @@ func IsValidApp(app *App) error {
 
 func IsValidVersion(ver *Version) error {
 	if ver.Name == "" || !validAppNameReg.MatchString(ver.Name) {
-		return errBadAppName
+		return errAppInvalid
 	}
 	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
-		return errBadVersion
+		return errVersionInvalid
 	}
 	var fields []string
 	if ver.URL == "" {
@@ -419,6 +424,10 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		return
 	}
 
+	// if len(ver.Signature) > 0 {
+
+	// }
+
 	if len(manRaw) == 0 {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Application tarball does not contain a manifest")
@@ -477,6 +486,6 @@ func strToChannel(channel string) (Channel, error) {
 	case string(Dev):
 		return Dev, nil
 	default:
-		return Stable, errBadChannel
+		return Stable, errChannelInvalid
 	}
 }

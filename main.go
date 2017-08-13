@@ -35,7 +35,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&editorRegistryFlag, "editor-registry", "couchdb", "used to specify the editors registry (file:./filename or couchdb)")
 
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(printPublicKeyCmd)
+	rootCmd.AddCommand(printPrivateKeyCmd)
 	rootCmd.AddCommand(genSignatureCmd)
+	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(genTokenCmd)
 	rootCmd.AddCommand(verifyTokenCmd)
 	rootCmd.AddCommand(addEditorCmd)
@@ -99,21 +102,75 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+var printPublicKeyCmd = &cobra.Command{
+	Use: "printpub [editor]",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return fmt.Errorf("Missing argument for editor name")
+		}
+
+		editor, err := editorRegistry.GetEditor(args[0])
+		if err != nil {
+			return err
+		}
+
+		fmt.Print(editor.MarshalPublickKeyPEM())
+		return nil
+	},
+}
+
+var printPrivateKeyCmd = &cobra.Command{
+	Use: "printpriv [editor]",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return fmt.Errorf("Missing argument for editor name")
+		}
+
+		editor, err := editorRegistry.GetEditor(args[0])
+		if err != nil {
+			return err
+		}
+
+		var password []byte
+		if !editor.HasPrivateKey() {
+			return fmt.Errorf("Editor %s has no private key stored in the registry",
+				editor.Name())
+		}
+		if editor.HasEncryptedPrivateKey() {
+			password, err = askPassword()
+			if err != nil {
+				return err
+			}
+		}
+
+		privateKeyPEM, err := editor.MarshalPrivateKeyPEM(password)
+		if err != nil {
+			return err
+		}
+
+		fmt.Print(privateKeyPEM)
+		return nil
+	},
+}
+
 var genSignatureCmd = &cobra.Command{
 	Use: "sign [editor]",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var password []byte
 		if len(args) < 1 {
 			return fmt.Errorf("Missing argument for editor name")
 		}
 		if len(args) < 2 {
 			return fmt.Errorf("Missing path to file to sign")
 		}
+
 		editorName, filePath := args[0], args[1]
 		f, err := os.Open(filePath)
 		if err != nil {
 			return fmt.Errorf("Failed to open file %s: %s", filePath, err)
 		}
+		defer f.Close()
+
+		var password []byte
 		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
@@ -123,24 +180,81 @@ var genSignatureCmd = &cobra.Command{
 				editor.Name())
 		}
 		if editor.HasEncryptedPrivateKey() {
-			fmt.Printf("Password: ")
-			password, err = gopass.GetPasswdMasked()
+			password, err = askPassword()
 			if err != nil {
 				return err
 			}
 		}
+
 		hash := sha256.New()
 		_, err = io.Copy(hash, f)
 		if err != nil {
 			return fmt.Errorf("Could not read file %s: %s", filePath, err)
 		}
 		hashed := hash.Sum(nil)
+
 		signature, err := editor.GenerateSignature(hashed, password)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor signature for %s: %s",
 				filePath, err)
 		}
+
 		fmt.Println(base64.StdEncoding.EncodeToString(signature))
+		return nil
+	},
+}
+
+var verifySignatureCmd = &cobra.Command{
+	Use: "verify [editor] [file]",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return fmt.Errorf("Missing argument for editor name")
+		}
+		if len(args) < 2 {
+			return fmt.Errorf("Missing path to file to check signature against")
+		}
+
+		editorName, filePath := args[0], args[1]
+		editor, err := editorRegistry.GetEditor(editorName)
+		if err != nil {
+			return fmt.Errorf("Error while getting editor: %s", err)
+		}
+
+		fmt.Fprintf(os.Stderr, "Waiting for signature on stdin...")
+		signature, err := ioutil.ReadAll(io.LimitReader(os.Stdin, 10*1024))
+		if err != nil {
+			return fmt.Errorf("Error reading signature on stdin: %s", err)
+		}
+
+		fmt.Fprintln(os.Stderr, "ok")
+		f, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("Failed to open file %s: %s", filePath, err)
+		}
+		defer f.Close()
+
+		hash := sha256.New()
+		_, err = io.Copy(hash, f)
+		if err != nil {
+			return fmt.Errorf("Could not read file %s: %s", filePath, err)
+		}
+		hashed := hash.Sum(nil)
+
+		signatureB64, err := base64.StdEncoding.DecodeString(string(signature))
+		if err == nil {
+			signature = signatureB64
+		}
+
+		fmt.Fprintf(os.Stderr, "Checking signature...")
+		ok, err := editor.VerifySignature(hashed, signature)
+		if err != nil {
+			return fmt.Errorf("failed: %s", err)
+		}
+		if !ok {
+			return fmt.Errorf("failed: bad signature")
+		}
+		fmt.Fprintln(os.Stderr, "ok")
+
 		return nil
 	},
 }
@@ -151,6 +265,7 @@ var genTokenCmd = &cobra.Command{
 		if len(args) == 0 {
 			return fmt.Errorf("Missing argument for editor name")
 		}
+
 		var password []byte
 		editor, err := editorRegistry.GetEditor(args[0])
 		if err != nil {
@@ -161,17 +276,18 @@ var genTokenCmd = &cobra.Command{
 				editor.Name())
 		}
 		if editor.HasEncryptedPrivateKey() {
-			fmt.Printf("Password: ")
-			password, err = gopass.GetPasswdMasked()
+			password, err = askPassword()
 			if err != nil {
 				return err
 			}
 		}
+
 		token, err := editor.GenerateToken(password)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %s: %s",
 				args[0], err)
 		}
+
 		fmt.Println(base64.StdEncoding.EncodeToString(token))
 		return nil
 	},
@@ -183,6 +299,7 @@ var verifyTokenCmd = &cobra.Command{
 		if len(args) == 0 {
 			return fmt.Errorf("Missing argument for editor name")
 		}
+
 		editor, err := editorRegistry.GetEditor(args[0])
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
@@ -191,16 +308,19 @@ var verifyTokenCmd = &cobra.Command{
 			return fmt.Errorf("Editor %s has no private key stored in the registry",
 				editor.Name())
 		}
+
 		fmt.Fprintf(os.Stderr, "Waiting for token on stdin...")
 		token, err := ioutil.ReadAll(io.LimitReader(os.Stdin, 10*1024))
 		if err != nil {
 			return fmt.Errorf("Error reading token on stdin: %s", err)
 		}
 		fmt.Fprintln(os.Stderr, "ok")
-		token, err = base64.StdEncoding.DecodeString(string(token))
-		if err != nil {
-			return fmt.Errorf("Signature is not base64 encoded: %s", err)
+
+		tokenB64, err := base64.StdEncoding.DecodeString(string(token))
+		if err == nil {
+			token = tokenB64
 		}
+
 		fmt.Fprintf(os.Stderr, "Checking token...")
 		ok, err := editor.VerifyToken(token)
 		if err != nil {
@@ -264,8 +384,7 @@ generate a token or sign an application for you.
 `)
 
 			for {
-				fmt.Printf("Password: ")
-				privateKeyPassword, err = gopass.GetPasswdMasked()
+				privateKeyPassword, err = askPassword()
 				if err != nil {
 					return err
 				}
@@ -283,8 +402,7 @@ generate a token or sign an application for you.
 					break
 				}
 
-				fmt.Printf("Confirm: ")
-				passwordConfirmation, err := gopass.GetPasswdMasked()
+				passwordConfirmation, err := askPassword("Confirm: ")
 				if err != nil {
 					return err
 				}
@@ -375,6 +493,15 @@ func askQuestion(r *bufio.Reader, question string, a ...interface{}) (bool, erro
 			continue
 		}
 	}
+}
+
+func askPassword(prompt ...string) ([]byte, error) {
+	if len(prompt) == 0 {
+		fmt.Fprintf(os.Stderr, "Password: ")
+	} else {
+		fmt.Fprintf(os.Stderr, prompt[0])
+	}
+	return gopass.GetPasswdPrompt("", false, os.Stdin, os.Stderr)
 }
 
 func printAndExit(v string, a ...interface{}) {

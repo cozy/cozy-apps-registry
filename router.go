@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cozy/cozy-registry-v3/errshttp"
+
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -30,7 +32,7 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor); err != nil {
+	if err = checkPermissions(c, app.Editor, ""); err != nil {
 		return err
 	}
 	if err = CreateOrUpdateApp(app); err != nil {
@@ -54,7 +56,7 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor); err != nil {
+	if err = checkPermissions(c, app.Editor, ver.Sha256); err != nil {
 		return err
 	}
 	if err = CreateVersion(ver); err != nil {
@@ -66,33 +68,65 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
-func checkPermissions(c echo.Context, editorName string) error {
-	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	if !strings.HasPrefix(authHeader, "Token ") {
-		return errUnauthorized
-	}
-	tokenStr := authHeader[len("Token "):]
-	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-		return errUnauthorized
-	}
-	token, err := base64.StdEncoding.DecodeString(tokenStr)
-	if err != nil {
-		return errUnauthorized
-	}
+func checkPermissions(c echo.Context, editorName, versionHash string) error {
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
 		return errUnauthorized
 	}
-	ok, err := editor.VerifyToken(token)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
-			tokenStr, editorName, err.Error())
-		return errUnauthorized
+
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	switch {
+	case strings.HasPrefix(authHeader, "Token "):
+		tokenStr := authHeader[len("Token "):]
+		if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
+			return errUnauthorized
+		}
+
+		token, err := base64.StdEncoding.DecodeString(tokenStr)
+		if err != nil {
+			return errUnauthorized
+		}
+
+		ok, err := editor.VerifyToken(token)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
+				tokenStr, editorName, err.Error())
+			return errUnauthorized
+		}
+
+		if ok {
+			return nil
+		}
+	case strings.HasPrefix(authHeader, "Signature "):
+		if len(versionHash) == 0 {
+			return errUnauthorized
+		}
+
+		signatureStr := authHeader[len("Signature "):]
+		if len(signatureStr) != 44 {
+			return errUnauthorized
+		}
+
+		signature, err := base64.StdEncoding.DecodeString(signatureStr)
+		if err != nil {
+			return errUnauthorized
+		}
+
+		hashed, err := hex.DecodeString(versionHash)
+		if err != nil {
+			return errUnauthorized
+		}
+
+		ok, err := editor.VerifySignature(hashed, signature)
+		if err != nil {
+			return errUnauthorized
+		}
+
+		if ok {
+			return nil
+		}
 	}
-	if !ok {
-		return errUnauthorized
-	}
-	return nil
+	return errUnauthorized
 }
 
 func getAppsList(c echo.Context) error {

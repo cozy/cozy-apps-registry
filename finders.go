@@ -15,7 +15,7 @@ const maxLimit = 200
 
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errBadAppName
+		return nil, errAppInvalid
 	}
 	db, err := client.DB(ctx, appsDB)
 	if err != nil {
@@ -48,10 +48,10 @@ func FindApp(appName string) (*App, error) {
 
 func FindVersion(appName, version string) (*Version, error) {
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errBadAppName
+		return nil, errAppInvalid
 	}
 	if !validVersionReg.MatchString(version) {
-		return nil, errBadVersion
+		return nil, errVersionInvalid
 	}
 	db, err := client.DB(ctx, versDB)
 	if err != nil {
@@ -84,7 +84,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 	if !validAppNameReg.MatchString(appName) {
-		return nil, errBadAppName
+		return nil, errAppInvalid
 	}
 	db, err := client.DB(ctx, versDB)
 	if err != nil {

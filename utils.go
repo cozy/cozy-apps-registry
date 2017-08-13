@@ -152,6 +152,6 @@ func expandVersion(version string) (v [3]int, exp int, err error) {
 	return
 
 ERROR:
-	err = errBadVersion
+	err = errVersionInvalid
 	return
 }

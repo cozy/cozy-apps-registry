@@ -42,6 +42,11 @@ var (
 
 var editorReg = regexp.MustCompile("^[A-Za-z][A-Za-z0-9]*$")
 
+const (
+	privKeyBlocType = "PRIVATE KEY"
+	pubKeyBlocType  = "PUBLIC KEY"
+)
+
 type EditorVault interface {
 	LoadEditors() ([]*Editor, error)
 	AddEditor(editor *Editor) error
@@ -56,19 +61,44 @@ type Editor struct {
 }
 
 func (e *Editor) MarshalJSON() ([]byte, error) {
-	block := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: e.publicKeyBytes,
-	}
-	publicKeyPem := pem.EncodeToMemory(block)
 	j := struct {
 		Name      string `json:"name"`
 		PublicKey string `json:"public_key"`
 	}{
 		Name:      e.name,
-		PublicKey: string(publicKeyPem),
+		PublicKey: e.MarshalPublickKeyPEM(),
 	}
 	return json.Marshal(j)
+}
+
+func (e *Editor) MarshalPublickKeyPEM() string {
+	block := &pem.Block{
+		Type:  pubKeyBlocType,
+		Bytes: e.publicKeyBytes,
+	}
+	return string(pem.EncodeToMemory(block))
+}
+
+func (e *Editor) MarshalPrivateKeyPEM(password []byte) (string, error) {
+	var err error
+	var privateKey *ecdsa.PrivateKey
+	if len(e.privateKeyBytesEncrypted) > 0 {
+		privateKey, err = decryptPrivateKey(e.privateKeyBytesEncrypted, e.name, password)
+	} else {
+		privateKey, err = unmarshalPrivateKey(e.privateKeyBytes)
+	}
+	if err != nil {
+		return "", err
+	}
+	privateKeyBytes, err := marshalPrivateKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	block := &pem.Block{
+		Type:  privKeyBlocType,
+		Bytes: privateKeyBytes,
+	}
+	return string(pem.EncodeToMemory(block)), nil
 }
 
 func (e *Editor) Name() string {
@@ -427,8 +457,9 @@ func unmarshalPublicKey(publicKeyBytes []byte) (interface{}, error) {
 		if block == nil {
 			return nil, fmt.Errorf("Failed to parse PEM block containing the public key")
 		}
-		if block.Type != "PUBLIC KEY" {
-			return nil, fmt.Errorf(`Bad PEM block type, got "%s" expecting "PUBLIC KEY"`, block.Type)
+		if block.Type != pubKeyBlocType {
+			return nil, fmt.Errorf(`Bad PEM block type, got "%s" expecting "%s"`,
+				block.Type, pubKeyBlocType)
 		}
 		publicKeyBytes = block.Bytes
 	}
