@@ -80,13 +80,7 @@ func (e *Editor) MarshalPublickKeyPEM() string {
 }
 
 func (e *Editor) MarshalPrivateKeyPEM(password []byte) (string, error) {
-	var err error
-	var privateKey *ecdsa.PrivateKey
-	if len(e.privateKeyBytesEncrypted) > 0 {
-		privateKey, err = decryptPrivateKey(e.privateKeyBytesEncrypted, e.name, password)
-	} else {
-		privateKey, err = unmarshalPrivateKey(e.privateKeyBytes)
-	}
+	privateKey, err := e.privateKey(password)
 	if err != nil {
 		return "", err
 	}
