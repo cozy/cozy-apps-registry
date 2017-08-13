@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy/cozy-registry-v3/errshttp"
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb"
 )
@@ -25,6 +26,18 @@ const maxManifestSize = 10 * 1024 * 1024
 
 var validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
 var validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+
+var (
+	errAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
+	errAppNameMismatch = errshttp.NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
+	errBadAppName      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
+
+	errVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
+	errVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
+	errVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
+	errBadVersion           = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
+	errBadChannel           = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
+)
 
 var client *kivik.Client
 var ctx = context.Background()
@@ -97,13 +110,6 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 }
 
-type Editor struct {
-	ID     string `json:"_id,omitempty"`
-	Rev    string `json:"_rev,omitempty"`
-	Name   string `json:"name"`
-	Secret []byte `json:"secret"`
-}
-
 func InitDBClient(addr, user, pass string) error {
 	var err error
 	var userInfo *url.Userinfo
@@ -174,7 +180,7 @@ func IsValidApp(app *App) error {
 		}
 	}
 	if len(fields) > 0 {
-		return NewError(http.StatusBadRequest, "Invalid application, "+
+		return errshttp.NewError(http.StatusBadRequest, "Invalid application, "+
 			"the following fields are missing or erroneous: %s", strings.Join(fields, ", "))
 	}
 	return nil
@@ -309,21 +315,21 @@ func CreateVersion(ver *Version) error {
 func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix string, err error) {
 	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
 	if err != nil {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: %s",
 			ver.URL, err.Error())
 		return
 	}
 	res, err := versionClient.Do(req)
 	if err != nil {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: %s",
 			ver.URL, err.Error())
 		return
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: server responded with code %d",
 			ver.URL, res.StatusCode)
 		return
@@ -345,7 +351,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		"application/tar+gzip":
 		reader, err = gzip.NewReader(reader)
 		if err != nil {
-			err = NewError(http.StatusUnprocessableEntity,
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s",
 				ver.URL, err.Error())
 			return nil, "", err
@@ -366,7 +372,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 			break
 		}
 		if err != nil {
-			err = NewError(http.StatusUnprocessableEntity,
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s",
 				ver.URL, err.Error())
 			return
@@ -391,7 +397,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		if nameSplit[1] == manName {
 			manRaw, err = ioutil.ReadAll(tarReader)
 			if err != nil {
-				err = NewError(http.StatusUnprocessableEntity,
+				err = errshttp.NewError(http.StatusUnprocessableEntity,
 					"Could not reach version on specified url %s: %s",
 					ver.URL, err.Error())
 				return
@@ -400,7 +406,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 	}
 
 	if counter.Written() != ver.Size {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Size of the version does not match with the calculated one: expected %d and got %d",
 			ver.Size, counter.Written())
 		return
@@ -408,20 +414,20 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 
 	shasum, _ := hex.DecodeString(ver.Sha256)
 	if !bytes.Equal(shasum, h.Sum(nil)) {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Checksum does not match the calculated one")
 		return
 	}
 
 	if len(manRaw) == 0 {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Application tarball does not contain a manifest")
 		return
 	}
 
 	var manifest map[string]interface{}
 	if err = json.Unmarshal(manRaw, &manifest); err != nil {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Content of the manifest is not JSON valid: %s", err.Error())
 		return
 	}
@@ -433,7 +439,7 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 	}
 
 	if err = assertValues(manifest, checkVals); err != nil {
-		err = NewError(http.StatusUnprocessableEntity,
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Content of the manifest does not match version object: %s",
 			err.Error())
 		return

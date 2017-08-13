@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cozy/cozy-registry-v3/errshttp"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -28,7 +29,7 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor, app.Name); err != nil {
+	if err = checkPermissions(c, app.Editor); err != nil {
 		return err
 	}
 	if err = CreateOrUpdateApp(app); err != nil {
@@ -52,7 +53,7 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor, app.Name); err != nil {
+	if err = checkPermissions(c, app.Editor); err != nil {
 		return err
 	}
 	if err = CreateVersion(ver); err != nil {
@@ -64,23 +65,31 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
-func checkPermissions(c echo.Context, editorName, appName string) error {
+func checkPermissions(c echo.Context, editorName string) error {
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 	if !strings.HasPrefix(authHeader, "Token ") {
-		return NewError(http.StatusUnauthorized, "Authorization header has an unknown authentication scheme")
+		return errshttp.NewError(http.StatusUnauthorized, "Authorization header has an unknown authentication scheme")
 	}
 	tokenStr := authHeader[len("Token "):]
 	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-		return NewError(http.StatusUnauthorized, "Token too big")
+		return errshttp.NewError(http.StatusUnauthorized, "Token too big")
 	}
 	token, err := base64.StdEncoding.DecodeString(tokenStr)
 	if err != nil {
-		return NewError(http.StatusUnauthorized, "Could not decode token: %s", err.Error())
+		return errshttp.NewError(http.StatusUnauthorized, "Could not decode token")
 	}
-	if err := VerifyEditorToken(editorRegistry, editorName, appName, token); err != nil {
-		fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s and application=%s: %s\n",
-			token, editorName, appName, err.Error())
-		return NewError(http.StatusUnauthorized, err.Error())
+	editor, err := editorRegistry.GetEditor(editorName)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+	}
+	ok, err := editor.VerifyToken(token)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
+			token, editorName, err.Error())
+		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+	}
+	if !ok {
+		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
 	}
 	return nil
 }
@@ -95,19 +104,19 @@ func getAppsList(c echo.Context) error {
 		}
 		val := vals[0]
 		if len(val) > 1024 {
-			return NewError(http.StatusBadRequest, "Query param too big")
+			return errshttp.NewError(http.StatusBadRequest, "Query param too big")
 		}
 		if name == "limit" {
 			limit, err = strconv.Atoi(val)
 			if err != nil {
-				return NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
+				return errshttp.NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
 			}
 			continue
 		}
 		if name == "skip" {
 			skip, err = strconv.Atoi(val)
 			if err != nil {
-				return NewError(http.StatusBadRequest, "Query param skip is invalid: %s", err.Error())
+				return errshttp.NewError(http.StatusBadRequest, "Query param skip is invalid: %s", err.Error())
 			}
 			continue
 		}
@@ -187,6 +196,18 @@ func getLatestVersion(c echo.Context) error {
 	return c.JSON(http.StatusOK, doc)
 }
 
+func getEditor(c echo.Context) error {
+	editorName := c.Param("editor")
+	editor, err := editorRegistry.GetEditor(editorName)
+	if err != nil {
+		return err
+	}
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
+	return c.JSON(http.StatusOK, editor)
+}
+
 // jsonEndPoint middleware checks that the Content-Type and Accept headers are
 // properly set for an application/json endpoint.
 func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
@@ -196,14 +217,14 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.Request().Header.Get(echo.HeaderContentType)
 			if !strings.HasPrefix(contentType, echo.MIMEApplicationJSON) {
-				return NewError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
+				return errshttp.NewError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
 			}
 		}
 		acceptHeader := req.Header.Get("Accept")
 		if acceptHeader != "" &&
 			!strings.Contains(acceptHeader, echo.MIMEApplicationJSON) &&
 			!strings.Contains(acceptHeader, "*/*") {
-			return NewError(http.StatusNotAcceptable, "Accept header does not contain application/json")
+			return errshttp.NewError(http.StatusNotAcceptable, "Accept header does not contain application/json")
 		}
 		return next(c)
 	}
@@ -247,7 +268,7 @@ func httpErrorHandler(err error, c echo.Context) {
 		msg  string
 	)
 
-	if he, ok := err.(*Error); ok {
+	if he, ok := err.(*errshttp.Error); ok {
 		code = he.StatusCode()
 		msg = err.Error()
 	} else if he, ok := err.(*echo.HTTPError); ok {
@@ -270,10 +291,10 @@ func wrapErr(err error, code int) error {
 	if err == nil {
 		return nil
 	}
-	if errHTTP, ok := err.(*Error); ok {
+	if errHTTP, ok := err.(*errshttp.Error); ok {
 		return errHTTP
 	}
-	return NewError(code, err.Error())
+	return errshttp.NewError(code, err.Error())
 }
 
 func StartRouter(addr string) error {
@@ -296,6 +317,9 @@ func StartRouter(addr string) error {
 	registry.GET("/:app/:version", getVersion)
 	registry.HEAD("/:app/:channel/latest", getLatestVersion)
 	registry.GET("/:app/:channel/latest", getLatestVersion)
+
+	registry.HEAD("/editor/:editor", getEditor)
+	registry.GET("/editor/:editor", getEditor)
 
 	return e.Start(addr)
 }

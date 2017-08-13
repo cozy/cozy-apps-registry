@@ -1,10 +1,8 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 )
@@ -16,14 +14,6 @@ func stringInArray(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func generateRandomBytes(n int) []byte {
-	b := make([]byte, n)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func assertValues(data map[string]interface{}, check map[string]interface{}) error {
