@@ -19,6 +19,7 @@ var validAppTypes = []string{
 	"konnector",
 }
 
+var errUnauthorized = errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 func createApp(c echo.Context) (err error) {
@@ -68,28 +69,28 @@ func createVersion(c echo.Context) (err error) {
 func checkPermissions(c echo.Context, editorName string) error {
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 	if !strings.HasPrefix(authHeader, "Token ") {
-		return errshttp.NewError(http.StatusUnauthorized, "Authorization header has an unknown authentication scheme")
+		return errUnauthorized
 	}
 	tokenStr := authHeader[len("Token "):]
 	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-		return errshttp.NewError(http.StatusUnauthorized, "Token too big")
+		return errUnauthorized
 	}
 	token, err := base64.StdEncoding.DecodeString(tokenStr)
 	if err != nil {
-		return errshttp.NewError(http.StatusUnauthorized, "Could not decode token")
+		return errUnauthorized
 	}
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
-		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+		return errUnauthorized
 	}
 	ok, err := editor.VerifyToken(token)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
-			token, editorName, err.Error())
-		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+			tokenStr, editorName, err.Error())
+		return errUnauthorized
 	}
 	if !ok {
-		return errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+		return errUnauthorized
 	}
 	return nil
 }
@@ -304,6 +305,7 @@ func StartRouter(addr string) error {
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
+	e.Use(middleware.Recover())
 
 	registry := e.Group("/registry", jsonEndpoint)
 	registry.POST("", createApp)

@@ -35,8 +35,8 @@ const (
 )
 
 var (
-	errEditorNotFound = errshttp.NewError(http.StatusUnauthorized, "Editor not found")
-	errEditorExists   = errshttp.NewError(http.StatusUnauthorized, "Editor already exists")
+	errEditorNotFound = errshttp.NewError(http.StatusNotFound, "Editor not found")
+	errEditorExists   = errshttp.NewError(http.StatusConflict, "Editor already exists")
 	errBadEditorName  = errshttp.NewError(http.StatusBadRequest, "Editor name should only contain alphanumeric characters")
 )
 
