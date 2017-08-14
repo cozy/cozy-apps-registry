@@ -215,10 +215,10 @@ func GetAppsList(opts *AppsListOptions) ([]*App, error) {
 	}
 
 	req := sprintfJSON(`{
-	"selector": {`+selector+`},
-	"sort": [{ "name": "asc" }],
-	"limit": %s,
-	"skip": %s
+  "selector": {`+selector+`},
+  "sort": [{ "name": "asc" }],
+  "limit": %s,
+  "skip": %s
 }`, opts.Limit+1, opts.Skip)
 	rows, err := db.Find(ctx, req)
 	if err != nil {

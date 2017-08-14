@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
 	"github.com/cozy/echo"
 
@@ -288,7 +289,7 @@ func CreateOrUpdateApp(app *App) error {
 	return err
 }
 
-func CreateVersion(ver *Version) error {
+func CreateVersion(ver *Version, editor *auth.Editor) error {
 	if err := IsValidVersion(ver); err != nil {
 		return err
 	}
@@ -307,7 +308,7 @@ func CreateVersion(ver *Version) error {
 
 	ver.Type = app.Type
 
-	man, prefix, err := downloadAndCheckVersion(app, ver)
+	man, prefix, err := downloadAndCheckVersion(app, ver, editor)
 	if err != nil {
 		return err
 	}
@@ -324,7 +325,7 @@ func CreateVersion(ver *Version) error {
 	return err
 }
 
-func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix string, err error) {
+func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRaw []byte, prefix string, err error) {
 	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -431,9 +432,14 @@ func downloadAndCheckVersion(app *App, ver *Version) (manRaw []byte, prefix stri
 		return
 	}
 
-	// if len(ver.Signature) > 0 {
-
-	// }
+	if len(ver.Signature) > 0 {
+		var ok bool
+		ok, err = editor.VerifySignature(shasum, ver.Signature)
+		if err != nil || !ok {
+			err = errshttp.NewError(http.StatusUnprocessableEntity, "Bad signature")
+			return
+		}
+	}
 
 	if len(manRaw) == 0 {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,

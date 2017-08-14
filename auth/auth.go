@@ -5,13 +5,12 @@ import (
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
@@ -32,6 +31,8 @@ import (
 const (
 	saltLen  = 16
 	nonceLen = 12 // GCM standard nonce size
+
+	rsaKeyBitSize = 4096
 )
 
 var (
@@ -57,7 +58,7 @@ type Editor struct {
 	privateKeyBytes          []byte
 	privateKeyBytesEncrypted []byte
 	publicKeyBytes           []byte
-	publicKey                interface{}
+	publicKey                *rsa.PublicKey
 }
 
 func (e *Editor) MarshalJSON() ([]byte, error) {
@@ -173,7 +174,7 @@ func CreateEditorAndPrivateKey(editorName string, password []byte) (*Editor, err
 		return nil, errors.New("Editor name should only contain alphanumeric characters")
 	}
 
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := rsa.GenerateKey(rand.Reader, rsaKeyBitSize)
 	if err != nil {
 		return nil, err
 	}
@@ -203,10 +204,6 @@ func CreateEditorAndPrivateKey(editorName string, password []byte) (*Editor, err
 	}, nil
 }
 
-type ecdsaSignature struct {
-	R, S *big.Int
-}
-
 func (e *Editor) GenerateSignature(hashed, password []byte) ([]byte, error) {
 	if len(hashed) != crypto.SHA256.Size() {
 		panic("hash has not valid length")
@@ -217,23 +214,7 @@ func (e *Editor) GenerateSignature(hashed, password []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	pub, err := e.PublicKey()
-	if err != nil {
-		return nil, err
-	}
-
-	publicKey, ok := pub.(*ecdsa.PublicKey)
-	if !ok ||
-		publicKey.X.Cmp(privateKey.X) != 0 ||
-		publicKey.Y.Cmp(privateKey.Y) != 0 {
-		return nil, errors.New("Private key does not match public key")
-	}
-
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed[:])
-	if err != nil {
-		return nil, err
-	}
-	return asn1.Marshal(ecdsaSignature{r, s})
+	return rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed)
 }
 
 func (e *Editor) VerifySignature(hashed, signature []byte) (bool, error) {
@@ -246,23 +227,8 @@ func (e *Editor) VerifySignature(hashed, signature []byte) (bool, error) {
 		return false, err
 	}
 
-	switch pub := publicKey.(type) {
-	case *ecdsa.PublicKey:
-		ecdsaSig := new(ecdsaSignature)
-		if _, err = asn1.Unmarshal(signature, ecdsaSig); err != nil {
-			return false, err
-		}
-		if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
-			return false, errors.New("ECDSA signature contained zero or negative values")
-		}
-		return ecdsa.Verify(pub, hashed[:], ecdsaSig.R, ecdsaSig.S), nil
-	case *rsa.PublicKey:
-		err = rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], signature)
-		return err == nil, nil
-	default:
-		return false,
-			errors.New("Not supported public key type: only ECDSA and RSA are supported")
-	}
+	err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hashed[:], signature)
+	return err == nil, nil
 }
 
 func (e *Editor) GenerateToken(password []byte) ([]byte, error) {
@@ -304,12 +270,12 @@ func (e *Editor) VerifyToken(token []byte) (bool, error) {
 	return e.VerifySignature(hashed, sig)
 }
 
-func (e *Editor) privateKey(password []byte) (*ecdsa.PrivateKey, error) {
+func (e *Editor) privateKey(password []byte) (*rsa.PrivateKey, error) {
 	if !e.HasPrivateKey() {
 		return nil, fmt.Errorf("No private key stored for this editor")
 	}
 
-	var privateKey *ecdsa.PrivateKey
+	var privateKey *rsa.PrivateKey
 	var err error
 	if len(e.privateKeyBytesEncrypted) > 0 {
 		privateKey, err = decryptPrivateKey(e.privateKeyBytesEncrypted, e.name, password)
@@ -323,7 +289,7 @@ func (e *Editor) privateKey(password []byte) (*ecdsa.PrivateKey, error) {
 	return privateKey, err
 }
 
-func (e *Editor) PublicKey() (interface{}, error) {
+func (e *Editor) PublicKey() (*rsa.PublicKey, error) {
 	if e.publicKey == nil {
 		var err error
 		e.publicKey, err = unmarshalPublicKey(e.publicKeyBytes)
@@ -342,12 +308,12 @@ func (e *Editor) HasEncryptedPrivateKey() bool {
 	return len(e.privateKeyBytesEncrypted) > 0
 }
 
-func marshalAndEncryptPrivateKey(privateKey *ecdsa.PrivateKey, editorName string, pass []byte) ([]byte, error) {
+func marshalAndEncryptPrivateKey(privateKey *rsa.PrivateKey, editorName string, pass []byte) ([]byte, error) {
 	if len(pass) == 0 {
 		panic("password is empty")
 	}
 
-	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	privateKeyBytes, err := marshalPrivateKey(privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +345,7 @@ func marshalAndEncryptPrivateKey(privateKey *ecdsa.PrivateKey, editorName string
 	return asn1.Marshal(keyData)
 }
 
-func decryptPrivateKey(privateKeyBytesEncrypted []byte, editorName string, pass []byte) (*ecdsa.PrivateKey, error) {
+func decryptPrivateKey(privateKeyBytesEncrypted []byte, editorName string, pass []byte) (*rsa.PrivateKey, error) {
 	var keyData struct {
 		Key   []byte
 		Nonce []byte
@@ -433,40 +399,130 @@ func createAEADCipherFromPassWithKeyDerivation(pass, salt []byte) (cipher.AEAD, 
 	return aesgcm, nil
 }
 
-func unmarshalPrivateKey(privateKeyBytes []byte) (*ecdsa.PrivateKey, error) {
-	return x509.ParseECPrivateKey(privateKeyBytes)
+func unmarshalPrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
+	return x509.ParsePKCS1PrivateKey(privateKeyBytes)
 }
 
-func marshalPrivateKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
-	return x509.MarshalECPrivateKey(privateKey)
+func marshalPrivateKey(privateKey *rsa.PrivateKey) ([]byte, error) {
+	return x509.MarshalPKCS1PrivateKey(privateKey), nil
 }
 
 func marshalPublicKey(publicKey interface{}) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(publicKey)
 }
 
-func unmarshalPublicKey(publicKeyBytes []byte) (interface{}, error) {
-	if bytes.HasPrefix(publicKeyBytes, []byte("-----BEGIN")) {
-		block, _ := pem.Decode(publicKeyBytes)
-		if block == nil {
-			return nil, fmt.Errorf("Failed to parse PEM block containing the public key")
+func unmarshalPublicKey(publicKeyBytes []byte) (*rsa.PublicKey, error) {
+	var publicKey *rsa.PublicKey
+
+	if bytes.HasPrefix(publicKeyBytes, []byte("ssh-rsa ")) {
+		sshFields := bytes.Fields(publicKeyBytes)
+		if len(sshFields) < 2 {
+			return nil, fmt.Errorf("Failed to parse SSH public key file")
 		}
-		if block.Type != pubKeyBlocType {
-			return nil, fmt.Errorf(`Bad PEM block type, got "%s" expecting "%s"`,
-				block.Type, pubKeyBlocType)
+		var ok bool
+		publicKey, ok = unmarshalSSHPublicRSAKey(sshFields[1])
+		if !ok {
+			return nil, fmt.Errorf("Failed to parse SSH public key file")
 		}
-		publicKeyBytes = block.Bytes
+	} else {
+		if bytes.HasPrefix(publicKeyBytes, []byte("-----BEGIN")) {
+			block, _ := pem.Decode(publicKeyBytes)
+			if block == nil {
+				return nil, fmt.Errorf("Failed to parse PEM block containing the public key")
+			}
+			if block.Type != pubKeyBlocType {
+				return nil, fmt.Errorf(`Bad PEM block type, got "%s" expecting "%s"`,
+					block.Type, pubKeyBlocType)
+			}
+			publicKeyBytes = block.Bytes
+		}
+
+		untypedPublicKey, err := x509.ParsePKIXPublicKey(publicKeyBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		var ok bool
+		publicKey, ok = untypedPublicKey.(*rsa.PublicKey)
+		if !ok {
+			return nil, errors.New("Not supported public key type: only RSA is supported")
+		}
 	}
-	pub, err := x509.ParsePKIXPublicKey(publicKeyBytes)
+
+	if bitLen := publicKey.N.BitLen(); bitLen < 2048 {
+		return nil, fmt.Errorf("Public key length is too small: %d bits (expecting at least %d bits)", bitLen, 2048)
+	}
+
+	return publicKey, nil
+}
+
+func unmarshalSSHPublicRSAKey(encoded []byte) (key *rsa.PublicKey, ok bool) {
+	data, err := base64.StdEncoding.DecodeString(string(encoded))
 	if err != nil {
-		return nil, err
+		return
 	}
-	switch pub.(type) {
-	case *ecdsa.PublicKey, *rsa.PublicKey:
-	default:
-		return nil, errors.New("Not supported public key type: only ecdsa and rsa are supported")
+
+	var algo []byte
+	algo, data, ok = readSSHMessage(data)
+	if !ok {
+		return
 	}
-	return pub, nil
+	if !bytes.Equal(algo, []byte("ssh-rsa")) {
+		ok = false
+		return
+	}
+
+	var e, n *big.Int
+	var buf []byte
+	e = new(big.Int)
+	n = new(big.Int)
+	buf, data, ok = readSSHMessage(data)
+	if !ok {
+		return
+	}
+	e.SetBytes(buf)
+
+	if e.BitLen() > 24 {
+		ok = false
+		return
+	}
+	exp := e.Int64()
+	if exp < 3 || exp&1 == 0 {
+		ok = false
+		return
+	}
+
+	buf, data, ok = readSSHMessage(data)
+	if !ok {
+		return
+	}
+	if len(data) != 0 {
+		ok = false
+		return
+	}
+
+	n.SetBytes(buf)
+
+	key = new(rsa.PublicKey)
+	key.E = int(exp)
+	key.N = n
+	ok = true
+	return
+}
+
+func readSSHMessage(in []byte) (out []byte, rest []byte, ok bool) {
+	if len(in) < 4 {
+		return
+	}
+	length := binary.BigEndian.Uint32(in)
+	in = in[4:]
+	if uint32(len(in)) < length {
+		return
+	}
+	out = in[:length]
+	rest = in[length:]
+	ok = true
+	return
 }
 
 func generateRandomBytes(n int) []byte {

@@ -104,7 +104,7 @@ var serveCmd = &cobra.Command{
 }
 
 var printPublicKeyCmd = &cobra.Command{
-	Use: "printpub [editor]",
+	Use: "pubkey [editor]",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
 			return fmt.Errorf("Missing argument for editor name")
@@ -121,7 +121,7 @@ var printPublicKeyCmd = &cobra.Command{
 }
 
 var printPrivateKeyCmd = &cobra.Command{
-	Use: "printpriv [editor]",
+	Use: "privkey [editor]",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
 			return fmt.Errorf("Missing argument for editor name")
@@ -164,7 +164,7 @@ var genSignatureCmd = &cobra.Command{
 			return fmt.Errorf("Missing path to file to sign")
 		}
 
-		editorName, filePath := args[0], args[1]
+		editorName, filePath := args[0], registry.AbsPath(args[1])
 		f, err := os.Open(filePath)
 		if err != nil {
 			return fmt.Errorf("Failed to open file %s: %s", filePath, err)
@@ -215,7 +215,7 @@ var verifySignatureCmd = &cobra.Command{
 			return fmt.Errorf("Missing path to file to check signature against")
 		}
 
-		editorName, filePath := args[0], args[1]
+		editorName, filePath := args[0], registry.AbsPath(args[1])
 		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
@@ -403,7 +403,7 @@ generate a token or sign an application for you.
 					break
 				}
 
-				passwordConfirmation, err := askPassword("Confirm: ")
+				passwordConfirmation, err := askPassword("Confirm passphrase: ")
 				if err != nil {
 					return err
 				}
@@ -432,6 +432,7 @@ generate a token or sign an application for you.
 					return err
 				}
 
+				publicKeyPath = registry.AbsPath(publicKeyPath)
 				publicKeyFile, err := os.Open(publicKeyPath)
 				if os.IsNotExist(err) {
 					fmt.Printf("File %s does not exist. Please retry.\n", publicKeyPath)
@@ -498,7 +499,7 @@ func askQuestion(r *bufio.Reader, question string, a ...interface{}) (bool, erro
 
 func askPassword(prompt ...string) ([]byte, error) {
 	if len(prompt) == 0 {
-		fmt.Fprintf(os.Stderr, "Password: ")
+		fmt.Fprintf(os.Stderr, "Enter passphrase: ")
 	} else {
 		fmt.Fprintf(os.Stderr, prompt[0])
 	}

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
 	"github.com/cozy/cozy-registry-v3/registry"
 
@@ -28,7 +29,8 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor, ""); err != nil {
+	_, err = checkPermissions(c, app.Editor, "")
+	if err != nil {
 		return err
 	}
 	if err = registry.CreateOrUpdateApp(app); err != nil {
@@ -52,10 +54,11 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = checkPermissions(c, app.Editor, ver.Sha256); err != nil {
+	editor, err := checkPermissions(c, app.Editor, ver.Sha256)
+	if err != nil {
 		return err
 	}
-	if err = registry.CreateVersion(ver); err != nil {
+	if err = registry.CreateVersion(ver, editor); err != nil {
 		return err
 	}
 	// Do not show internal identifier and revision
@@ -64,10 +67,10 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
-func checkPermissions(c echo.Context, editorName, versionHash string) error {
+func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Editor, error) {
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
-		return errUnauthorized
+		return nil, errUnauthorized
 	}
 
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
@@ -75,54 +78,54 @@ func checkPermissions(c echo.Context, editorName, versionHash string) error {
 	case strings.HasPrefix(authHeader, "Token "):
 		tokenStr := authHeader[len("Token "):]
 		if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		token, err := base64.StdEncoding.DecodeString(tokenStr)
 		if err != nil {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		ok, err := editor.VerifyToken(token)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
 				tokenStr, editorName, err.Error())
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		if ok {
-			return nil
+			return editor, nil
 		}
 	case strings.HasPrefix(authHeader, "Signature "):
 		if len(versionHash) == 0 {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		signatureStr := authHeader[len("Signature "):]
 		if len(signatureStr) != 44 {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		signature, err := base64.StdEncoding.DecodeString(signatureStr)
 		if err != nil {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		hashed, err := hex.DecodeString(versionHash)
 		if err != nil {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		ok, err := editor.VerifySignature(hashed, signature)
 		if err != nil {
-			return errUnauthorized
+			return nil, errUnauthorized
 		}
 
 		if ok {
-			return nil
+			return editor, nil
 		}
 	}
-	return errUnauthorized
+	return nil, errUnauthorized
 }
 
 func getAppsList(c echo.Context) error {
