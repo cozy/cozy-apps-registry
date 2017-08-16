@@ -20,10 +20,6 @@ import (
 )
 
 func marshalAndEncryptPrivateKey(privateKey *rsa.PrivateKey, editorName string, pass []byte) ([]byte, error) {
-	if len(pass) == 0 {
-		panic("password is empty")
-	}
-
 	privateKeyBytes, err := marshalPrivateKey(privateKey)
 	if err != nil {
 		return nil, err
@@ -83,6 +79,9 @@ func decryptPrivateKey(privateKeyBytesEncrypted []byte, editorName string, pass 
 }
 
 func createAEADCipherFromPassWithKeyDerivation(pass, salt []byte) (cipher.AEAD, error) {
+	if len(pass) == 0 {
+		panic("password is empty")
+	}
 	if len(salt) != saltLen {
 		return nil, fmt.Errorf("bad salt length %d != %d", len(salt), saltLen)
 	}
