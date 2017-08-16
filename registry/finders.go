@@ -1,8 +1,11 @@
 package registry
 
 import (
+	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/flimzy/kivik"
 )
 
 var validFilters = []string{
@@ -13,6 +16,14 @@ var validFilters = []string{
 
 const maxLimit = 200
 
+func getVersionID(appName, version string) string {
+	return getAppID(appName) + "-" + version
+}
+
+func getAppID(appName string) string {
+	return strings.ToLower(appName)
+}
+
 func FindApp(appName string) (*App, error) {
 	if !validAppNameReg.MatchString(appName) {
 		return nil, ErrAppInvalid
@@ -21,21 +32,17 @@ func FindApp(appName string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	req := sprintfJSON(`{
-  "selector": { "name": %s },
-  "limit": 1
-}`, appName)
 
-	rows, err := db.Find(ctx, req)
+	row, err := db.Get(ctx, getAppID(appName))
+	if kivik.StatusCode(err) == http.StatusNotFound {
+		return nil, ErrAppNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	if !rows.Next() {
-		return nil, ErrAppNotFound
-	}
+
 	var doc *App
-	if err = rows.ScanDoc(&doc); err != nil {
+	if err = row.ScanDoc(&doc); err != nil {
 		return nil, err
 	}
 
@@ -53,26 +60,22 @@ func FindVersion(appName, version string) (*Version, error) {
 	if !validVersionReg.MatchString(version) {
 		return nil, ErrVersionMismatch
 	}
+
 	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return nil, err
 	}
 
-	req := sprintfJSON(`{
-  "selector": { "name": %s, "version": %s },
-  "limit": 1
-}`, appName, version)
-
-	rows, err := db.Find(ctx, req)
+	row, err := db.Get(ctx, getVersionID(appName, version))
+	if kivik.StatusCode(err) == http.StatusNotFound {
+		return nil, ErrVersionNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	if !rows.Next() {
-		return nil, ErrVersionNotFound
-	}
+
 	var doc *Version
-	if err := rows.ScanDoc(&doc); err != nil {
+	if err := row.ScanDoc(&doc); err != nil {
 		return nil, err
 	}
 	return doc, nil

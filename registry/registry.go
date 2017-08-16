@@ -22,13 +22,13 @@ import (
 	"github.com/cozy/echo"
 
 	"github.com/flimzy/kivik"
-	_ "github.com/flimzy/kivik/driver/couchdb"
+	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
 )
 
-const maxManifestSize = 100 * 1024 // 100 Ko
+const maxManifestSize = 10 * 1024 * 1024 // 10 Mo
 
 var (
-	validAppNameReg = regexp.MustCompile(`^[a-z0-9\-]+$`)
+	validAppNameReg = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
@@ -240,6 +240,8 @@ func CreateOrUpdateApp(app *App) error {
 	}
 	if err == ErrAppNotFound {
 		now := time.Now()
+		app.ID = getAppID(app.Name)
+		app.Name = app.ID
 		app.Editor = strings.ToLower(app.Editor)
 		app.CreatedAt = now
 		app.UpdatedAt = now
@@ -313,6 +315,8 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		return err
 	}
 
+	ver.ID = getVersionID(app.Name, ver.Version)
+	ver.Name = app.Name
 	ver.Manifest = man
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now()
@@ -384,6 +388,12 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		if err == io.EOF {
 			break
 		}
+		if err == io.ErrUnexpectedEOF {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: file is too big %s",
+				ver.URL, err.Error())
+			return
+		}
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s",
@@ -418,13 +428,6 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		}
 	}
 
-	if counter.Written() != ver.Size {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Size of the version does not match with the calculated one: expected %d and got %d",
-			ver.Size, counter.Written())
-		return
-	}
-
 	shasum, _ := hex.DecodeString(ver.Sha256)
 	if !bytes.Equal(shasum, h.Sum(nil)) {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -432,10 +435,15 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		return
 	}
 
+	if counter.Written() != ver.Size {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Size of the version does not match with the calculated one: expected %d and got %d",
+			ver.Size, counter.Written())
+		return
+	}
+
 	if len(ver.Signature) > 0 {
-		var ok bool
-		ok, err = editor.VerifySignature(shasum, ver.Signature)
-		if err != nil || !ok {
+		if !editor.VerifySignature(shasum, ver.Signature) {
 			err = errshttp.NewError(http.StatusUnprocessableEntity, "Bad signature")
 			return
 		}

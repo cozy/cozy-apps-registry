@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,10 +70,8 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 	if err != nil {
 		return nil, errUnauthorized
 	}
-
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	switch {
-	case strings.HasPrefix(authHeader, "Token "):
+	if strings.HasPrefix(authHeader, "Token ") {
 		tokenStr := authHeader[len("Token "):]
 		if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
 			return nil, errUnauthorized
@@ -86,44 +82,11 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 			return nil, errUnauthorized
 		}
 
-		ok, err := editor.VerifyToken(token)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Received bad token=%s for editor=%s: %s\n",
-				tokenStr, editorName, err.Error())
+		ok := editor.VerifySessionToken(token)
+		if !ok {
 			return nil, errUnauthorized
 		}
-
-		if ok {
-			return editor, nil
-		}
-	case strings.HasPrefix(authHeader, "Signature "):
-		if len(versionHash) == 0 {
-			return nil, errUnauthorized
-		}
-
-		signatureStr := authHeader[len("Signature "):]
-		if len(signatureStr) != 44 {
-			return nil, errUnauthorized
-		}
-
-		signature, err := base64.StdEncoding.DecodeString(signatureStr)
-		if err != nil {
-			return nil, errUnauthorized
-		}
-
-		hashed, err := hex.DecodeString(versionHash)
-		if err != nil {
-			return nil, errUnauthorized
-		}
-
-		ok, err := editor.VerifySignature(hashed, signature)
-		if err != nil {
-			return nil, errUnauthorized
-		}
-
-		if ok {
-			return editor, nil
-		}
+		return editor, nil
 	}
 	return nil, errUnauthorized
 }
@@ -137,7 +100,7 @@ func getAppsList(c echo.Context) error {
 			continue
 		}
 		val := vals[0]
-		if len(val) > 1024 {
+		if len(val) > 256 {
 			return errshttp.NewError(http.StatusBadRequest, "Query param too big")
 		}
 		if name == "limit" {
@@ -316,7 +279,7 @@ func httpErrorHandler(err error, c echo.Context) {
 		if c.Request().Method == echo.HEAD {
 			c.NoContent(code)
 		} else {
-			c.JSON(code, echo.Map{"message": msg})
+			c.JSON(code, echo.Map{"error": msg})
 		}
 	}
 }

@@ -25,7 +25,6 @@ var hostFlag string
 var couchAddrFlag string
 var couchUserFlag string
 var couchPassFlag string
-var editorRegistryFlag string
 
 func init() {
 	rootCmd.PersistentFlags().IntVar(&portFlag, "port", 8080, "specify the port to listen on")
@@ -33,7 +32,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&couchAddrFlag, "couchdb-addr", "localhost:5984", "specify the address of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchUserFlag, "couchdb-user", "", "specify the user of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchPassFlag, "couchdb-password", "", "specify the password of couchdb")
-	rootCmd.PersistentFlags().StringVar(&editorRegistryFlag, "editor-registry", "couchdb", "used to specify the editors registry (file:./filename or couchdb)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(printPublicKeyCmd)
@@ -63,30 +61,14 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			printAndExit("Could not reach CouchDB: %s", err)
 		}
-
-		regOpts := strings.SplitN(editorRegistryFlag, ":", 2)
-		var vault auth.EditorVault
-		switch regOpts[0] {
-		case "file":
-			if len(regOpts) != 2 {
-				printAndExit("Bad -editor-registry option: missing filename (ie -editor-registry text:./filename)")
-			}
-			filename := regOpts[1]
-			vault, err = auth.NewFileVault(filename)
-		case "couch", "couchdb":
-			vault, err = auth.NewCouchdbVault(client, registry.EditorsDB)
-		default:
-			printAndExit("Bad -editor-registry option: unknown type %s", regOpts[0])
-		}
+		vault, err := auth.NewCouchdbVault(client, registry.EditorsDB)
 		if err != nil {
-			printAndExit("Could not initialize the editor registry: %s", err)
+			printAndExit("Could not create vault: %s", err)
 		}
-
 		editorRegistry, err = auth.NewEditorRegistry(vault)
 		if err != nil {
 			printAndExit("Error while loading editor registry: %s", err)
 		}
-
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,7 +77,8 @@ var rootCmd = &cobra.Command{
 }
 
 var serveCmd = &cobra.Command{
-	Use: "serve",
+	Use:   "serve",
+	Short: `Start the registry HTTP server`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address := hostFlag + ":" + strconv.Itoa(portFlag)
 		fmt.Printf("Listening on %s...\n", address)
@@ -104,13 +87,15 @@ var serveCmd = &cobra.Command{
 }
 
 var printPublicKeyCmd = &cobra.Command{
-	Use: "pubkey [editor]",
+	Use:   "pubkey [editor]",
+	Short: `Print the PEM encoded public key of the specified editor`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return fmt.Errorf("Missing argument for editor name")
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
 		}
 
-		editor, err := editorRegistry.GetEditor(args[0])
+		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return err
 		}
@@ -121,13 +106,15 @@ var printPublicKeyCmd = &cobra.Command{
 }
 
 var printPrivateKeyCmd = &cobra.Command{
-	Use: "privkey [editor]",
+	Use:   "privkey [editor]",
+	Short: `Print the PEM encoded private key of the specified editor`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return fmt.Errorf("Missing argument for editor name")
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
 		}
 
-		editor, err := editorRegistry.GetEditor(args[0])
+		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return err
 		}
@@ -155,21 +142,28 @@ var printPrivateKeyCmd = &cobra.Command{
 }
 
 var genSignatureCmd = &cobra.Command{
-	Use: "sign [editor]",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return fmt.Errorf("Missing argument for editor name")
-		}
-		if len(args) < 2 {
-			return fmt.Errorf("Missing path to file to sign")
+	Use:   "sign [editor] [file]",
+	Short: `Generate a signature for a specified editor and file`,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var editorName string
+		editorName, args, err = getEditorName(args)
+		if err != nil {
+			return err
 		}
 
-		editorName, filePath := args[0], registry.AbsPath(args[1])
-		f, err := os.Open(filePath)
-		if err != nil {
-			return fmt.Errorf("Failed to open file %s: %s", filePath, err)
+		var r io.Reader
+		if len(args) > 0 && args[0] != "-" {
+			var f *os.File
+			filePath := registry.AbsPath(args[1])
+			f, err = os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("Failed to open file %s: %s", filePath, err)
+			}
+			defer f.Close()
+			r = f
+		} else {
+			r = os.Stdin
 		}
-		defer f.Close()
 
 		var password []byte
 		editor, err := editorRegistry.GetEditor(editorName)
@@ -188,16 +182,15 @@ var genSignatureCmd = &cobra.Command{
 		}
 
 		hash := sha256.New()
-		_, err = io.Copy(hash, f)
+		_, err = io.Copy(hash, r)
 		if err != nil {
-			return fmt.Errorf("Could not read file %s: %s", filePath, err)
+			return fmt.Errorf("Error while reading file: %s", err)
 		}
 		hashed := hash.Sum(nil)
 
 		signature, err := editor.GenerateSignature(hashed, password)
 		if err != nil {
-			return fmt.Errorf("Could not generate editor signature for %s: %s",
-				filePath, err)
+			return fmt.Errorf("Could not generate editor signature: %s", err)
 		}
 
 		fmt.Println(base64.StdEncoding.EncodeToString(signature))
@@ -206,16 +199,18 @@ var genSignatureCmd = &cobra.Command{
 }
 
 var verifySignatureCmd = &cobra.Command{
-	Use: "verify [editor] [file]",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return fmt.Errorf("Missing argument for editor name")
+	Use:   "verify [editor] [file]",
+	Short: `Verify a signature given via stdin for a specified editor and file`,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var editorName string
+		editorName, args, err = getEditorName(args)
+		if err != nil {
+			return err
 		}
-		if len(args) < 2 {
-			return fmt.Errorf("Missing path to file to check signature against")
+		if len(args) == 0 {
+			return fmt.Errorf("Missing argument for file path")
 		}
 
-		editorName, filePath := args[0], registry.AbsPath(args[1])
 		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
@@ -228,6 +223,7 @@ var verifySignatureCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(os.Stderr, "ok")
+		filePath := registry.AbsPath(args[0])
 		f, err := os.Open(filePath)
 		if err != nil {
 			return fmt.Errorf("Failed to open file %s: %s", filePath, err)
@@ -247,11 +243,7 @@ var verifySignatureCmd = &cobra.Command{
 		}
 
 		fmt.Fprintf(os.Stderr, "Checking signature...")
-		ok, err := editor.VerifySignature(hashed, signature)
-		if err != nil {
-			return fmt.Errorf("failed: %s", err)
-		}
-		if !ok {
+		if !editor.VerifySignature(hashed, signature) {
 			return fmt.Errorf("failed: bad signature")
 		}
 		fmt.Fprintln(os.Stderr, "ok")
@@ -261,14 +253,15 @@ var verifySignatureCmd = &cobra.Command{
 }
 
 var genTokenCmd = &cobra.Command{
-	Use: "gen-token [editor]",
+	Use:   "gen-token [editor]",
+	Short: `Generate a token for the specified editor`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return fmt.Errorf("Missing argument for editor name")
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
 		}
 
-		var password []byte
-		editor, err := editorRegistry.GetEditor(args[0])
+		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
@@ -276,6 +269,7 @@ var genTokenCmd = &cobra.Command{
 			return fmt.Errorf("Editor %s has no private key stored in the registry",
 				editor.Name())
 		}
+		var password []byte
 		if editor.HasEncryptedPrivateKey() {
 			password, err = askPassword()
 			if err != nil {
@@ -283,10 +277,10 @@ var genTokenCmd = &cobra.Command{
 			}
 		}
 
-		token, err := editor.GenerateToken(password)
+		token, err := editor.GenerateSessionToken(password)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %s: %s",
-				args[0], err)
+				editorName, err)
 		}
 
 		fmt.Println(base64.StdEncoding.EncodeToString(token))
@@ -295,13 +289,15 @@ var genTokenCmd = &cobra.Command{
 }
 
 var verifyTokenCmd = &cobra.Command{
-	Use: "verify-token [editor]",
+	Use:   "verify-token [editor]",
+	Short: `Verify a token given via stdin for the specified editor`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return fmt.Errorf("Missing argument for editor name")
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
 		}
 
-		editor, err := editorRegistry.GetEditor(args[0])
+		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
@@ -323,11 +319,7 @@ var verifyTokenCmd = &cobra.Command{
 		}
 
 		fmt.Fprintf(os.Stderr, "Checking token...")
-		ok, err := editor.VerifyToken(token)
-		if err != nil {
-			return fmt.Errorf("failed: not properly encoded: %s", err)
-		}
-		if !ok {
+		if !editor.VerifySessionToken(token) {
 			return fmt.Errorf("failed: bad token")
 		}
 		fmt.Fprintln(os.Stderr, "ok")
@@ -336,37 +328,20 @@ var verifyTokenCmd = &cobra.Command{
 }
 
 var addEditorCmd = &cobra.Command{
-	Use: "add-editor [editor]",
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		stdin := bufio.NewReader(os.Stdin)
-
-		var editorName string
-		if len(args) == 0 {
-			for {
-				fmt.Printf("Editor name: ")
-				editorName, err = readLine(stdin)
-				if err != nil {
-					return err
-				}
-				if err = auth.MatchEditorName(editorName); err != nil {
-					fmt.Println(err.Error())
-					continue
-				}
-				_, err = editorRegistry.GetEditor(editorName)
-				if err == nil {
-					fmt.Printf("Editor \"%s\" already exists\n", editorName)
-					continue
-				}
-				break
-			}
-		} else {
-			editorName = args[0]
+	Use:   "add-editor [editor]",
+	Short: `Add an editor to the registry though an interactive CLI`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
+		}
+		_, err = editorRegistry.GetEditor(editorName)
+		if err == nil {
+			fmt.Printf("Editor \"%s\" already exists\n", editorName)
 		}
 
 		var privateKeyPassword []byte
-		var editor *auth.Editor
-
-		genPrivateKey, err := askQuestion(stdin, "Generate a new private key for editor \"%s\" ?", editorName)
+		genPrivateKey, err := askQuestion(true, "Generate a new private key for editor \"%s\" ?", editorName)
 		if err != nil {
 			return err
 		}
@@ -392,8 +367,7 @@ generate a token or sign an application for you.
 
 				if len(privateKeyPassword) == 0 {
 					var noEncrypt bool
-					noEncrypt, err = askQuestion(stdin,
-						"No password given, are you sure you do *not* want to encrypt your private key ?")
+					noEncrypt, err = askQuestion(true, "No password given. Do NOT want to encrypt the private key ?")
 					if err != nil {
 						return err
 					}
@@ -403,7 +377,8 @@ generate a token or sign an application for you.
 					break
 				}
 
-				passwordConfirmation, err := askPassword("Confirm passphrase: ")
+				var passwordConfirmation []byte
+				passwordConfirmation, err = askPassword("Confirm passphrase: ")
 				if err != nil {
 					return err
 				}
@@ -417,7 +392,7 @@ generate a token or sign an application for you.
 
 		if genPrivateKey {
 			fmt.Printf("\nCreating new editor and key pair...")
-			editor, err = auth.CreateEditorAndPrivateKey(editorName, privateKeyPassword)
+			_, err = editorRegistry.CreateEditorAndPrivateKey(editorName, privateKeyPassword)
 			if err != nil {
 				fmt.Println("failed.")
 				return err
@@ -427,13 +402,15 @@ generate a token or sign an application for you.
 
 			for {
 				fmt.Printf("Path to public key file: ")
-				publicKeyPath, err := readLine(stdin)
+				var publicKeyPath string
+				var publicKeyFile *os.File
+				publicKeyPath, err = readLine()
 				if err != nil {
 					return err
 				}
 
 				publicKeyPath = registry.AbsPath(publicKeyPath)
-				publicKeyFile, err := os.Open(publicKeyPath)
+				publicKeyFile, err = os.Open(publicKeyPath)
 				if os.IsNotExist(err) {
 					fmt.Printf("File %s does not exist. Please retry.\n", publicKeyPath)
 					continue
@@ -451,23 +428,40 @@ generate a token or sign an application for you.
 			}
 
 			fmt.Printf("\nCreating new editor with given public key...")
-			editor, err = auth.CreateEditorWithPublicKey(editorName, encodedPublicKey)
+			_, err = editorRegistry.CreateEditorWithPublicKey(editorName, encodedPublicKey)
 			if err != nil {
 				fmt.Println("failed.")
 				return err
 			}
 		}
+
 		fmt.Println("ok.")
-
-		if err = editorRegistry.AddEditor(editor); err != nil {
-			return fmt.Errorf("Could not add a new editor: %s", err)
-		}
-
 		return nil
 	},
 }
 
-func readLine(r *bufio.Reader) (string, error) {
+func getEditorName(args []string) (editorName string, rest []string, err error) {
+	if len(args) > 0 {
+		editorName, rest = args[0], args[1:]
+		err = auth.CkeckEditorName(editorName)
+		return
+	}
+	for {
+		fmt.Printf("Editor name: ")
+		editorName, err = readLine()
+		if err != nil {
+			return
+		}
+		if err = auth.CkeckEditorName(editorName); err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
+			continue
+		}
+		return
+	}
+}
+
+func readLine() (string, error) {
+	r := bufio.NewReader(os.Stdin)
 	s, err := r.ReadString('\n')
 	if err != nil {
 		return s, err
@@ -478,20 +472,27 @@ func readLine(r *bufio.Reader) (string, error) {
 	return s[:len(s)-1], nil
 }
 
-func askQuestion(r *bufio.Reader, question string, a ...interface{}) (bool, error) {
+func askQuestion(defaultResponse bool, question string, a ...interface{}) (bool, error) {
+	if defaultResponse {
+		question += " [Y/n] "
+	} else {
+		question += " [y/N] "
+	}
+	fmt.Printf(question, a...)
 	for {
-		fmt.Printf(question+" [y/N] ", a...)
-		resp, err := readLine(r)
+		resp, err := readLine()
 		if err != nil {
 			return false, err
 		}
 		switch strings.ToLower(resp) {
 		case "y", "yes":
 			return true, nil
-		case "", "n", "no":
+		case "n", "no":
 			return false, nil
+		case "":
+			return defaultResponse, nil
 		default:
-			fmt.Println(`Please respond with with "yes" or "no"`)
+			fmt.Printf(`Respond with "yes" or "no": `)
 			continue
 		}
 	}

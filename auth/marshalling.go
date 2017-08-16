@@ -29,13 +29,13 @@ func marshalAndEncryptPrivateKey(privateKey *rsa.PrivateKey, editorName string, 
 		return nil, err
 	}
 
-	salt := generateRandomBytes(saltLen)
+	salt := readRand(saltLen)
 	aead, err := createAEADCipherFromPassWithKeyDerivation(pass, salt)
 	if err != nil {
 		return nil, err
 	}
 
-	nonce := generateRandomBytes(nonceLen)
+	nonce := readRand(nonceLen)
 	additionalData := []byte(editorName)
 
 	privateKeyBytesEncrypted, err := aead.Seal(nil, nonce, privateKeyBytes, additionalData), nil
@@ -176,7 +176,7 @@ func unmarshalSSHPublicRSAKey(encoded []byte) (key *rsa.PublicKey, ok bool) {
 	var readok bool
 	var algo []byte
 	algo, data, readok = readSSHMessage(data)
-	if !readok || !bytes.Equal(algo, []byte("ssh-rsa")) {
+	if !readok || string(algo) != "ssh-rsa" {
 		return
 	}
 
@@ -190,8 +190,8 @@ func unmarshalSSHPublicRSAKey(encoded []byte) (key *rsa.PublicKey, ok bool) {
 	}
 	e.SetBytes(buf)
 
-	exp := e.Int64()
-	if e.BitLen() > 24 || exp < 3 || exp&1 == 0 {
+	exp := int(e.Int64())
+	if exp < 2 || exp > 1<<31-1 {
 		return
 	}
 
@@ -203,7 +203,7 @@ func unmarshalSSHPublicRSAKey(encoded []byte) (key *rsa.PublicKey, ok bool) {
 	n.SetBytes(buf)
 
 	key = new(rsa.PublicKey)
-	key.E = int(exp)
+	key.E = exp
 	key.N = n
 	ok = true
 	return
@@ -224,9 +224,10 @@ func readSSHMessage(in []byte) (out []byte, rest []byte, ok bool) {
 	return
 }
 
-func generateRandomBytes(n int) []byte {
+func readRand(n int) []byte {
 	b := make([]byte, n)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
 		panic(err)
 	}
 	return b
