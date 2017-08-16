@@ -120,19 +120,19 @@ var printPrivateKeyCmd = &cobra.Command{
 			return err
 		}
 
-		var password []byte
+		var passphrase []byte
 		if !editor.HasPrivateKey() {
 			return fmt.Errorf("Editor %s has no private key stored in the registry",
 				editor.Name())
 		}
 		if editor.HasEncryptedPrivateKey() {
-			password, err = askPassword()
+			passphrase, err = askPassword()
 			if err != nil {
 				return err
 			}
 		}
 
-		privateKeyPEM, err := editor.MarshalPrivateKeyPEM(password)
+		privateKeyPEM, err := editor.MarshalPrivateKeyPEM(passphrase)
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ var genSignatureCmd = &cobra.Command{
 			r = os.Stdin
 		}
 
-		var password []byte
+		var passphrase []byte
 		editor, err := editorRegistry.GetEditor(editorName)
 		if err != nil {
 			return fmt.Errorf("Error while getting editor: %s", err)
@@ -176,7 +176,7 @@ var genSignatureCmd = &cobra.Command{
 				editor.Name())
 		}
 		if editor.HasEncryptedPrivateKey() {
-			password, err = askPassword()
+			passphrase, err = askPassword()
 			if err != nil {
 				return err
 			}
@@ -189,7 +189,7 @@ var genSignatureCmd = &cobra.Command{
 		}
 		hashed := hash.Sum(nil)
 
-		signature, err := editor.GenerateSignature(hashed, password)
+		signature, err := editor.GenerateSignature(hashed, passphrase)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor signature: %s", err)
 		}
@@ -270,15 +270,15 @@ var genTokenCmd = &cobra.Command{
 			return fmt.Errorf("Editor %s has no private key stored in the registry",
 				editor.Name())
 		}
-		var password []byte
+		var passphrase []byte
 		if editor.HasEncryptedPrivateKey() {
-			password, err = askPassword()
+			passphrase, err = askPassword()
 			if err != nil {
 				return err
 			}
 		}
 
-		token, err := editor.GenerateSessionToken(password)
+		token, err := editor.GenerateSessionToken(passphrase)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %s: %s",
 				editorName, err)
@@ -370,7 +370,7 @@ var addEditorCmd = &cobra.Command{
 We are going to generate an new private/public key pair that are going to be
 stored and associated with the editor. The generated private key is
 ECDSA P-256, it will be encrypted using AES-256-GCM with a key derived from a
-password of your choosing. The derivation function used on the password is
+passphrase of your choosing. The derivation function used on the passphrase is
 scrypt with a 16 bytes salt.
 
 To add an application, you will be able to use the cozy-registry-v3 tool or to
@@ -386,7 +386,7 @@ generate a token or sign an application for you.
 
 				if len(privateKeyPassword) == 0 {
 					var noEncrypt bool
-					noEncrypt, err = askQuestion(true, "No password given. Do NOT want to encrypt the private key ?")
+					noEncrypt, err = askQuestion(true, "No passphrase given. Do NOT want to encrypt the private key ?")
 					if err != nil {
 						return err
 					}
@@ -396,12 +396,12 @@ generate a token or sign an application for you.
 					break
 				}
 
-				var passwordConfirmation []byte
-				passwordConfirmation, err = askPassword("Confirm passphrase: ")
+				var passphraseConfirmation []byte
+				passphraseConfirmation, err = askPassword("Confirm passphrase: ")
 				if err != nil {
 					return err
 				}
-				if !bytes.Equal(privateKeyPassword, passwordConfirmation) {
+				if !bytes.Equal(privateKeyPassword, passphraseConfirmation) {
 					fmt.Printf("Password missmatch. Please retry.\n\n")
 					continue
 				}

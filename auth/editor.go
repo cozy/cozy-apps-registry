@@ -33,8 +33,8 @@ func (e *Editor) MarshalPublicKeyPEM() string {
 	return string(pem.EncodeToMemory(block))
 }
 
-func (e *Editor) MarshalPrivateKeyPEM(password []byte) (string, error) {
-	privateKey, err := e.privateKey(password)
+func (e *Editor) MarshalPrivateKeyPEM(passphrase []byte) (string, error) {
+	privateKey, err := e.privateKey(passphrase)
 	if err != nil {
 		return "", err
 	}
@@ -59,12 +59,12 @@ func (e *Editor) IsComplete() bool {
 		len(e.sessionSecret) == sessionSecretLen
 }
 
-func (e *Editor) GenerateSignature(message, password []byte) ([]byte, error) {
+func (e *Editor) GenerateSignature(message, passphrase []byte) ([]byte, error) {
 	hash := sha256.New()
 	hash.Write(message)
 	hashed := hash.Sum(nil)
 
-	privateKey, err := e.privateKey(password)
+	privateKey, err := e.privateKey(passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (e *Editor) VerifySignature(message, signature []byte) bool {
 	return err == nil
 }
 
-func (e *Editor) GenerateSessionToken(password []byte) ([]byte, error) {
+func (e *Editor) GenerateSessionToken(passphrase []byte) ([]byte, error) {
 	if len(e.sessionSecret) != sessionSecretLen {
 		return nil, errors.New("missing session secret")
 	}
@@ -94,7 +94,7 @@ func (e *Editor) GenerateSessionToken(password []byte) ([]byte, error) {
 	msg := make([]byte, 8)
 	binary.BigEndian.PutUint64(msg, uint64(time.Now().Unix()))
 
-	signature, err := e.GenerateSignature(msg, password)
+	signature, err := e.GenerateSignature(msg, passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (e *Editor) VerifySessionToken(token []byte) bool {
 	return e.VerifySignature(msg, signature)
 }
 
-func (e *Editor) privateKey(password []byte) (*rsa.PrivateKey, error) {
+func (e *Editor) privateKey(passphrase []byte) (*rsa.PrivateKey, error) {
 	if !e.HasPrivateKey() {
 		return nil, fmt.Errorf("No private key stored for this editor")
 	}
@@ -155,7 +155,7 @@ func (e *Editor) privateKey(password []byte) (*rsa.PrivateKey, error) {
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(e.privateKeyBytesEncrypted) > 0 {
-		privateKey, err = decryptPrivateKey(e.privateKeyBytesEncrypted, e.name, password)
+		privateKey, err = decryptPrivateKey(e.privateKeyBytesEncrypted, e.name, passphrase)
 	} else {
 		privateKey, err = unmarshalPrivateKey(e.privateKeyBytes)
 	}

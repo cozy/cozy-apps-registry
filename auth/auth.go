@@ -86,7 +86,7 @@ func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyB
 	return editor, nil
 }
 
-func (r *EditorRegistry) CreateEditorAndPrivateKey(editorName string, password []byte) (*Editor, error) {
+func (r *EditorRegistry) CreateEditorAndPrivateKey(editorName string, passphrase []byte) (*Editor, error) {
 	if err := CkeckEditorName(editorName); err != nil {
 		return nil, err
 	}
@@ -97,10 +97,10 @@ func (r *EditorRegistry) CreateEditorAndPrivateKey(editorName string, password [
 	}
 
 	var privateKeyBytesEncrypted, privateKeyBytes []byte
-	if len(password) == 0 {
+	if len(passphrase) == 0 {
 		privateKeyBytes, err = marshalPrivateKey(privateKey)
 	} else {
-		privateKeyBytesEncrypted, err = marshalAndEncryptPrivateKey(privateKey, editorName, password)
+		privateKeyBytesEncrypted, err = marshalAndEncryptPrivateKey(privateKey, editorName, passphrase)
 	}
 	if err != nil {
 		return nil, err
