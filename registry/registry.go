@@ -108,6 +108,7 @@ type Version struct {
 	ID        string          `json:"_id,omitempty"`
 	Rev       string          `json:"_rev,omitempty"`
 	Name      string          `json:"name"`
+	Editor    string          `json:"editor"`
 	Type      string          `json:"type"`
 	Version   string          `json:"version"`
 	Manifest  json.RawMessage `json:"manifest"`
@@ -317,6 +318,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 
 	ver.ID = getVersionID(app.Name, ver.Version)
 	ver.Name = app.Name
+	ver.Editor = editor.Name()
 	ver.Manifest = man
 	ver.Size = size
 	ver.TarPrefix = prefix
