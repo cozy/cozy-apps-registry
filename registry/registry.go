@@ -54,6 +54,9 @@ const (
 	AppsDB    = "registry-apps"
 	VersDB    = "registry-versions"
 	EditorsDB = "registry-editors"
+
+	devSuffix  = "-dev."
+	betaSuffix = "-beta."
 )
 
 var (
@@ -479,10 +482,10 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 }
 
 func getVersionChannel(version string) Channel {
-	if strings.Contains(version, "-dev.") {
+	if strings.Contains(version, devSuffix) {
 		return Dev
 	}
-	if strings.Contains(version, "-beta.") {
+	if strings.Contains(version, betaSuffix) {
 		return Beta
 	}
 	return Stable

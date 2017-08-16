@@ -130,7 +130,7 @@ func expandVersion(version string) (v [3]int, exp int, err error) {
 			goto ERROR
 		}
 	case Beta:
-		sp = strings.SplitN(sp[2], "-beta.", 2)
+		sp = strings.SplitN(sp[2], betaSuffix, 2)
 		if len(sp) != 2 {
 			goto ERROR
 		}
@@ -143,7 +143,7 @@ func expandVersion(version string) (v [3]int, exp int, err error) {
 			goto ERROR
 		}
 	case Dev:
-		sp = strings.SplitN(sp[2], "-dev.", 2)
+		sp = strings.SplitN(sp[2], devSuffix, 2)
 		if len(sp) != 2 {
 			goto ERROR
 		}
