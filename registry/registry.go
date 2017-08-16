@@ -215,9 +215,6 @@ func IsValidVersion(ver *Version) error {
 	} else if _, err := url.Parse(ver.URL); err != nil {
 		fields = append(fields, "url")
 	}
-	if ver.Size <= 0 {
-		fields = append(fields, "size")
-	}
 	if h, err := hex.DecodeString(ver.Sha256); err != nil || len(h) != 32 {
 		fields = append(fields, "sha256")
 	}
@@ -313,7 +310,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 
 	ver.Type = app.Type
 
-	man, prefix, err := downloadAndCheckVersion(app, ver, editor)
+	man, prefix, size, err := downloadAndCheckVersion(app, ver, editor)
 	if err != nil {
 		return err
 	}
@@ -321,6 +318,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 	ver.ID = getVersionID(app.Name, ver.Version)
 	ver.Name = app.Name
 	ver.Manifest = man
+	ver.Size = size
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now()
 
@@ -332,7 +330,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 	return err
 }
 
-func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRaw []byte, prefix string, err error) {
+func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manifestContent []byte, prefix string, size int64, err error) {
 	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -374,7 +372,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s",
 				ver.URL, err.Error())
-			return nil, "", err
+			return
 		}
 	case "application/octet-stream":
 		var r io.Reader
@@ -420,7 +418,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		}
 
 		if name == manName {
-			manRaw, err = ioutil.ReadAll(tarReader)
+			manifestContent, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
 					"Could not reach version on specified url %s: %s",
@@ -437,7 +435,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		return
 	}
 
-	if counter.Written() != ver.Size {
+	if ver.Size > 0 && counter.Written() != ver.Size {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Size of the version does not match with the calculated one: expected %d and got %d",
 			ver.Size, counter.Written())
@@ -451,14 +449,14 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		}
 	}
 
-	if len(manRaw) == 0 {
+	if len(manifestContent) == 0 {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Application tarball does not contain a manifest")
 		return
 	}
 
 	var manifest map[string]interface{}
-	if err = json.Unmarshal(manRaw, &manifest); err != nil {
+	if err = json.Unmarshal(manifestContent, &manifest); err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Content of the manifest is not JSON valid: %s", err.Error())
 		return
@@ -477,6 +475,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 		return
 	}
 
+	size = counter.Written()
 	return
 }
 
