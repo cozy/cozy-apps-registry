@@ -403,24 +403,23 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 				ver.URL, err.Error())
 			return
 		}
+
 		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
 			continue
 		}
+
 		name := hdr.Name
-		if name == "" {
-			continue
+
+		if split := strings.SplitN(name, "/", 2); len(split) == 2 {
+			if prefix == "" {
+				prefix = split[0]
+			} else if prefix != split[0] {
+				prefix = ""
+			}
+			name = split[1]
 		}
-		nameSplit := strings.SplitN(name, "/", 2)
-		if len(nameSplit) == 1 {
-			continue
-		}
-		// len(nameSplit) == 2
-		if prefix == "" {
-			prefix = nameSplit[0]
-		} else if prefix != nameSplit[0] {
-			prefix = ""
-		}
-		if nameSplit[1] == manName {
+
+		if name == manName {
 			manRaw, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
