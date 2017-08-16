@@ -27,11 +27,11 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	_, err = checkPermissions(c, app.Editor, "")
+	editor, err := checkPermissions(c, app.Editor, "")
 	if err != nil {
 		return err
 	}
-	if err = registry.CreateOrUpdateApp(app); err != nil {
+	if err = registry.CreateOrUpdateApp(app, editor); err != nil {
 		return err
 	}
 	// Do not show internal identifier and revision

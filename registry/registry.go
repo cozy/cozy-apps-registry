@@ -225,7 +225,7 @@ func IsValidVersion(ver *Version) error {
 	return nil
 }
 
-func CreateOrUpdateApp(app *App) error {
+func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	if err := IsValidApp(app); err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func CreateOrUpdateApp(app *App) error {
 		now := time.Now()
 		app.ID = getAppID(app.Name)
 		app.Name = app.ID
-		app.Editor = strings.ToLower(app.Editor)
+		app.Editor = editor.Name()
 		app.CreatedAt = now
 		app.UpdatedAt = now
 		app.Versions = nil
@@ -265,7 +265,7 @@ func CreateOrUpdateApp(app *App) error {
 	app.Rev = oldApp.Rev
 	app.Name = oldApp.Name
 	app.Type = oldApp.Type
-	app.Editor = oldApp.Editor
+	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
 	app.UpdatedAt = time.Now()
 	app.Versions = nil
