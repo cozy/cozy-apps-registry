@@ -25,7 +25,7 @@ import (
 	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
 )
 
-const maxManifestSize = 10 * 1024 * 1024 // 10 Mo
+const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 
 var (
 	validAppNameReg = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
@@ -358,7 +358,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manRa
 	h := sha256.New()
 	var reader io.Reader
 	counter := &Counter{}
-	reader = io.LimitReader(res.Body, maxManifestSize)
+	reader = io.LimitReader(res.Body, maxApplicationSize)
 	reader = io.TeeReader(reader, counter)
 	reader = io.TeeReader(reader, h)
 
