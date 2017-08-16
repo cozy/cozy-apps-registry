@@ -20,12 +20,12 @@ func (e *Editor) MarshalJSON() ([]byte, error) {
 		PublicKey string `json:"public_key"`
 	}{
 		Name:      e.name,
-		PublicKey: e.MarshalPublickKeyPEM(),
+		PublicKey: e.MarshalPublicKeyPEM(),
 	}
 	return json.Marshal(v)
 }
 
-func (e *Editor) MarshalPublickKeyPEM() string {
+func (e *Editor) MarshalPublicKeyPEM() string {
 	block := &pem.Block{
 		Type:  pubKeyBlocType,
 		Bytes: e.publicKeyBytes,

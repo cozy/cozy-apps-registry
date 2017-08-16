@@ -101,7 +101,7 @@ var printPublicKeyCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Print(editor.MarshalPublickKeyPEM())
+		fmt.Print(editor.MarshalPublicKeyPEM())
 		return nil
 	},
 }
