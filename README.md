@@ -3,7 +3,7 @@ cozy-registry-v3
 
 ## What is Cozy?
 
-![Cozy Logo](assets/images/happycloud.png)
+![Cozy Logo](https://raw.githubusercontent.com/cozy/cozy-stack/master/assets/images/happycloud.png)
 
 [Cozy](https://cozy.io) is a platform that brings all your web services in the
 same private space. With it, your web apps and your devices can share data
