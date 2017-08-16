@@ -40,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(genTokenCmd)
 	rootCmd.AddCommand(verifyTokenCmd)
+	rootCmd.AddCommand(revokeTokensCmd)
 	rootCmd.AddCommand(addEditorCmd)
 }
 
@@ -324,6 +325,24 @@ var verifyTokenCmd = &cobra.Command{
 		}
 		fmt.Fprintln(os.Stderr, "ok")
 		return nil
+	},
+}
+
+var revokeTokensCmd = &cobra.Command{
+	Use:   "revoke-tokens [editor]",
+	Short: `Revoke all tokens that have been generated for the specified editor`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		editorName, _, err := getEditorName(args)
+		if err != nil {
+			return err
+		}
+
+		editor, err := editorRegistry.GetEditor(editorName)
+		if err != nil {
+			return fmt.Errorf("Error while getting editor: %s", err)
+		}
+
+		return editorRegistry.RevokeSessionTokens(editor)
 	},
 }
 
