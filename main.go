@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const envSessionPass = "REGISTRY_SESSION_PASS"
+
 var editorRegistry *auth.EditorRegistry
 
 var portFlag int
@@ -26,10 +29,9 @@ var hostFlag string
 var couchAddrFlag string
 var couchUserFlag string
 var couchPassFlag string
-var secretPath string
-var secretPassphrase string
+var sessionSecretPathFlag string
 
-var masterSecret []byte
+var sessionSecret []byte
 
 func init() {
 	rootCmd.PersistentFlags().IntVar(&portFlag, "port", 8080, "specify the port to listen on")
@@ -37,8 +39,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&couchAddrFlag, "couchdb-addr", "localhost:5984", "specify the address of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchUserFlag, "couchdb-user", "", "specify the user of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchPassFlag, "couchdb-password", "", "specify the password of couchdb")
-	rootCmd.PersistentFlags().StringVar(&secretPath, "session-file", "sessionsecret", "path to the master session secret file")
-	rootCmd.PersistentFlags().StringVar(&secretPassphrase, "session-pass", "", "passphrase to decrypt the session secret file")
+	rootCmd.PersistentFlags().StringVar(&sessionSecretPathFlag, "session-secret", "sessionsecret", "path to the master session secret file")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(printPublicKeyCmd)
@@ -46,6 +47,7 @@ func init() {
 	rootCmd.AddCommand(genTokenCmd)
 	rootCmd.AddCommand(verifyTokenCmd)
 	rootCmd.AddCommand(revokeTokensCmd)
+	rootCmd.AddCommand(genSessionSecret)
 	rootCmd.AddCommand(addEditorCmd)
 }
 
@@ -63,8 +65,6 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		secretPath = registry.AbsPath(secretPath)
-
 		client, err := registry.InitDBClient(couchAddrFlag, couchUserFlag, couchPassFlag)
 		if err != nil {
 			printAndExit("Could not reach CouchDB: %s", err)
@@ -90,7 +90,7 @@ var rootCmd = &cobra.Command{
 var serveCmd = &cobra.Command{
 	Use:    "serve",
 	Short:  `Start the registry HTTP server`,
-	PreRun: loadMasterSecret,
+	PreRun: loadSessionSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address := hostFlag + ":" + strconv.Itoa(portFlag)
 		fmt.Printf("Listening on %s...\n", address)
@@ -174,7 +174,7 @@ var verifySignatureCmd = &cobra.Command{
 var genTokenCmd = &cobra.Command{
 	Use:    "gen-token [editor] [max-age]",
 	Short:  `Generate a token for the specified editor`,
-	PreRun: loadMasterSecret,
+	PreRun: loadSessionSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		editorName, rest, err := getEditorName(args)
 		if err != nil {
@@ -194,7 +194,7 @@ var genTokenCmd = &cobra.Command{
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
-		token, err := editor.GenerateSessionToken(masterSecret, maxAge)
+		token, err := editor.GenerateSessionToken(sessionSecret, maxAge)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %s: %s",
 				editorName, err)
@@ -208,7 +208,7 @@ var genTokenCmd = &cobra.Command{
 var verifyTokenCmd = &cobra.Command{
 	Use:    "verify-token [editor] [token]",
 	Short:  `Verify a token given via stdin for the specified editor`,
-	PreRun: loadMasterSecret,
+	PreRun: loadSessionSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		editorName, rest, err := getEditorName(args)
 		if err != nil {
@@ -238,7 +238,7 @@ var verifyTokenCmd = &cobra.Command{
 		}
 
 		fmt.Fprintf(os.Stderr, "Checking token...")
-		if !editor.VerifySessionToken(masterSecret, token) {
+		if !editor.VerifySessionToken(sessionSecret, token) {
 			return fmt.Errorf("failed: bad token")
 		}
 		fmt.Fprintln(os.Stderr, "ok")
@@ -249,7 +249,7 @@ var verifyTokenCmd = &cobra.Command{
 var revokeTokensCmd = &cobra.Command{
 	Use:    "revoke-tokens [editor] [token]",
 	Short:  `Revoke all tokens that have been generated for the specified editor`,
-	PreRun: loadMasterSecret,
+	PreRun: loadSessionSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		editorName, rest, err := getEditorName(args)
 		if err != nil {
@@ -269,7 +269,45 @@ var revokeTokensCmd = &cobra.Command{
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
-		return editorRegistry.RevokeSessionTokens(editor, masterSecret, token)
+		return editorRegistry.RevokeSessionTokens(editor, sessionSecret, token)
+	},
+}
+
+var genSessionSecret = &cobra.Command{
+	Use:   "gen-session-secret [path]",
+	Short: `Generate a session secret file`,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var passphrase []byte
+		var sessionSecretPath string
+		if len(args) > 0 {
+			sessionSecretPath = args[0]
+		} else {
+			sessionSecretPath = prompt("Path to session secret file [default=sessionsecret]:")
+			if sessionSecretPath == "" {
+				sessionSecretPath = "sessionsecret"
+			}
+		}
+		sessionSecretPath = registry.AbsPath(sessionSecretPath)
+		for {
+			passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
+			if len(passphrase) == 0 {
+				if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
+					break
+				} else {
+					continue
+				}
+			}
+			if c := askPassword("Confirm passphrase: "); bytes.Equal(passphrase, c) {
+				break
+			}
+			fmt.Fprintln(os.Stderr, "Passphrases do not match. Please retry.")
+		}
+		err = auth.GenerateMasterSecret(sessionSecretPath, passphrase)
+		if err != nil {
+			return fmt.Errorf("Failed to generate session secret file: %s", err)
+		}
+		fmt.Printf("Session secret file created successfully in '%s'.\n", sessionSecretPath)
+		return nil
 	},
 }
 
@@ -299,8 +337,7 @@ var addEditorCmd = &cobra.Command{
 				var publicKeyPath string
 				var publicKeyFile *os.File
 
-				fmt.Fprintf(os.Stderr, "Path to public key file: ")
-				publicKeyPath = readLine()
+				publicKeyPath = prompt("Path to public key file:")
 
 				publicKeyPath = registry.AbsPath(publicKeyPath)
 				publicKeyFile, err = os.Open(publicKeyPath)
@@ -336,44 +373,32 @@ var addEditorCmd = &cobra.Command{
 	},
 }
 
-func loadMasterSecret(cmd *cobra.Command, args []string) {
-	passphrase := []byte(secretPassphrase)
+func loadSessionSecret(cmd *cobra.Command, args []string) {
+	pwd, _ := os.Getwd()
+	passphrase := []byte(os.Getenv(envSessionPass))
+	absPath := registry.AbsPath(sessionSecretPathFlag)
+	relPath, err := filepath.Rel(pwd, absPath)
+	if err != nil {
+		relPath = absPath
+	}
 	for {
 		var err error
-		masterSecret, err = auth.GetMasterSecret(secretPath, passphrase)
-		if os.IsNotExist(err) {
-			resp := askQuestion(true, "Secret session file does not exist.\nWould you like to generate it ?")
-			if !resp {
-				printAndExit("Interrupted")
-			}
-			for {
-				fmt.Fprint(os.Stderr, "\n")
-				passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
-				if len(passphrase) == 0 {
-					if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
-						break
-					} else {
-						continue
-					}
-				}
-				if c := askPassword("Confirm passphrase: "); bytes.Equal(passphrase, c) {
-					break
-				}
-				fmt.Fprintln(os.Stderr, "Passphrases do not match. Please retry.")
-			}
-			err = auth.GenerateMasterSecret(secretPath, passphrase)
-			if err != nil {
-				printAndExit("Failed to generate session secret file: %s", err)
-			}
-			fmt.Print("\nSession secret file created successfully.\n\n")
-			continue
-		}
+		sessionSecret, err = auth.GetMasterSecret(absPath, passphrase)
 		if err == auth.ErrMissingPassphrase && len(passphrase) == 0 {
 			passphrase = askPassword("Enter passphrase (decrypting session secret): ")
 			continue
 		}
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr,
+				`Session secret file '%s' does not exist.
+Use the --session-secret flag to specify its location or the
+'gen-session-secret' command to generate it.
+`, relPath)
+			os.Exit(1)
+		}
 		if err != nil {
-			printAndExit("Error while loading session secret file: %s", err)
+			printAndExit("Error while loading session secret file '%s': %s",
+				relPath, err)
 		}
 		break
 	}
@@ -386,8 +411,7 @@ func getEditorName(args []string) (editorName string, rest []string, err error) 
 		return
 	}
 	for {
-		fmt.Fprintf(os.Stderr, "Editor name: ")
-		editorName = readLine()
+		editorName = prompt("Editor name:")
 		if err = auth.CkeckEditorName(editorName); err != nil {
 			fmt.Fprintf(os.Stderr, err.Error())
 			continue
@@ -406,6 +430,11 @@ func readLine() string {
 		return s
 	}
 	return s[:len(s)-1]
+}
+
+func prompt(text string, a ...interface{}) string {
+	fmt.Fprintf(os.Stderr, text+" ", a...)
+	return readLine()
 }
 
 func askQuestion(defaultResponse bool, question string, a ...interface{}) bool {

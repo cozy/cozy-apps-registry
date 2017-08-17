@@ -180,7 +180,11 @@ func GetMasterSecret(filename string, passphrase []byte) ([]byte, error) {
 		return nil, errors.New("Bad secret file")
 	}
 
-	return fileContent[len(plainMagic):], nil
+	secret := fileContent[len(plainMagic):]
+	if len(secret) != masterSecretLen {
+		return nil, errors.New("Bad secret file: secret has not the correct length")
+	}
+	return secret, nil
 }
 
 func GenerateMasterSecret(filename string, passphrase []byte) error {
@@ -190,7 +194,7 @@ func GenerateMasterSecret(filename string, passphrase []byte) error {
 		Secret []byte
 	}
 
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0660)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_EXCL, 0660)
 	if err != nil {
 		return err
 	}

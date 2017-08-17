@@ -82,7 +82,7 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 			return nil, errUnauthorized
 		}
 
-		ok := editor.VerifySessionToken(masterSecret, token)
+		ok := editor.VerifySessionToken(sessionSecret, token)
 		if !ok {
 			return nil, errUnauthorized
 		}
