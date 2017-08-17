@@ -350,7 +350,7 @@ func loadMasterSecret(cmd *cobra.Command, args []string) {
 				fmt.Fprint(os.Stderr, "\n")
 				passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
 				if len(passphrase) == 0 {
-					if askQuestion(false, "Are you sure you do not want to encrypt the session secret ?") {
+					if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
 						break
 					} else {
 						continue
