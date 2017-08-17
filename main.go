@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/registry"
@@ -36,8 +37,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&couchAddrFlag, "couchdb-addr", "localhost:5984", "specify the address of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchUserFlag, "couchdb-user", "", "specify the user of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchPassFlag, "couchdb-password", "", "specify the password of couchdb")
-	rootCmd.PersistentFlags().StringVar(&secretPath, "secret", "sessionsecret", "path to the master session secret file")
-	rootCmd.PersistentFlags().StringVar(&secretPassphrase, "secret-passphrase", "", "passphrase to decrypt the session secret file")
+	rootCmd.PersistentFlags().StringVar(&secretPath, "session-file", "sessionsecret", "path to the master session secret file")
+	rootCmd.PersistentFlags().StringVar(&secretPassphrase, "session-pass", "", "passphrase to decrypt the session secret file")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(printPublicKeyCmd)
@@ -171,13 +172,21 @@ var verifySignatureCmd = &cobra.Command{
 }
 
 var genTokenCmd = &cobra.Command{
-	Use:    "gen-token [editor]",
+	Use:    "gen-token [editor] [max-age]",
 	Short:  `Generate a token for the specified editor`,
 	PreRun: loadMasterSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, _, err := getEditorName(args)
+		editorName, rest, err := getEditorName(args)
 		if err != nil {
 			return err
+		}
+
+		var maxAge time.Duration
+		if len(rest) > 0 {
+			maxAge, err = time.ParseDuration(rest[0])
+			if err != nil {
+				return fmt.Errorf("Could not parse max-age argument: %s", err)
+			}
 		}
 
 		editor, err := editorRegistry.GetEditor(editorName)
@@ -185,7 +194,7 @@ var genTokenCmd = &cobra.Command{
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
-		token, err := editor.GenerateSessionToken(masterSecret)
+		token, err := editor.GenerateSessionToken(masterSecret, maxAge)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %s: %s",
 				editorName, err)
@@ -197,11 +206,11 @@ var genTokenCmd = &cobra.Command{
 }
 
 var verifyTokenCmd = &cobra.Command{
-	Use:    "verify-token [editor]",
+	Use:    "verify-token [editor] [token]",
 	Short:  `Verify a token given via stdin for the specified editor`,
 	PreRun: loadMasterSecret,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, _, err := getEditorName(args)
+		editorName, rest, err := getEditorName(args)
 		if err != nil {
 			return err
 		}
@@ -211,12 +220,17 @@ var verifyTokenCmd = &cobra.Command{
 			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
-		fmt.Fprintf(os.Stderr, "Waiting for token on stdin...")
-		token, err := ioutil.ReadAll(io.LimitReader(os.Stdin, 10*1024))
-		if err != nil {
-			return fmt.Errorf("Error reading token on stdin: %s", err)
+		var token []byte
+		if len(rest) > 0 && rest[0] != "-" {
+			token = []byte(rest[0])
+		} else {
+			fmt.Fprintf(os.Stderr, "Waiting for token on stdin...")
+			token, err = ioutil.ReadAll(io.LimitReader(os.Stdin, 10*1024))
+			if err != nil {
+				return fmt.Errorf("Error reading token on stdin: %s", err)
+			}
+			fmt.Fprintln(os.Stderr, "ok")
 		}
-		fmt.Fprintln(os.Stderr, "ok")
 
 		tokenB64, err := base64.StdEncoding.DecodeString(string(token))
 		if err == nil {
@@ -324,12 +338,11 @@ var addEditorCmd = &cobra.Command{
 
 func loadMasterSecret(cmd *cobra.Command, args []string) {
 	passphrase := []byte(secretPassphrase)
-	fmt.Fprintf(os.Stderr, "Loading secret session file '%s'...\n", secretPath)
 	for {
 		var err error
 		masterSecret, err = auth.GetMasterSecret(secretPath, passphrase)
 		if os.IsNotExist(err) {
-			resp := askQuestion(true, "Could not open secret session file.\nWould you like to generate it ?")
+			resp := askQuestion(true, "Secret session file does not exist.\nWould you like to generate it ?")
 			if !resp {
 				printAndExit("Interrupted")
 			}

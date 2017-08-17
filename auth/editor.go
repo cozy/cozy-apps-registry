@@ -60,14 +60,21 @@ func (e *Editor) VerifySignature(message, signature []byte) bool {
 	return err == nil
 }
 
-func (e *Editor) GenerateSessionToken(masterSecret []byte) ([]byte, error) {
+func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
 	sessionSecret, err := e.sessionSecret(masterSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := make([]byte, 8)
-	binary.BigEndian.PutUint64(msg, uint64(time.Now().Unix()))
+	if maxAge < 0 {
+		panic("maxAge is negative")
+	}
+	if maxAge > 0 {
+		binary.BigEndian.PutUint64(msg, uint64(time.Now().Add(maxAge).Unix()))
+	} else {
+		binary.BigEndian.PutUint64(msg, uint64(0))
+	}
 
 	var computedMac []byte
 	{
@@ -111,7 +118,12 @@ func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
 		return false
 	}
 
-	return true
+	t := time.Unix(int64(binary.BigEndian.Uint64(msg)), 0)
+	if t.IsZero() {
+		return true
+	}
+
+	return time.Now().Before(t)
 }
 
 func (e *Editor) sessionSecret(masterSecret []byte) ([]byte, error) {
