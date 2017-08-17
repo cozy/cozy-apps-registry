@@ -82,7 +82,7 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 			return nil, errUnauthorized
 		}
 
-		ok := editor.VerifySessionToken(token)
+		ok := editor.VerifySessionToken(masterSecret, token)
 		if !ok {
 			return nil, errUnauthorized
 		}
@@ -205,6 +205,14 @@ func getEditor(c echo.Context) error {
 	return c.JSON(http.StatusOK, editor)
 }
 
+func getEditorsList(c echo.Context) error {
+	editors, err := editorRegistry.AllEditors()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, editors)
+}
+
 // jsonEndPoint middleware checks that the Content-Type and Accept headers are
 // properly set for an application/json endpoint.
 func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
@@ -298,6 +306,7 @@ func StartRouter(addr string) error {
 	e := echo.New()
 	e.HideBanner = true
 	e.HTTPErrorHandler = httpErrorHandler
+
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
@@ -316,8 +325,9 @@ func StartRouter(addr string) error {
 	registry.HEAD("/:app/:channel/latest", getLatestVersion)
 	registry.GET("/:app/:channel/latest", getLatestVersion)
 
-	registry.HEAD("/editor/:editor", getEditor)
-	registry.GET("/editor/:editor", getEditor)
+	e.GET("/editors", getEditorsList)
+	e.HEAD("/editors/:editor", getEditor)
+	e.GET("/editors/:editor", getEditor)
 
 	return e.Start(addr)
 }

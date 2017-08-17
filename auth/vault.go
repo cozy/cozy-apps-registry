@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/flimzy/kivik"
@@ -13,13 +14,11 @@ type couchdbVault struct {
 }
 
 type editorForCouchdb struct {
-	ID                       string `json:"_id,omitempty"`
-	Rev                      string `json:"_rev,omitempty"`
-	Name                     string `json:"name"`
-	SessionSecret            []byte `json:"session_secret"`
-	PrivateKeyBytes          []byte `json:"private_key,omitempty"`
-	PrivateKeyBytesEncrypted []byte `json:"private_key_encrypted,omitempty"`
-	PublicKeyBytes           []byte `json:"public_key"`
+	ID             string `json:"_id,omitempty"`
+	Rev            string `json:"_rev,omitempty"`
+	Name           string `json:"name"`
+	SessionSalt    []byte `json:"session_secret_salt"`
+	PublicKeyBytes []byte `json:"public_key"`
 }
 
 func NewCouchdbVault(client *kivik.Client, dbName string) (Vault, error) {
@@ -37,29 +36,25 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 		return nil, err
 	}
 	return &Editor{
-		name:                     e.Name,
-		sessionSecret:            e.SessionSecret,
-		privateKeyBytes:          e.PrivateKeyBytes,
-		privateKeyBytesEncrypted: e.PrivateKeyBytesEncrypted,
-		publicKeyBytes:           e.PublicKeyBytes,
+		name:           e.Name,
+		sessionSalt:    e.SessionSalt,
+		publicKeyBytes: e.PublicKeyBytes,
 	}, nil
 }
 
 func (r *couchdbVault) CreateEditor(editor *Editor) error {
 	_, err := r.getEditor(editor.name)
 	if err == nil {
-		return errEditorExists
+		return ErrEditorExists
 	}
-	if err != errEditorNotFound {
+	if err != ErrEditorNotFound {
 		return err
 	}
 	_, _, err = r.db.CreateDoc(r.ctx, &editorForCouchdb{
-		ID:                       strings.ToLower(editor.name),
-		Name:                     editor.name,
-		SessionSecret:            editor.sessionSecret,
-		PrivateKeyBytes:          editor.privateKeyBytes,
-		PrivateKeyBytesEncrypted: editor.privateKeyBytesEncrypted,
-		PublicKeyBytes:           editor.publicKeyBytes,
+		ID:             strings.ToLower(editor.name),
+		Name:           editor.name,
+		SessionSalt:    editor.sessionSalt,
+		PublicKeyBytes: editor.publicKeyBytes,
 	})
 	return err
 }
@@ -70,13 +65,11 @@ func (r *couchdbVault) UpdateEditor(editor *Editor) error {
 		return err
 	}
 	_, err = r.db.Put(r.ctx, e.ID, &editorForCouchdb{
-		ID:                       e.ID,
-		Rev:                      e.Rev,
-		Name:                     editor.name,
-		SessionSecret:            editor.sessionSecret,
-		PrivateKeyBytes:          editor.privateKeyBytes,
-		PrivateKeyBytesEncrypted: editor.privateKeyBytesEncrypted,
-		PublicKeyBytes:           editor.publicKeyBytes,
+		ID:             e.ID,
+		Rev:            e.Rev,
+		Name:           editor.name,
+		SessionSalt:    editor.sessionSalt,
+		PublicKeyBytes: editor.publicKeyBytes,
 	})
 	return err
 }
@@ -90,11 +83,34 @@ func (r *couchdbVault) DeleteEditor(editor *Editor) error {
 	return err
 }
 
+func (r *couchdbVault) AllEditors() ([]*Editor, error) {
+	rows, err := r.db.Find(r.ctx, json.RawMessage(`{"selector":{},"limit":2000}`))
+	if err != nil {
+		return nil, err
+	}
+	var editors []*Editor
+	for rows.Next() {
+		var e editorForCouchdb
+		if strings.HasPrefix(rows.ID(), "_design") {
+			continue
+		}
+		if err = rows.ScanDoc(&e); err != nil {
+			return nil, err
+		}
+		editors = append(editors, &Editor{
+			name:           e.Name,
+			sessionSalt:    e.SessionSalt,
+			publicKeyBytes: e.PublicKeyBytes,
+		})
+	}
+	return editors, nil
+}
+
 func (r *couchdbVault) getEditor(editorName string) (*editorForCouchdb, error) {
 	editorID := strings.ToLower(editorName)
 	row, err := r.db.Get(r.ctx, editorID)
 	if kivik.StatusCode(err) == kivik.StatusNotFound {
-		return nil, errEditorNotFound
+		return nil, ErrEditorNotFound
 	}
 	if err != nil {
 		return nil, err

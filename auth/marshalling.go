@@ -2,12 +2,9 @@ package auth
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
@@ -15,111 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-
-	"golang.org/x/crypto/scrypt"
 )
-
-func marshalAndEncryptPrivateKey(privateKey *rsa.PrivateKey, editorName string, pass []byte) ([]byte, error) {
-	privateKeyBytes, err := marshalPrivateKey(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	salt := readRand(saltLen)
-	aead, err := createAEADCipherFromPassWithKeyDerivation(pass, salt)
-	if err != nil {
-		return nil, err
-	}
-
-	nonce := readRand(nonceLen)
-	additionalData := []byte(editorName)
-
-	privateKeyBytesEncrypted, err := aead.Seal(nil, nonce, privateKeyBytes, additionalData), nil
-	if err != nil {
-		return nil, err
-	}
-
-	keyData := struct {
-		Key   []byte
-		Nonce []byte
-		Salt  []byte
-	}{
-		Key:   privateKeyBytesEncrypted,
-		Nonce: nonce,
-		Salt:  salt,
-	}
-
-	return asn1.Marshal(keyData)
-}
-
-func decryptPrivateKey(privateKeyBytesEncrypted []byte, editorName string, pass []byte) (*rsa.PrivateKey, error) {
-	var keyData struct {
-		Key   []byte
-		Nonce []byte
-		Salt  []byte
-	}
-
-	_, err := asn1.Unmarshal(privateKeyBytesEncrypted, &keyData)
-	if err != nil {
-		return nil, err
-	}
-
-	aead, err := createAEADCipherFromPassWithKeyDerivation(pass, keyData.Salt)
-	if err != nil {
-		return nil, err
-	}
-
-	additionalData := []byte(editorName)
-	privateKeyBytes, err := aead.Open(nil, keyData.Nonce, keyData.Key, additionalData)
-	if err != nil {
-		return nil, err
-	}
-
-	return unmarshalPrivateKey(privateKeyBytes)
-}
-
-func createAEADCipherFromPassWithKeyDerivation(pass, salt []byte) (cipher.AEAD, error) {
-	if len(pass) == 0 {
-		panic("pass is empty")
-	}
-	if len(salt) != saltLen {
-		return nil, fmt.Errorf("bad salt length %d != %d", len(salt), saltLen)
-	}
-
-	derivedKeyLen := 32
-	N := 16384
-	r := 8
-	p := 1
-
-	derivedKey, err := scrypt.Key(pass, salt, N, r, p, derivedKeyLen)
-	if err != nil {
-		return nil, err
-	}
-
-	block, err := aes.NewCipher(derivedKey)
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	return aesgcm, nil
-}
-
-func unmarshalPrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
-	return x509.ParsePKCS1PrivateKey(privateKeyBytes)
-}
-
-func marshalPrivateKey(privateKey *rsa.PrivateKey) ([]byte, error) {
-	return x509.MarshalPKCS1PrivateKey(privateKey), nil
-}
-
-func marshalPublicKey(publicKey *rsa.PublicKey) ([]byte, error) {
-	return x509.MarshalPKIXPublicKey(publicKey)
-}
 
 func unmarshalPublicKey(publicKeyBytes []byte) (*rsa.PublicKey, error) {
 	var publicKey *rsa.PublicKey
