@@ -118,12 +118,12 @@ func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
 		return false
 	}
 
-	t := time.Unix(int64(binary.BigEndian.Uint64(msg)), 0)
-	if t.IsZero() {
+	t := int64(binary.BigEndian.Uint64(msg))
+	if t == 0 {
 		return true
 	}
 
-	return time.Now().Before(t)
+	return time.Now().Before(time.Unix(t, 0))
 }
 
 func (e *Editor) sessionSecret(masterSecret []byte) ([]byte, error) {
