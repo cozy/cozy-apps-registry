@@ -113,16 +113,10 @@ var printPublicKeyCmd = &cobra.Command{
 	Short:   `Print the PEM encoded public key of the specified editor`,
 	PreRunE: prepareRegistry,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, _, err := getEditorName(args)
+		editor, _, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
-
-		editor, err := editorRegistry.GetEditor(editorName)
-		if err != nil {
-			return err
-		}
-
 		fmt.Print(editor.MarshalPublicKeyPEM())
 		return nil
 	},
@@ -133,18 +127,12 @@ var verifySignatureCmd = &cobra.Command{
 	Short:   `Verify a signature given via stdin for a specified editor and file`,
 	PreRunE: prepareRegistry,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		var editorName string
-		editorName, args, err = getEditorName(args)
+		editor, args, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
 		if len(args) == 0 {
 			return fmt.Errorf("Missing argument for file path")
-		}
-
-		editor, err := editorRegistry.GetEditor(editorName)
-		if err != nil {
-			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
 		fmt.Fprintf(os.Stderr, "Waiting for signature on stdin...")
@@ -188,7 +176,7 @@ var genTokenCmd = &cobra.Command{
 	Short:   `Generate a token for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, rest, err := getEditorName(args)
+		editor, rest, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
@@ -201,15 +189,10 @@ var genTokenCmd = &cobra.Command{
 			}
 		}
 
-		editor, err := editorRegistry.GetEditor(editorName)
-		if err != nil {
-			return fmt.Errorf("Error while getting editor: %s", err)
-		}
-
 		token, err := editor.GenerateSessionToken(sessionSecret, maxAge)
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
-				editorName, err)
+				editor.Name(), err)
 		}
 
 		fmt.Println(base64.StdEncoding.EncodeToString(token))
@@ -222,14 +205,9 @@ var verifyTokenCmd = &cobra.Command{
 	Short:   `Verify a token given via stdin for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, rest, err := getEditorName(args)
+		editor, rest, err := fetchEditor(args)
 		if err != nil {
 			return err
-		}
-
-		editor, err := editorRegistry.GetEditor(editorName)
-		if err != nil {
-			return fmt.Errorf("Error while getting editor: %s", err)
 		}
 
 		var token []byte
@@ -263,24 +241,26 @@ var revokeTokensCmd = &cobra.Command{
 	Short:   `Revoke all tokens that have been generated for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editorName, rest, err := getEditorName(args)
+		editor, rest, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
+
+		var tokenVal string
 		if len(rest) == 0 {
-			return fmt.Errorf("Missing currently correct token to revoke")
+			tokenVal = prompt("Token:")
+		} else {
+			tokenVal = rest[0]
 		}
 
-		token, err := base64.StdEncoding.DecodeString(rest[0])
+		token, err := base64.StdEncoding.DecodeString(tokenVal)
 		if err != nil {
 			return fmt.Errorf("Token is not properly base64 encoded: %s", err)
 		}
 
-		editor, err := editorRegistry.GetEditor(editorName)
-		if err != nil {
-			return fmt.Errorf("Error while getting editor: %s", err)
+		if !askQuestion(true, "Are you sure you want to revoke tokens from %q ?", editor.Name()) {
+			return nil
 		}
-
 		return editorRegistry.RevokeSessionTokens(editor, sessionSecret, token)
 	},
 }
@@ -499,6 +479,19 @@ func getEditorName(args []string) (editorName string, rest []string, err error) 
 		}
 		return
 	}
+}
+
+func fetchEditor(args []string) (editor *auth.Editor, rest []string, err error) {
+	var editorName string
+	editorName, rest, err = getEditorName(args)
+	if err != nil {
+		return
+	}
+	editor, err = editorRegistry.GetEditor(editorName)
+	if err != nil {
+		err = fmt.Errorf("Error while getting editor: %s", err)
+	}
+	return
 }
 
 func readLine() string {
