@@ -51,19 +51,20 @@ var versionClient = http.Client{
 }
 
 const (
+	devSuffix  = "-dev."
+	betaSuffix = "-beta."
+)
+
+var (
 	AppsDB    = "registry-apps"
 	VersDB    = "registry-versions"
 	EditorsDB = "registry-editors"
-
-	devSuffix  = "-dev."
-	betaSuffix = "-beta."
 )
 
 var (
 	client *kivik.Client
 
 	ctx = context.Background()
-	dbs = []string{AppsDB, VersDB, EditorsDB}
 
 	appsIndex = echo.Map{"fields": []string{"name", "type", "editor", "category", "tags"}}
 	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
@@ -120,7 +121,7 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 }
 
-func InitDBClient(addr, user, pass string) (*kivik.Client, error) {
+func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 	var err error
 
 	var userInfo *url.Userinfo
@@ -141,6 +142,13 @@ func InitDBClient(addr, user, pass string) (*kivik.Client, error) {
 		return nil, fmt.Errorf("Could not reach CouchDB: %s", err.Error())
 	}
 
+	if prefix != "" {
+		AppsDB = prefix + AppsDB
+		VersDB = prefix + VersDB
+		EditorsDB = prefix + EditorsDB
+	}
+
+	dbs := []string{AppsDB, VersDB, EditorsDB}
 	for _, dbName := range dbs {
 		var ok bool
 		ok, err = client.DBExists(ctx, dbName)

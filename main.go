@@ -28,6 +28,7 @@ var portFlag int
 var hostFlag string
 var couchAddrFlag string
 var couchUserFlag string
+var couchPrefix string
 var couchPassFlag string
 var sessionSecretPathFlag string
 
@@ -38,6 +39,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&hostFlag, "host", "localhost", "specify the host to listen on")
 	rootCmd.PersistentFlags().StringVar(&couchAddrFlag, "couchdb-addr", "localhost:5984", "specify the address of couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchUserFlag, "couchdb-user", "", "specify the user of couchdb")
+	rootCmd.PersistentFlags().StringVar(&couchPrefix, "couchdb-prefix", "", "specify a prefix for naming couchdb")
 	rootCmd.PersistentFlags().StringVar(&couchPassFlag, "couchdb-password", "", "specify the password of couchdb")
 	rootCmd.PersistentFlags().StringVar(&sessionSecretPathFlag, "session-secret", "sessionsecret", "path to the master session secret file")
 
@@ -65,7 +67,7 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		client, err := registry.InitDBClient(couchAddrFlag, couchUserFlag, couchPassFlag)
+		client, err := registry.InitDBClient(couchAddrFlag, couchUserFlag, couchPassFlag, couchPrefix)
 		if err != nil {
 			printAndExit("Could not reach CouchDB: %s", err)
 		}
