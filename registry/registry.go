@@ -117,7 +117,6 @@ type Version struct {
 	URL       string          `json:"url"`
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
-	Signature []byte          `json:"signature,omitempty"`
 	TarPrefix string          `json:"tar_prefix"`
 }
 
@@ -450,13 +449,6 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			"Size of the version does not match with the calculated one: expected %d and got %d",
 			ver.Size, counter.Written())
 		return
-	}
-
-	if len(ver.Signature) > 0 {
-		if !editor.VerifySignature(shasum, ver.Signature) {
-			err = errshttp.NewError(http.StatusUnprocessableEntity, "Bad signature")
-			return
-		}
 	}
 
 	if len(manifestContent) == 0 {

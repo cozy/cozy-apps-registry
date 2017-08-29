@@ -1,13 +1,10 @@
 package auth
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"encoding/asn1"
 	"errors"
-	"io"
 	"net/http"
-	"os"
 	"regexp"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -17,10 +14,10 @@ import (
 )
 
 const (
-	masterSecretLen = 32
+	masterSecretLen  = 32
+	sessionSecretLen = 32
 
-	sessionSaltLen   = 16
-	sessionSecretLen = 16
+	sessionSaltLen = 16
 )
 
 var (
@@ -117,124 +114,91 @@ func (r *EditorRegistry) RevokeSessionTokens(editor *Editor, masterSecret, token
 	return r.UpdateEditor(editor)
 }
 
-func GetMasterSecret(filename string, passphrase []byte) ([]byte, error) {
+func DecryptMasterSecret(content, passphrase []byte) ([]byte, error) {
 	var encryptedSecret struct {
 		Salt   []byte
 		Nonce  []byte
 		Secret []byte
 	}
 
-	plainMagic := []byte("session-secret=")
-	cipherMagic := []byte("ciphered-session-secret=")
+	if len(passphrase) == 0 {
+		return nil, ErrMissingPassphrase
+	}
 
-	f, err := os.Open(filename)
+	if _, err := asn1.Unmarshal(content, &encryptedSecret); err != nil {
+		return nil, err
+	}
+	if len(encryptedSecret.Salt) != 16 || len(encryptedSecret.Nonce) != 12 {
+		return nil, errors.New("Bad secret file")
+	}
+
+	N := 16384
+	r := 8
+	p := 1
+	derivedKey, err := scrypt.Key(passphrase, encryptedSecret.Salt, N, r, p, 32)
 	if err != nil {
 		return nil, err
 	}
 
-	r := io.LimitReader(f, 2048)
-
-	var fileContent []byte
-	{
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, r)
-		if err != nil {
-			return nil, err
-		}
-		fileContent = buf.Bytes()
+	aead, err := chacha20poly1305.New(derivedKey)
+	if err != nil {
+		return nil, err
 	}
 
-	if bytes.HasPrefix(fileContent, cipherMagic) {
-		if len(passphrase) == 0 {
-			return nil, ErrMissingPassphrase
-		}
-
-		fileContent = fileContent[len(cipherMagic):]
-		if _, err := asn1.Unmarshal(fileContent, &encryptedSecret); err != nil {
-			return nil, err
-		}
-		if len(encryptedSecret.Salt) != 16 || len(encryptedSecret.Nonce) != 12 {
-			return nil, errors.New("Bad secret file")
-		}
-
-		N := 16384
-		r := 8
-		p := 1
-		derivedKey, err := scrypt.Key(passphrase, encryptedSecret.Salt, N, r, p, 32)
-		if err != nil {
-			return nil, err
-		}
-
-		aead, err := chacha20poly1305.New(derivedKey)
-		if err != nil {
-			return nil, err
-		}
-
-		fileContent, err = aead.Open(nil, encryptedSecret.Nonce, encryptedSecret.Secret, cipherMagic)
-		if err != nil {
-			return nil, err
-		}
+	secret, err := aead.Open(nil, encryptedSecret.Nonce, encryptedSecret.Secret, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	if !bytes.HasPrefix(fileContent, plainMagic) {
-		return nil, errors.New("Bad secret file")
-	}
-
-	secret := fileContent[len(plainMagic):]
 	if len(secret) != masterSecretLen {
-		return nil, errors.New("Bad secret file: secret has not the correct length")
+		return nil, errors.New("Bad secret file: bad length of secret")
 	}
+
 	return secret, nil
 }
 
-func GenerateMasterSecret(filename string, passphrase []byte) error {
+func IsSecretClear(secret []byte) bool {
+	return len(secret) == masterSecretLen
+}
+
+func EncryptMasterSecret(secret, passphrase []byte) ([]byte, error) {
 	var encryptedSecret struct {
 		Salt   []byte
 		Nonce  []byte
 		Secret []byte
 	}
 
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_EXCL, 0660)
+	if len(secret) != masterSecretLen {
+		panic("Bad len for master secret")
+	}
+	if len(passphrase) == 0 {
+		return nil, ErrMissingPassphrase
+	}
+
+	salt := readRand(16)
+	nonce := readRand(12)
+
+	N := 16384
+	r := 8
+	p := 1
+	derivedKey, err := scrypt.Key(passphrase, salt, N, r, p, 32)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	plainMagic := []byte("session-secret=")
-	cipherMagic := []byte("ciphered-session-secret=")
-	masterSecret := readRand(masterSecretLen)
-
-	fileContent := append(plainMagic, masterSecret...)
-
-	if len(passphrase) > 0 {
-		salt := readRand(16)
-		nonce := readRand(12)
-
-		N := 16384
-		r := 8
-		p := 1
-		derivedKey, err := scrypt.Key(passphrase, salt, N, r, p, 32)
-		if err != nil {
-			return err
-		}
-
-		aead, err := chacha20poly1305.New(derivedKey)
-		if err != nil {
-			return err
-		}
-
-		encrypted := aead.Seal(nil, nonce, fileContent, cipherMagic)
-		encryptedSecret.Nonce = nonce
-		encryptedSecret.Salt = salt
-		encryptedSecret.Secret = encrypted
-
-		fileContent, err = asn1.Marshal(encryptedSecret)
-		if err != nil {
-			return err
-		}
-
-		fileContent = append(cipherMagic, fileContent...)
+	aead, err := chacha20poly1305.New(derivedKey)
+	if err != nil {
+		return nil, err
 	}
 
-	_, err = f.Write(fileContent)
-	return err
+	encrypted := aead.Seal(nil, nonce, secret, nil)
+	encryptedSecret.Nonce = nonce
+	encryptedSecret.Salt = salt
+	encryptedSecret.Secret = encrypted
+
+	return asn1.Marshal(encryptedSecret)
+}
+
+func GenerateMasterSecret() []byte {
+	return readRand(masterSecretLen)
 }
