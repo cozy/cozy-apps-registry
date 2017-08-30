@@ -91,11 +91,11 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 	var editors []*Editor
 	for rows.Next() {
 		var e editorForCouchdb
-		if strings.HasPrefix(rows.ID(), "_design") {
-			continue
-		}
 		if err = rows.ScanDoc(&e); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(e.ID, "_design") {
+			continue
 		}
 		editors = append(editors, &Editor{
 			name:           e.Name,

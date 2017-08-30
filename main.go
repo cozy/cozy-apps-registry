@@ -49,6 +49,7 @@ func init() {
 	checkNoErr(viper.BindPFlag("couchdb.password", flags.Lookup("couchdb-password")))
 
 	flags.String("couchdb-prefix", "", "prefix for couchdb databases")
+	checkNoErr(viper.BindPFlag("couchdb.prefix", flags.Lookup("couchdb-prefix")))
 
 	flags.String("session-secret", "sessionsecret.key", "path to the session secret file")
 	checkNoErr(viper.BindPFlag("session-secret", flags.Lookup("session-secret")))

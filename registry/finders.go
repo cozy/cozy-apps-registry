@@ -12,6 +12,7 @@ var validFilters = []string{
 	"type",
 	"editor",
 	"category",
+	"tags",
 }
 
 const maxLimit = 200
@@ -107,11 +108,11 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var doc *Version
-		if strings.HasPrefix(rows.ID(), "_design") {
-			continue
-		}
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
 		}
 		switch ch {
 		case Stable:
@@ -154,11 +155,11 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var doc *Version
-		if strings.HasPrefix(rows.ID(), "_design") {
-			continue
-		}
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
 		}
 		allVersions = append(allVersions, doc)
 	}
@@ -231,11 +232,11 @@ func GetAppsList(opts *AppsListOptions) ([]*App, error) {
 	res := make([]*App, 0)
 	for rows.Next() {
 		var doc *App
-		if strings.HasPrefix(rows.ID(), "_design") {
-			continue
-		}
 		if err = rows.ScanDoc(&doc); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(doc.ID, "_design") {
+			continue
 		}
 		res = append(res, doc)
 	}
