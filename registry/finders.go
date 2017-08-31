@@ -1,9 +1,13 @@
 package registry
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flimzy/kivik"
 )
@@ -13,6 +17,15 @@ var validFilters = []string{
 	"editor",
 	"category",
 	"tags",
+}
+
+var validSorts = []string{
+	"name",
+	"type",
+	"editor",
+	"category",
+	"created_at",
+	"updated_at",
 }
 
 const maxLimit = 200
@@ -191,17 +204,69 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 
 type AppsListOptions struct {
 	Limit   int
-	Skip    int
+	Cursor  string
+	Sort    string
 	Filters map[string]string
 }
 
-func GetAppsList(opts *AppsListOptions) ([]*App, error) {
+type Cursor struct {
+	skip  int
+	field string
+	value string
+}
+
+func ParseCursor(c, field string) *Cursor {
+	splits := strings.SplitN(c, ",", 2)
+	cursor := new(Cursor)
+	cursor.field = field
+	if len(splits) == 2 {
+		cursor.value = splits[0]
+		cursor.skip, _ = strconv.Atoi(splits[1])
+	} else if len(splits) == 1 {
+		cursor.value = splits[0]
+	}
+	return cursor
+}
+
+func (c *Cursor) ToSelector() string {
+	if c.value != "" {
+		return string(sprintfJSON(`%s: {"$gt": %s}`, c.field, c.value))
+	}
+	return string(sprintfJSON(`%s: {"$gt": null}`, c.field))
+}
+
+func (c *Cursor) Skip() int {
+	return c.skip
+}
+
+func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
 	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	var selector string
+	var descending bool
+	sortField := opts.Sort
+	if len(sortField) > 0 && sortField[0] == '-' {
+		descending = true
+		sortField = sortField[1:]
+	}
+	if sortField == "" || !stringInArray(sortField, validSorts) {
+		sortField = "name"
+	}
+	sort := []string{sortField}
+	if sortField != "name" {
+		sort = append(sort, "name")
+	}
+	if descending {
+		for i, field := range sort {
+			sort[i] = string(sprintfJSON(`{%: "desc"}`, field))
+		}
+	}
+
+	cursor := ParseCursor(opts.Cursor, sortField)
+
+	selector := cursor.ToSelector()
 	for name, val := range opts.Filters {
 		if !stringInArray(name, validFilters) {
 			continue
@@ -218,27 +283,63 @@ func GetAppsList(opts *AppsListOptions) ([]*App, error) {
 		opts.Limit = maxLimit
 	}
 
+	limit := opts.Limit + len(appsIndexes) // for _design doc
+
+	useIndex := "apps-index-by-" + sortField
 	req := sprintfJSON(`{
+  "use_index": %s,
   "selector": {`+selector+`},
-  "sort": [{ "name": "asc" }],
-  "limit": %s,
-  "skip": %s
-}`, opts.Limit+1, opts.Skip)
+  "skip": %s,
+  "sort": %s,
+  "limit": %s
+}`, useIndex, cursor.Skip(), sort, limit)
+	fmt.Println("REQ", string(req))
 	rows, err := db.Find(ctx, req)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	defer rows.Close()
+
 	res := make([]*App, 0)
 	for rows.Next() {
 		var doc *App
 		if err = rows.ScanDoc(&doc); err != nil {
-			return nil, err
+			return "", nil, err
 		}
 		if strings.HasPrefix(doc.ID, "_design") {
 			continue
 		}
 		res = append(res, doc)
 	}
-	return res, nil
+	if len(res) == 0 {
+		return "", res, nil
+	}
+
+	if len(res) > opts.Limit {
+		res = res[:opts.Limit]
+	}
+
+	lastApp := res[len(res)-1]
+	var nextCursor string
+	switch sortField {
+	case "name":
+		nextCursor = lastApp.Name
+	case "type":
+		nextCursor = lastApp.Type
+	case "editor":
+		nextCursor = lastApp.Editor
+	case "category":
+		nextCursor = lastApp.Category
+	case "created_at":
+		nextCursor = timeMarshal(lastApp.CreatedAt)
+	case "updated_at":
+		nextCursor = timeMarshal(lastApp.UpdatedAt)
+	}
+
+	return nextCursor, res, nil
+}
+
+func timeMarshal(t time.Time) string {
+	b, _ := json.Marshal(t)
+	return string(b[1 : len(b)-1])
 }

@@ -66,7 +66,15 @@ var (
 
 	ctx = context.Background()
 
-	appsIndex = echo.Map{"fields": []string{"name", "type", "editor", "category", "tags"}}
+	appsIndexes = map[string]echo.Map{
+		"by-name":       {"fields": []string{"name"}},
+		"by-type":       {"fields": []string{"type", "name", "category"}},
+		"by-editor":     {"fields": []string{"editor", "name", "category"}},
+		"by-category":   {"fields": []string{"category", "name", "editor"}},
+		"by-created_at": {"fields": []string{"created_at", "name", "category", "editor"}},
+		"by-updated_at": {"fields": []string{"updated_at", "name", "category", "editor"}},
+	}
+
 	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
 )
 
@@ -169,9 +177,11 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 		return nil, err
 	}
 
-	err = dbApps.CreateIndex(ctx, "apps-index", "apps-index", appsIndex)
-	if err != nil {
-		return nil, err
+	for name, index := range appsIndexes {
+		err = dbApps.CreateIndex(ctx, "apps-index-"+name, "apps-index-"+name, index)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dbVers, err := client.DB(ctx, VersDB)

@@ -93,42 +93,39 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 
 func getAppsList(c echo.Context) error {
 	filter := make(map[string]string)
-	var limit, skip int
+	var limit int
+	var cursor, sort string
 	var err error
 	for name, vals := range c.QueryParams() {
 		if len(vals) == 0 {
 			continue
 		}
 		val := vals[0]
-		if len(val) > 256 {
-			return errshttp.NewError(http.StatusBadRequest, "Query param too big")
-		}
-		if name == "limit" {
+		switch name {
+		case "limit":
 			limit, err = strconv.Atoi(val)
 			if err != nil {
 				return errshttp.NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
 			}
-			continue
-		}
-		if name == "skip" {
-			skip, err = strconv.Atoi(val)
-			if err != nil {
-				return errshttp.NewError(http.StatusBadRequest, "Query param skip is invalid: %s", err.Error())
-			}
-			continue
-		}
-		if queryFilterReg.MatchString(name) {
-			subs := queryFilterReg.FindStringSubmatch(name)
-			if len(subs) == 2 {
-				filter[subs[1]] = val
+		case "cursor":
+			cursor = val
+		case "sort":
+			sort = val
+		default:
+			if queryFilterReg.MatchString(name) {
+				subs := queryFilterReg.FindStringSubmatch(name)
+				if len(subs) == 2 {
+					filter[subs[1]] = val
+				}
 			}
 		}
 	}
 
-	docs, err := registry.GetAppsList(&registry.AppsListOptions{
+	next, docs, err := registry.GetAppsList(&registry.AppsListOptions{
 		Filters: filter,
 		Limit:   limit,
-		Skip:    skip,
+		Cursor:  cursor,
+		Sort:    sort,
 	})
 	if err != nil {
 		return err
@@ -139,7 +136,24 @@ func getAppsList(c echo.Context) error {
 		doc.ID = ""
 		doc.Rev = ""
 	}
-	return c.JSON(http.StatusOK, docs)
+
+	type pageInfo struct {
+		Count      int    `json:"count"`
+		NextCursor string `json:"next_cursor,omitempty"`
+	}
+
+	j := struct {
+		List     []*registry.App `json:"list"`
+		PageInfo pageInfo        `json:"page_info"`
+	}{
+		List: docs,
+		PageInfo: pageInfo{
+			Count:      len(docs),
+			NextCursor: next,
+		},
+	}
+
+	return c.JSON(http.StatusOK, j)
 }
 
 func getApp(c echo.Context) error {
@@ -282,6 +296,8 @@ func httpErrorHandler(err error, c echo.Context) {
 	} else {
 		msg = err.Error()
 	}
+
+	fmt.Println("ERROR:", msg)
 
 	if !c.Response().Committed {
 		if c.Request().Method == echo.HEAD {
