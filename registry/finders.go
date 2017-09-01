@@ -237,7 +237,8 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 			selector += ","
 		}
 		if name == "tags" {
-			selector += string(sprintfJSON(`%s: {"$elemMatch": {"$eq": %s}}`, name, val))
+			tags := strings.Split(val, ",")
+			selector += string(sprintfJSON(`%s: {"$all": %s}`, name, tags))
 		} else {
 			selector += string(sprintfJSON("%s: %s", name, val))
 		}
