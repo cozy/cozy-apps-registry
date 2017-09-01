@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -204,69 +203,32 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 
 type AppsListOptions struct {
 	Limit   int
-	Cursor  string
+	Cursor  int
 	Sort    string
 	Filters map[string]string
 }
 
-type Cursor struct {
-	skip  int
-	field string
-	value string
-}
-
-func ParseCursor(c, field string) *Cursor {
-	splits := strings.SplitN(c, ",", 2)
-	cursor := new(Cursor)
-	cursor.field = field
-	if len(splits) == 2 {
-		cursor.value = splits[0]
-		cursor.skip, _ = strconv.Atoi(splits[1])
-	} else if len(splits) == 1 {
-		cursor.value = splits[0]
-	}
-	return cursor
-}
-
-func (c *Cursor) ToSelector() string {
-	if c.value != "" {
-		return string(sprintfJSON(`%s: {"$gt": %s}`, c.field, c.value))
-	}
-	return string(sprintfJSON(`%s: {"$gt": null}`, c.field))
-}
-
-func (c *Cursor) Skip() int {
-	return c.skip
-}
-
-func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
+func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
-		return "", nil, err
+		return 0, nil, err
 	}
 
-	var descending bool
+	order := "asc"
 	sortField := opts.Sort
 	if len(sortField) > 0 && sortField[0] == '-' {
-		descending = true
+		order = "desc"
 		sortField = sortField[1:]
 	}
 	if sortField == "" || !stringInArray(sortField, validSorts) {
 		sortField = "name"
 	}
-	sort := []string{sortField}
+	sort := fmt.Sprintf(`{"%s": "%s"}`, sortField, order)
 	if sortField != "name" {
-		sort = append(sort, "name")
-	}
-	if descending {
-		for i, field := range sort {
-			sort[i] = string(sprintfJSON(`{%: "desc"}`, field))
-		}
+		sort += fmt.Sprintf(`,{"name": "%s"}`, order)
 	}
 
-	cursor := ParseCursor(opts.Cursor, sortField)
-
-	selector := cursor.ToSelector()
+	selector := string(sprintfJSON(`%s: {"$gt": null}`, sortField))
 	for name, val := range opts.Filters {
 		if !stringInArray(name, validFilters) {
 			continue
@@ -274,7 +236,11 @@ func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
 		if selector != "" {
 			selector += ","
 		}
-		selector += string(sprintfJSON("%s: %s", name, val))
+		if name == "tags" {
+			selector += string(sprintfJSON(`%s: {"$elemMatch": {"$eq": %s}}`, name, val))
+		} else {
+			selector += string(sprintfJSON("%s: %s", name, val))
+		}
 	}
 
 	if opts.Limit == 0 {
@@ -284,19 +250,21 @@ func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
 	}
 
 	limit := opts.Limit + len(appsIndexes) // for _design doc
-
+	cursor := opts.Cursor
 	useIndex := "apps-index-by-" + sortField
 	req := sprintfJSON(`{
   "use_index": %s,
   "selector": {`+selector+`},
   "skip": %s,
-  "sort": %s,
+  "sort": [`+sort+`],
   "limit": %s
-}`, useIndex, cursor.Skip(), sort, limit)
+}`, useIndex, cursor, limit)
+
 	fmt.Println("REQ", string(req))
+
 	rows, err := db.Find(ctx, req)
 	if err != nil {
-		return "", nil, err
+		return 0, nil, err
 	}
 	defer rows.Close()
 
@@ -304,7 +272,7 @@ func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
 	for rows.Next() {
 		var doc *App
 		if err = rows.ScanDoc(&doc); err != nil {
-			return "", nil, err
+			return 0, nil, err
 		}
 		if strings.HasPrefix(doc.ID, "_design") {
 			continue
@@ -312,31 +280,15 @@ func GetAppsList(opts *AppsListOptions) (string, []*App, error) {
 		res = append(res, doc)
 	}
 	if len(res) == 0 {
-		return "", res, nil
+		return 0, res, nil
 	}
 
 	if len(res) > opts.Limit {
 		res = res[:opts.Limit]
 	}
+	cursor += len(res)
 
-	lastApp := res[len(res)-1]
-	var nextCursor string
-	switch sortField {
-	case "name":
-		nextCursor = lastApp.Name
-	case "type":
-		nextCursor = lastApp.Type
-	case "editor":
-		nextCursor = lastApp.Editor
-	case "category":
-		nextCursor = lastApp.Category
-	case "created_at":
-		nextCursor = timeMarshal(lastApp.CreatedAt)
-	case "updated_at":
-		nextCursor = timeMarshal(lastApp.UpdatedAt)
-	}
-
-	return nextCursor, res, nil
+	return cursor, res, nil
 }
 
 func timeMarshal(t time.Time) string {

@@ -93,8 +93,8 @@ func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Edi
 
 func getAppsList(c echo.Context) error {
 	filter := make(map[string]string)
-	var limit int
-	var cursor, sort string
+	var limit, cursor int
+	var sort string
 	var err error
 	for name, vals := range c.QueryParams() {
 		if len(vals) == 0 {
@@ -108,7 +108,7 @@ func getAppsList(c echo.Context) error {
 				return errshttp.NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
 			}
 		case "cursor":
-			cursor = val
+			cursor, _ = strconv.Atoi(val)
 		case "sort":
 			sort = val
 		default:
@@ -149,7 +149,7 @@ func getAppsList(c echo.Context) error {
 		List: docs,
 		PageInfo: pageInfo{
 			Count:      len(docs),
-			NextCursor: next,
+			NextCursor: strconv.Itoa(next),
 		},
 	}
 
@@ -296,8 +296,6 @@ func httpErrorHandler(err error, c echo.Context) {
 	} else {
 		msg = err.Error()
 	}
-
-	fmt.Println("ERROR:", msg)
 
 	if !c.Response().Committed {
 		if c.Request().Method == echo.HEAD {
