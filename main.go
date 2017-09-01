@@ -364,10 +364,10 @@ var addEditorCmd = &cobra.Command{
 				break
 			}
 
-			fmt.Printf("\nCreating new editor with given public key...")
+			fmt.Printf("Creating new editor with given public key...")
 			_, err = editorRegistry.CreateEditorWithPublicKey(editorName, encodedPublicKey)
 		} else {
-			fmt.Printf("\nCreating new editor...")
+			fmt.Printf("Creating new editor...")
 			_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName)
 		}
 		if err != nil {
