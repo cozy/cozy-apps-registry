@@ -39,8 +39,8 @@ func init() {
 	flags.Int("port", 8080, "port to listen on")
 	checkNoErr(viper.BindPFlag("port", flags.Lookup("port")))
 
-	flags.String("couchdb-addr", "localhost:5984", "address of couchdb")
-	checkNoErr(viper.BindPFlag("couchdb.addr", flags.Lookup("couchdb-addr")))
+	flags.String("couchdb-url", "http://localhost:5984", "address of couchdb")
+	checkNoErr(viper.BindPFlag("couchdb.url", flags.Lookup("couchdb-url")))
 
 	flags.String("couchdb-user", "", "user of couchdb")
 	checkNoErr(viper.BindPFlag("couchdb.user", flags.Lookup("couchdb-user")))
@@ -382,7 +382,7 @@ var addEditorCmd = &cobra.Command{
 
 func prepareRegistry(cmd *cobra.Command, args []string) error {
 	client, err := registry.InitDBClient(
-		viper.GetString("couchdb.addr"),
+		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
 		viper.GetString("couchdb.password"),
 		viper.GetString("couchdb.prefix"))

@@ -140,19 +140,21 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 		}
 	}
 
-	client, err = kivik.New(ctx, "couch", (&url.URL{
-		Scheme: "http",
-		User:   userInfo,
-		Host:   addr,
-	}).String())
+	u, err := url.Parse(addr)
+	if err != nil {
+		return nil, err
+	}
+	u.User = userInfo
+
+	client, err = kivik.New(ctx, "couch", u.String())
 	if err != nil {
 		return nil, fmt.Errorf("Could not reach CouchDB: %s", err.Error())
 	}
 
 	if prefix != "" {
-		AppsDB = prefix + AppsDB
-		VersDB = prefix + VersDB
-		EditorsDB = prefix + EditorsDB
+		AppsDB = prefix + "-" + AppsDB
+		VersDB = prefix + "-" + VersDB
+		EditorsDB = prefix + "-" + EditorsDB
 	}
 
 	dbs := []string{AppsDB, VersDB, EditorsDB}
