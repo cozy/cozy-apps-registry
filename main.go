@@ -24,7 +24,7 @@ import (
 const envSessionPass = "REGISTRY_SESSION_PASS"
 
 var cfgFileFlag string
-var noPassphraseFlag bool
+var passphraseFlag *bool
 
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
@@ -64,7 +64,7 @@ func init() {
 	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(addEditorCmd)
 
-	genSessionSecret.Flags().BoolVar(&noPassphraseFlag, "no-passphrase", false, "generate non encrypted session secret")
+	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 }
 
 func main() {
@@ -273,6 +273,21 @@ var genSessionSecret = &cobra.Command{
 	Use:   "gen-session-secret [path]",
 	Short: `Generate a session secret file`,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		// go has no way to distinguish between a flag's default value or if a flag
+		// is actually set.
+		var found bool
+		for _, arg := range os.Args {
+			if strings.HasPrefix(arg, "--passphrase=") ||
+				arg == "-passphrase" ||
+				arg == "--passphrase" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			passphraseFlag = nil
+		}
+
 		var filePath string
 		if len(args) == 0 {
 			filePath = viper.GetString("session-secret")
@@ -292,10 +307,21 @@ var genSessionSecret = &cobra.Command{
 		defer file.Close()
 
 		var passphrase []byte
-		if !noPassphraseFlag {
+		if passphraseFlag == nil || *passphraseFlag {
+			forcePassphrase := passphraseFlag != nil && *passphraseFlag
 			for {
-				passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
+				var passPrompt string
+				if forcePassphrase {
+					passPrompt = "Enter passphrase: "
+				} else {
+					passPrompt = "Enter passphrase (empty for no passphrase): "
+				}
+				passphrase = askPassword(passPrompt)
 				if len(passphrase) == 0 {
+					if forcePassphrase {
+						fmt.Println("Passphrase is empty. Please retry.")
+						continue
+					}
 					if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
 						break
 					} else {
