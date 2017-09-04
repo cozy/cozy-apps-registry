@@ -336,42 +336,43 @@ var addEditorCmd = &cobra.Command{
 			break
 		}
 
-		associatePublicKey := askQuestion(false, "Associate a public key to the editor %q ?", editorName)
-		if associatePublicKey {
-			var encodedPublicKey []byte
+		// associatePublicKey := askQuestion(false, "Associate a public key to the editor %q ?", editorName)
+		// if associatePublicKey {
+		// 	var encodedPublicKey []byte
 
-			for {
-				var publicKeyPath string
-				var publicKeyFile *os.File
+		// 	for {
+		// 		var publicKeyPath string
+		// 		var publicKeyFile *os.File
 
-				publicKeyPath = prompt("Path to public key file:")
+		// 		publicKeyPath = prompt("Path to public key file:")
 
-				publicKeyPath = registry.AbsPath(publicKeyPath)
-				publicKeyFile, err = os.Open(publicKeyPath)
-				if err != nil {
-					fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
-						publicKeyPath, err.Error())
-					continue
-				}
+		// 		publicKeyPath = registry.AbsPath(publicKeyPath)
+		// 		publicKeyFile, err = os.Open(publicKeyPath)
+		// 		if err != nil {
+		// 			fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
+		// 				publicKeyPath, err.Error())
+		// 			continue
+		// 		}
 
-				encodedPublicKey, err = ioutil.ReadAll(io.LimitReader(publicKeyFile, 10*1024))
-				if err != nil {
-					fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
-						publicKeyPath, err.Error())
-					continue
-				}
+		// 		encodedPublicKey, err = ioutil.ReadAll(io.LimitReader(publicKeyFile, 10*1024))
+		// 		if err != nil {
+		// 			fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
+		// 				publicKeyPath, err.Error())
+		// 			continue
+		// 		}
 
-				break
-			}
+		// 		break
+		// 	}
 
-			fmt.Printf("Creating new editor with given public key...")
-			_, err = editorRegistry.CreateEditorWithPublicKey(editorName, encodedPublicKey)
-		} else {
-			fmt.Printf("Creating new editor...")
-			_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName)
-		}
+		// 	fmt.Printf("Creating new editor with given public key...")
+		// 	_, err = editorRegistry.CreateEditorWithPublicKey(editorName, encodedPublicKey)
+		// } else {
+		// }
+
+		fmt.Printf("Creating new editor...")
+		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName)
 		if err != nil {
-			fmt.Println("failed.")
+			fmt.Println("failed")
 			return err
 		}
 
