@@ -24,6 +24,7 @@ import (
 const envSessionPass = "REGISTRY_SESSION_PASS"
 
 var cfgFileFlag string
+var noPassphraseFlag bool
 
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
@@ -62,6 +63,8 @@ func init() {
 	rootCmd.AddCommand(printPublicKeyCmd)
 	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(addEditorCmd)
+
+	genSessionSecret.Flags().BoolVar(&noPassphraseFlag, "no-passphrase", false, "generate non encrypted session secret")
 }
 
 func main() {
@@ -289,20 +292,22 @@ var genSessionSecret = &cobra.Command{
 		defer file.Close()
 
 		var passphrase []byte
-		for {
-			passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
-			if len(passphrase) == 0 {
-				if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
-					break
-				} else {
+		if !noPassphraseFlag {
+			for {
+				passphrase = askPassword("Enter passphrase (empty for no passphrase): ")
+				if len(passphrase) == 0 {
+					if askQuestion(false, "Are you sure you do NOT want to encrypt the session secret ?") {
+						break
+					} else {
+						continue
+					}
+				}
+				if c := askPassword("Confirm passphrase: "); !bytes.Equal(passphrase, c) {
+					fmt.Fprintln(os.Stderr, "Passphrases do not match. Please retry.")
 					continue
 				}
+				break
 			}
-			if c := askPassword("Confirm passphrase: "); !bytes.Equal(passphrase, c) {
-				fmt.Fprintln(os.Stderr, "Passphrases do not match. Please retry.")
-				continue
-			}
-			break
 		}
 
 		secret := auth.GenerateMasterSecret()
