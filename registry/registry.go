@@ -148,7 +148,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 
 	client, err = kivik.New(ctx, "couch", u.String())
 	if err != nil {
-		return nil, fmt.Errorf("Could not reach CouchDB: %s", err.Error())
+		return nil, err
 	}
 
 	if prefix != "" {

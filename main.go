@@ -273,6 +273,8 @@ var genSessionSecret = &cobra.Command{
 		var filePath string
 		if len(args) == 0 {
 			filePath = viper.GetString("session-secret")
+		} else {
+			filePath = args[0]
 		}
 		if filePath == "" {
 			return fmt.Errorf("Missing file path to generate the secret")
