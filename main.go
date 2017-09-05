@@ -195,7 +195,8 @@ var genTokenCmd = &cobra.Command{
 		if len(rest) > 0 {
 			m := rest[0]
 			if yearDurationReg.MatchString(m) {
-				f, err := strconv.ParseFloat(m[:len(m)-1], 10)
+				var f float64
+				f, err = strconv.ParseFloat(m[:len(m)-1], 10)
 				if err == nil {
 					maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
 				}
