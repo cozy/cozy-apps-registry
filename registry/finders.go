@@ -1,12 +1,10 @@
 package registry
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/flimzy/kivik"
 )
@@ -288,9 +286,4 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 	cursor += len(res)
 
 	return cursor, res, nil
-}
-
-func timeMarshal(t time.Time) string {
-	b, _ := json.Marshal(t)
-	return string(b[1 : len(b)-1])
 }
