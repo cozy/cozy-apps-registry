@@ -24,7 +24,15 @@ It requires Couchdb 2.0 to work properly.
 
 ```sh
 $ go get -u github.com/cozy/cozy-registry-v3
+$ cozy-registry-v3 gen-session-secret --passphrase false
 $ cozy-registry-v3 serve
+```
+
+To generate a token:
+
+```
+$ cozy-registry-v3 add-editor my-editor
+$ cozy-registry-v3 gen-token my-editor
 ```
 
 
