@@ -143,8 +143,8 @@ func getAppsList(c echo.Context) error {
 	}
 
 	j := struct {
-		List     []*registry.App `json:"list"`
-		PageInfo pageInfo        `json:"page_info"`
+		List     []*registry.App `json:"data"`
+		PageInfo pageInfo        `json:"meta"`
 	}{
 		List: docs,
 		PageInfo: pageInfo{
