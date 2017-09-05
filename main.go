@@ -196,15 +196,14 @@ var genTokenCmd = &cobra.Command{
 			m := rest[0]
 			if yearDurationReg.MatchString(m) {
 				f, err := strconv.ParseFloat(m[:len(m)-1], 10)
-				if err != nil {
-					return err
+				if err == nil {
+					maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
 				}
-				maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
 			} else {
 				maxAge, err = time.ParseDuration(m)
-				if err != nil {
-					return fmt.Errorf("Could not parse max-age argument: %s", err)
-				}
+			}
+			if err != nil {
+				return fmt.Errorf("Could not parse max-age argument: %s", err)
 			}
 		}
 
