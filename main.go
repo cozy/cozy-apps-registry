@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -89,10 +90,13 @@ var rootCmd = &cobra.Command{
 		viper.AddConfigPath(".")
 		viper.SetConfigType("yaml")
 		err := viper.ReadInConfig()
+
 		if err != nil {
-			cmd.Help()
-			fmt.Fprintln(os.Stderr)
-			return err
+			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+				cmd.Help()
+				fmt.Fprintln(os.Stderr)
+				return err
+			}
 		}
 		return nil
 	},
@@ -175,6 +179,8 @@ var verifySignatureCmd = &cobra.Command{
 	},
 }
 
+var yearDurationReg = regexp.MustCompile(`^[0-9][0-9\.]*y$`)
+
 var genTokenCmd = &cobra.Command{
 	Use:     "gen-token [editor] [max-age]",
 	Short:   `Generate a token for the specified editor`,
@@ -187,9 +193,18 @@ var genTokenCmd = &cobra.Command{
 
 		var maxAge time.Duration
 		if len(rest) > 0 {
-			maxAge, err = time.ParseDuration(rest[0])
-			if err != nil {
-				return fmt.Errorf("Could not parse max-age argument: %s", err)
+			m := rest[0]
+			if yearDurationReg.MatchString(m) {
+				f, err := strconv.ParseFloat(m[:len(m)-1], 10)
+				if err != nil {
+					return err
+				}
+				maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
+			} else {
+				maxAge, err = time.ParseDuration(m)
+				if err != nil {
+					return fmt.Errorf("Could not parse max-age argument: %s", err)
+				}
 			}
 		}
 

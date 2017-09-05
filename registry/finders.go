@@ -261,8 +261,6 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
   "limit": %s
 }`, useIndex, cursor, limit)
 
-	fmt.Println("REQ", string(req))
-
 	rows, err := db.Find(ctx, req)
 	if err != nil {
 		return 0, nil, err
