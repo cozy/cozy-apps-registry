@@ -33,26 +33,33 @@ cozy-registry-v3 add-editor cozy --couchdb-prefix reg3
 
 for name in "${reg1[@]}"; do
   curl \
+    --silent --fail \
     -X POST http://localhost:8081/registry/${name} \
     -H 'Content-Type:application/json' \
     -H "Authorization: Token $(cozy-registry-v3 gen-token cozy --couchdb-prefix reg1)" \
-    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg1", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}'
+    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg1", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}' \
+    > /dev/null
 done
 
 for name in "${reg2[@]}"; do
   curl \
+    --silent --fail \
     -X POST http://localhost:8082/registry/${name} \
     -H 'Content-Type:application/json' \
     -H "Authorization: Token $(cozy-registry-v3 gen-token cozy --couchdb-prefix reg2)" \
-    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg2", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}'
+    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg2", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}' \
+    > /dev/null
 done
 
 for name in "${reg3[@]}"; do
   curl \
+    --silent --fail \
     -X POST http://localhost:8083/registry/${name} \
     -H 'Content-Type:application/json' \
     -H "Authorization: Token $(cozy-registry-v3 gen-token cozy --couchdb-prefix reg3)" \
-    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg3", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}'
+    -d '{"editor":"cozy", "description":{"en":"The drive application"}, "repository": "https://github.com/cozy/cozy-drive", "tags": ["reg3", "foo", "bar", "baz"], "type": "webapp", "category": "bar"}' \
+    > /dev/null
 done
 
+echo "Ready !"
 cat
