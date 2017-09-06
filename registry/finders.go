@@ -14,6 +14,7 @@ var validFilters = []string{
 	"editor",
 	"category",
 	"tags",
+	"locales",
 }
 
 var validSorts = []string{
@@ -234,10 +235,11 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		if selector != "" {
 			selector += ","
 		}
-		if name == "tags" {
+		switch name {
+		case "tags", "locales":
 			tags := strings.Split(val, ",")
 			selector += string(sprintfJSON(`%s: {"$all": %s}`, name, tags))
-		} else {
+		default:
 			selector += string(sprintfJSON("%s: %s", name, val))
 		}
 	}

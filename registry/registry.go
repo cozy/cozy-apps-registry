@@ -98,6 +98,7 @@ type App struct {
 	Repository     string         `json:"repository"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+	Locales        []string       `json:"locales"`
 	Tags           []string       `json:"tags"`
 	LogoURL        string         `json:"logo_url"`
 	ScreenshotURLs []string       `json:"screenshot_urls"`
