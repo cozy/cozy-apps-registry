@@ -9,11 +9,9 @@ _term() {
 trap _term SIGINT
 
 couch_addr="http://127.0.0.1:5984"
-curl -s $couch_addr/_all_dbs | jq -r '.[]' | \
+curl -s $couch_addr/_all_dbs | jq -r '.[]' | grep "registry-" | \
   xargs -I % python -c "import urllib; print urllib.quote('''%''', safe='')" | \
   xargs -I % curl -X DELETE ${couch_addr}/%
-
-killall cozy-registry-v3
 
 reg1=("bank" "drive" "health" "photos")
 reg2=("drive" "homebook" "bank" "collect")
