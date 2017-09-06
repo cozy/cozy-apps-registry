@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -112,7 +114,21 @@ var serveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address := viper.GetString("host") + ":" + strconv.Itoa(viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
-		return StartRouter(address)
+		errc := make(chan error)
+		router := Router(address)
+		go func() {
+			errc <- router.Start(address)
+		}()
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		select {
+		case err := <-errc:
+			return err
+		case <-c:
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			return router.Shutdown(ctx)
+		}
 	},
 }
 

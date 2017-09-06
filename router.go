@@ -321,7 +321,7 @@ func wrapErr(err error, code int) error {
 	return errshttp.NewError(code, err.Error())
 }
 
-func StartRouter(addr string) error {
+func Router(addr string) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HTTPErrorHandler = httpErrorHandler
@@ -348,5 +348,5 @@ func StartRouter(addr string) error {
 	e.HEAD("/editors/:editor", getEditor)
 	e.GET("/editors/:editor", getEditor)
 
-	return e.Start(addr)
+	return e
 }
