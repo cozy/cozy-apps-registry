@@ -142,6 +142,11 @@ func getAppsList(c echo.Context) error {
 		NextCursor string `json:"next_cursor,omitempty"`
 	}
 
+	var nextCursor string
+	if next >= 0 {
+		nextCursor = strconv.Itoa(next)
+	}
+
 	j := struct {
 		List     []*registry.App `json:"data"`
 		PageInfo pageInfo        `json:"meta"`
@@ -149,7 +154,7 @@ func getAppsList(c echo.Context) error {
 		List: docs,
 		PageInfo: pageInfo{
 			Count:      len(docs),
-			NextCursor: strconv.Itoa(next),
+			NextCursor: nextCursor,
 		},
 	}
 

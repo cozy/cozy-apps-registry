@@ -248,7 +248,8 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		opts.Limit = maxLimit
 	}
 
-	limit := opts.Limit + len(appsIndexes) // for _design doc
+	designsCount := len(appsIndexes)
+	limit := opts.Limit + designsCount + 1
 	cursor := opts.Cursor
 	useIndex := "apps-index-by-" + sortField
 	req := sprintfJSON(`{
@@ -277,13 +278,17 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		res = append(res, doc)
 	}
 	if len(res) == 0 {
-		return 0, res, nil
+		return -1, res, nil
 	}
 
 	if len(res) > opts.Limit {
 		res = res[:opts.Limit]
+		cursor += len(res)
+	} else {
+		// we fetch one more element so we know in this case the end of the list
+		// has been reached.
+		cursor = -1
 	}
-	cursor += len(res)
 
 	return cursor, res, nil
 }
