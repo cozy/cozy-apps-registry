@@ -378,6 +378,9 @@ var addEditorCmd = &cobra.Command{
 			}
 			_, err = editorRegistry.GetEditor(editorName)
 			if err == nil {
+				if len(args) > 0 {
+					return auth.ErrEditorExists
+				}
 				fmt.Fprintln(os.Stderr, auth.ErrEditorExists)
 				continue
 			}
