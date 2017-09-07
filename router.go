@@ -176,6 +176,15 @@ func getApp(c echo.Context) error {
 	return c.JSON(http.StatusOK, doc)
 }
 
+func getAppVersions(c echo.Context) error {
+	appName := c.Param("app")
+	doc, err := registry.FindAppVersions(appName)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, doc)
+}
+
 func getVersion(c echo.Context) error {
 	appName := c.Param("app")
 	version := c.Param("version")
@@ -339,6 +348,7 @@ func Router(addr string) *echo.Echo {
 	registry.GET("", getAppsList)
 	registry.HEAD("/:app", getApp)
 	registry.GET("/:app", getApp)
+	registry.GET("/:app/versions", getAppVersions)
 	registry.HEAD("/:app/:version", getVersion)
 	registry.GET("/:app/:version", getVersion)
 	registry.HEAD("/:app/:channel/latest", getLatestVersion)

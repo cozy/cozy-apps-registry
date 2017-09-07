@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
+	"github.com/flimzy/kivik/driver/couchdb/chttp"
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
@@ -59,6 +61,8 @@ var (
 	AppsDB    = "registry-apps"
 	VersDB    = "registry-versions"
 	EditorsDB = "registry-editors"
+
+	VersViewDoc = "versions"
 )
 
 var (
@@ -102,7 +106,6 @@ type App struct {
 	Tags           []string       `json:"tags"`
 	LogoURL        string         `json:"logo_url"`
 	ScreenshotURLs []string       `json:"screenshot_urls"`
-	Versions       *AppVersions   `json:"versions,omitempty"`
 }
 
 type AppDescription map[string]string
@@ -197,7 +200,80 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 		return nil, err
 	}
 
+	views := map[string]string{
+		"dev":    devView,
+		"beta":   betaView,
+		"stable": stableView,
+	}
+	if err = createViews(u, dbVers.Name(), VersViewDoc, views); err != nil {
+		return nil, err
+	}
+
 	return client, err
+}
+
+func createViews(u *url.URL, dbName, ddoc string, views map[string]string) error {
+	chttpClient, err := chttp.New(ctx, u.String())
+	if err != nil {
+		return err
+	}
+
+	var object struct {
+		Rev   string `json:"_rev"`
+		Views map[string]struct {
+			Map string `json:"map"`
+		}
+	}
+
+	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
+	path := fmt.Sprintf("/%s/%s", dbName, ddocID)
+	_, err = chttpClient.DoJSON(ctx, http.MethodGet, path, nil, &object)
+	if err != nil {
+		httperr, ok := err.(*chttp.HTTPError)
+		if !ok {
+			return err
+		}
+		if httperr.StatusCode() != 404 {
+			return err
+		}
+	}
+	if err == nil {
+		var unequal bool
+		for name, code := range views {
+			if view, ok := object.Views[name]; !ok || view.Map != code {
+				unequal = true
+				break
+			}
+		}
+		if unequal {
+			return nil
+		}
+	}
+
+	var viewsBodies []string
+	for name, code := range views {
+		viewsBodies = append(viewsBodies,
+			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
+	}
+
+	viewsBody := `{` + strings.Join(viewsBodies, ",") + `}`
+
+	body, _ := json.Marshal(struct {
+		ID       string          `json:"_id"`
+		Rev      string          `json:"_rev,omitempty"`
+		Views    json.RawMessage `json:"views"`
+		Language string          `json:"language"`
+	}{
+		ID:       ddocID,
+		Rev:      object.Rev,
+		Views:    json.RawMessage(viewsBody),
+		Language: "javascript",
+	})
+
+	_, err = chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
+		Body: bytes.NewReader(body),
+	})
+	return err
 }
 
 func IsValidApp(app *App) error {
@@ -266,7 +342,6 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 		app.Editor = editor.Name()
 		app.CreatedAt = now
 		app.UpdatedAt = now
-		app.Versions = nil
 		if app.FullName == nil {
 			app.FullName = make(AppFullName)
 		}
@@ -289,7 +364,6 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
 	app.UpdatedAt = time.Now()
-	app.Versions = nil
 	if app.Category == "" {
 		app.Category = oldApp.Category
 	}
@@ -502,6 +576,98 @@ func getVersionChannel(version string) Channel {
 		return Beta
 	}
 	return Stable
+}
+
+type versionsSlice []*Version
+
+func (v versionsSlice) Len() int           { return len(v) }
+func (v versionsSlice) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+func (v versionsSlice) Less(i, j int) bool { return isVersionLess(v[i], v[j]) }
+
+func isVersionLess(a, b *Version) bool {
+	vi, expi, err := expandVersion(a.Version)
+	if err != nil {
+		panic(err)
+	}
+	vj, expj, err := expandVersion(b.Version)
+	if err != nil {
+		panic(err)
+	}
+	if vi[0] < vj[0] {
+		return true
+	}
+	if vi[0] == vj[0] && vi[1] < vj[1] {
+		return true
+	}
+	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] < vj[2] {
+		return true
+	}
+	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] == vj[2] {
+		chi := getVersionChannel(a.Version)
+		chj := getVersionChannel(b.Version)
+		if chi == Beta && chj == Beta {
+			return expi < expj
+		}
+		if chi != chj {
+			if chi == Stable {
+				return true
+			}
+			if chj == Stable {
+				return false
+			}
+		}
+		return a.CreatedAt.Before(b.CreatedAt)
+	}
+	return false
+}
+
+func expandVersion(version string) (v [3]int, exp int, err error) {
+	sp := strings.SplitN(version, ".", 3)
+	if len(sp) != 3 {
+		goto ERROR
+	}
+	v[0], err = strconv.Atoi(sp[0])
+	if err != nil {
+		goto ERROR
+	}
+	v[1], err = strconv.Atoi(sp[1])
+	if err != nil {
+		goto ERROR
+	}
+	switch getVersionChannel(version) {
+	case Stable:
+		v[2], err = strconv.Atoi(sp[2])
+		if err != nil {
+			goto ERROR
+		}
+	case Beta:
+		sp = strings.SplitN(sp[2], betaSuffix, 2)
+		if len(sp) != 2 {
+			goto ERROR
+		}
+		v[2], err = strconv.Atoi(sp[0])
+		if err != nil {
+			goto ERROR
+		}
+		exp, err = strconv.Atoi(sp[1])
+		if err != nil {
+			goto ERROR
+		}
+	case Dev:
+		sp = strings.SplitN(sp[2], devSuffix, 2)
+		if len(sp) != 2 {
+			goto ERROR
+		}
+		v[2], err = strconv.Atoi(sp[0])
+		if err != nil {
+			goto ERROR
+		}
+	}
+	return
+
+ERROR:
+	err = ErrVersionInvalid
+	return
 }
 
 func getManifestName(appType string) string {

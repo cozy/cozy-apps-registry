@@ -58,10 +58,6 @@ func FindApp(appName string) (*App, error) {
 		return nil, err
 	}
 
-	doc.Versions, err = FindAppVersions(appName)
-	if err != nil {
-		return nil, err
-	}
 	return doc, nil
 }
 
@@ -70,7 +66,7 @@ func FindVersion(appName, version string) (*Version, error) {
 		return nil, ErrAppInvalid
 	}
 	if !validVersionReg.MatchString(version) {
-		return nil, ErrVersionMismatch
+		return nil, ErrVersionInvalid
 	}
 
 	db, err := client.DB(ctx, VersDB)
@@ -106,17 +102,28 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	var latest *Version
-	req := sprintfJSON(`{
-  "selector": { "name": %s },
-  "limit": 2000
-}`, appName)
+	rows, err := db.Query(ctx, VersViewDoc, string(ch), map[string]interface{}{
+		"descending": true,
+		"limit":      1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, ErrVersionNotFound
+	}
 
-	rows, err := db.Find(ctx, req)
+	rows, err = db.Query(ctx, VersViewDoc, string(ch), map[string]interface{}{
+		"key":          rows.Key(),
+		"limit":        200,
+		"include_docs": true,
+	})
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
+	var latest *Version
 	for rows.Next() {
 		var doc *Version
 		if err = rows.ScanDoc(&doc); err != nil {
@@ -124,16 +131,6 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		}
 		if strings.HasPrefix(doc.ID, "_design") {
 			continue
-		}
-		switch ch {
-		case Stable:
-			if c := getVersionChannel(doc.Version); c != Stable {
-				continue
-			}
-		case Beta:
-			if c := getVersionChannel(doc.Version); c != Stable && c != Beta {
-				continue
-			}
 		}
 		if latest == nil || isVersionLess(latest, doc) {
 			latest = doc
