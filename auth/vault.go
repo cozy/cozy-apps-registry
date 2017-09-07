@@ -88,7 +88,7 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 	if err != nil {
 		return nil, err
 	}
-	var editors []*Editor
+	editors := make([]*Editor, 0)
 	for rows.Next() {
 		var e editorForCouchdb
 		if err = rows.ScanDoc(&e); err != nil {
