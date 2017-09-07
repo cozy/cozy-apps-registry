@@ -348,6 +348,9 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 		if app.Description == nil {
 			app.Description = make(AppDescription)
 		}
+		if app.Locales == nil {
+			app.Locales = make([]string, 0)
+		}
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)
 		}
@@ -375,6 +378,9 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	}
 	if app.Description == nil {
 		app.Description = oldApp.Description
+	}
+	if app.Locales == nil {
+		app.Locales = oldApp.Locales
 	}
 	if app.Tags == nil {
 		app.Tags = oldApp.Tags
