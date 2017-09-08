@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
@@ -196,6 +197,13 @@ func getVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	rev := doc.Rev
+	headers := c.Response().Header()
+	headers.Set("cache-control", "public, max-age=31536000")
+	headers.Set("etag", rev)
+	headers.Set("date", time.Now().Format(http.TimeFormat))
+
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
@@ -212,6 +220,25 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	rev := doc.Rev
+	headers := c.Response().Header()
+	headers.Set("cache-control", "public, max-age=60")
+	headers.Set("etag", rev)
+	headers.Set("date", time.Now().Format(http.TimeFormat))
+
+	var match bool
+	revMatches := strings.Split(c.Request().Header.Get("if-none-match"), ",")
+	for _, revMatch := range revMatches {
+		if strings.TrimSpace(revMatch) == rev {
+			match = true
+			break
+		}
+	}
+	if match {
+		return c.NoContent(http.StatusNotModified)
+	}
+
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
