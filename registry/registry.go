@@ -20,11 +20,11 @@ import (
 
 	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
-	"github.com/cozy/echo"
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
 	"github.com/flimzy/kivik/driver/couchdb/chttp"
+	"github.com/labstack/echo"
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo

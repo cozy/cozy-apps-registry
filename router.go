@@ -202,7 +202,7 @@ func getVersion(c echo.Context) error {
 	headers := c.Response().Header()
 	headers.Set("cache-control", "public, max-age=31536000")
 	headers.Set("etag", rev)
-	headers.Set("date", time.Now().Format(http.TimeFormat))
+	headers.Set("date", time.Now().UTC().Format(time.RFC1123))
 
 	// Do not show internal identifier and revision
 	doc.ID = ""
@@ -225,7 +225,7 @@ func getLatestVersion(c echo.Context) error {
 	headers := c.Response().Header()
 	headers.Set("cache-control", "public, max-age=60")
 	headers.Set("etag", rev)
-	headers.Set("date", time.Now().Format(http.TimeFormat))
+	headers.Set("date", time.Now().UTC().Format(time.RFC1123))
 
 	var match bool
 	revMatches := strings.Split(c.Request().Header.Get("if-none-match"), ",")
