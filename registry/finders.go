@@ -89,6 +89,20 @@ func FindVersion(appName, version string) (*Version, error) {
 	return doc, nil
 }
 
+func versionViewQuery(db *kivik.DB, appName, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
+	rows, err := db.Query(ctx, versViewDocName(appName), channel, opts)
+	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			if err = versViewsLazyCreate(appName); err != nil {
+				return nil, err
+			}
+			return versionViewQuery(db, appName, channel, opts)
+		}
+		return nil, err
+	}
+	return rows, nil
+}
+
 func FindLatestVersion(appName string, channel string) (*Version, error) {
 	ch, err := strToChannel(channel)
 	if err != nil {
@@ -102,7 +116,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	rows, err := db.Query(ctx, VersViewDoc, string(ch), map[string]interface{}{
+	rows, err := versionViewQuery(db, appName, string(ch), map[string]interface{}{
 		"descending": true,
 		"limit":      1,
 	})
@@ -113,7 +127,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, ErrVersionNotFound
 	}
 
-	rows, err = db.Query(ctx, VersViewDoc, string(ch), map[string]interface{}{
+	rows, err = versionViewQuery(db, appName, string(ch), map[string]interface{}{
 		"key":          rows.Key(),
 		"limit":        200,
 		"include_docs": true,

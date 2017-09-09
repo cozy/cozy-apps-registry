@@ -23,7 +23,6 @@ import (
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
-	"github.com/flimzy/kivik/driver/couchdb/chttp"
 	"github.com/labstack/echo"
 )
 
@@ -31,7 +30,7 @@ const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 
 var (
 	validAppNameReg = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
-	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{5,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
 )
@@ -61,12 +60,11 @@ var (
 	AppsDB    = "registry-apps"
 	VersDB    = "registry-versions"
 	EditorsDB = "registry-editors"
-
-	VersViewDoc = "versions"
 )
 
 var (
-	client *kivik.Client
+	client    *kivik.Client
+	clientURL *url.URL
 
 	ctx = context.Background()
 
@@ -154,6 +152,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	clientURL = u
 
 	if prefix != "" {
 		AppsDB = prefix + "-" + AppsDB
@@ -200,80 +199,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 		return nil, err
 	}
 
-	views := map[string]string{
-		"dev":    devView,
-		"beta":   betaView,
-		"stable": stableView,
-	}
-	if err = createViews(u, dbVers.Name(), VersViewDoc, views); err != nil {
-		return nil, err
-	}
-
 	return client, err
-}
-
-func createViews(u *url.URL, dbName, ddoc string, views map[string]string) error {
-	chttpClient, err := chttp.New(ctx, u.String())
-	if err != nil {
-		return err
-	}
-
-	var object struct {
-		Rev   string `json:"_rev"`
-		Views map[string]struct {
-			Map string `json:"map"`
-		}
-	}
-
-	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
-	path := fmt.Sprintf("/%s/%s", dbName, ddocID)
-	_, err = chttpClient.DoJSON(ctx, http.MethodGet, path, nil, &object)
-	if err != nil {
-		httperr, ok := err.(*chttp.HTTPError)
-		if !ok {
-			return err
-		}
-		if httperr.StatusCode() != 404 {
-			return err
-		}
-	}
-	if err == nil {
-		var unequal bool
-		for name, code := range views {
-			if view, ok := object.Views[name]; !ok || view.Map != code {
-				unequal = true
-				break
-			}
-		}
-		if unequal {
-			return nil
-		}
-	}
-
-	var viewsBodies []string
-	for name, code := range views {
-		viewsBodies = append(viewsBodies,
-			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
-	}
-
-	viewsBody := `{` + strings.Join(viewsBodies, ",") + `}`
-
-	body, _ := json.Marshal(struct {
-		ID       string          `json:"_id"`
-		Rev      string          `json:"_rev,omitempty"`
-		Views    json.RawMessage `json:"views"`
-		Language string          `json:"language"`
-	}{
-		ID:       ddocID,
-		Rev:      object.Rev,
-		Views:    json.RawMessage(viewsBody),
-		Language: "javascript",
-	})
-
-	_, err = chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
-		Body: bytes.NewReader(body),
-	})
-	return err
 }
 
 func IsValidApp(app *App) error {
@@ -304,7 +230,7 @@ func IsValidVersion(ver *Version) error {
 		return ErrAppInvalid
 	}
 	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
-		return ErrVersionMismatch
+		return ErrVersionInvalid
 	}
 	var fields []string
 	if ver.URL == "" {

@@ -17,8 +17,12 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-var errUnauthorized = errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
+const authTokenScheme = "Token "
+
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
+
+var errUnauthorized = errshttp.NewError(http.StatusUnauthorized,
+	http.StatusText(http.StatusUnauthorized))
 
 var (
 	oneMinute = 1 * time.Minute
@@ -30,19 +34,24 @@ func createApp(c echo.Context) (err error) {
 	if err = c.Bind(app); err != nil {
 		return err
 	}
+
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
+
 	editor, err := checkPermissions(c, app.Editor)
 	if err != nil {
 		return err
 	}
+
 	if err = registry.CreateOrUpdateApp(app, editor); err != nil {
 		return err
 	}
+
 	// Do not show internal identifier and revision
 	app.ID = ""
 	app.Rev = ""
+
 	return c.JSON(http.StatusCreated, app)
 }
 
@@ -51,23 +60,29 @@ func createVersion(c echo.Context) (err error) {
 	if err = c.Bind(ver); err != nil {
 		return err
 	}
+
 	if err = validateVersionRequest(c, ver); err != nil {
 		return err
 	}
+
 	app, err := registry.FindApp(ver.Name)
 	if err != nil {
 		return err
 	}
+
 	editor, err := checkPermissions(c, app.Editor)
 	if err != nil {
 		return err
 	}
+
 	if err = registry.CreateVersion(ver, editor); err != nil {
 		return err
 	}
+
 	// Do not show internal identifier and revision
 	ver.ID = ""
 	ver.Rev = ""
+
 	return c.JSON(http.StatusCreated, ver)
 }
 
@@ -76,9 +91,10 @@ func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
 	if err != nil {
 		return nil, errUnauthorized
 	}
+
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	if strings.HasPrefix(authHeader, "Token ") {
-		tokenStr := authHeader[len("Token "):]
+	if strings.HasPrefix(authHeader, authTokenScheme) {
+		tokenStr := authHeader[len(authTokenScheme):]
 		if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
 			return nil, errUnauthorized
 		}
@@ -94,33 +110,39 @@ func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
 		}
 		return editor, nil
 	}
+
 	return nil, errUnauthorized
 }
 
 func getAppsList(c echo.Context) error {
-	filter := make(map[string]string)
+	var filter map[string]string
 	var limit, cursor int
 	var sort string
 	var err error
 	for name, vals := range c.QueryParams() {
-		if len(vals) == 0 {
-			continue
-		}
 		val := vals[0]
 		switch name {
 		case "limit":
 			limit, err = strconv.Atoi(val)
 			if err != nil {
-				return errshttp.NewError(http.StatusBadRequest, "Query param limit is invalid: %s", err.Error())
+				return errshttp.NewError(http.StatusBadRequest,
+					`Query param "limit" is invalid: %s`, err)
 			}
 		case "cursor":
-			cursor, _ = strconv.Atoi(val)
+			cursor, err = strconv.Atoi(val)
+			if err != nil {
+				return errshttp.NewError(http.StatusBadRequest,
+					`Query param "cursor" is invalid: %s`, err)
+			}
 		case "sort":
 			sort = val
 		default:
 			if queryFilterReg.MatchString(name) {
 				subs := queryFilterReg.FindStringSubmatch(name)
 				if len(subs) == 2 {
+					if filter == nil {
+						filter = make(map[string]string)
+					}
 					filter[subs[1]] = val
 				}
 			}
@@ -209,6 +231,7 @@ func getVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	doc, err := registry.FindVersion(appName, version)
 	if err != nil {
 		return err
@@ -284,14 +307,16 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.Request().Header.Get(echo.HeaderContentType)
 			if !strings.HasPrefix(contentType, echo.MIMEApplicationJSON) {
-				return errshttp.NewError(http.StatusUnsupportedMediaType, "Content-Type should be application/json")
+				return errshttp.NewError(http.StatusUnsupportedMediaType,
+					"Content-Type should be application/json")
 			}
 		}
 		acceptHeader := req.Header.Get("Accept")
 		if acceptHeader != "" &&
 			!strings.Contains(acceptHeader, echo.MIMEApplicationJSON) &&
 			!strings.Contains(acceptHeader, "*/*") {
-			return errshttp.NewError(http.StatusNotAcceptable, "Accept header does not contain application/json")
+			return errshttp.NewError(http.StatusNotAcceptable,
+				"Accept header does not contain application/json")
 		}
 		return next(c)
 	}
