@@ -69,9 +69,9 @@ function(doc) {
 )
 
 var versionsViews = map[string]string{
-	"dev":    devView,
-	"beta":   betaView,
-	"stable": stableView,
+	string(Dev):    devView,
+	string(Beta):   betaView,
+	string(Stable): stableView,
 }
 
 func versViewDocName(appName string) string {
