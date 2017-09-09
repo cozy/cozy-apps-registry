@@ -20,6 +20,11 @@ import (
 var errUnauthorized = errshttp.NewError(http.StatusUnauthorized, "Unauthorized")
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
+var (
+	oneMinute = 1 * time.Minute
+	oneYear   = 365 * 24 * time.Hour
+)
+
 func createApp(c echo.Context) (err error) {
 	app := &registry.App{}
 	if err = c.Bind(app); err != nil {
@@ -168,9 +173,15 @@ func getApp(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if cacheControl(c, doc.Rev, oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
@@ -183,6 +194,11 @@ func getAppVersions(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if cacheControl(c, "", oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
 	return c.JSON(http.StatusOK, doc)
 }
 
@@ -198,15 +214,14 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
-	rev := doc.Rev
-	headers := c.Response().Header()
-	headers.Set("cache-control", "public, max-age=31536000")
-	headers.Set("etag", rev)
-	headers.Set("date", time.Now().UTC().Format(time.RFC1123))
+	if cacheControl(c, doc.Rev, oneYear) {
+		return c.NoContent(http.StatusNotModified)
+	}
 
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
@@ -221,27 +236,14 @@ func getLatestVersion(c echo.Context) error {
 		return err
 	}
 
-	rev := doc.Rev
-	headers := c.Response().Header()
-	headers.Set("cache-control", "public, max-age=60")
-	headers.Set("etag", rev)
-	headers.Set("date", time.Now().UTC().Format(time.RFC1123))
-
-	var match bool
-	revMatches := strings.Split(c.Request().Header.Get("if-none-match"), ",")
-	for _, revMatch := range revMatches {
-		if strings.TrimSpace(revMatch) == rev {
-			match = true
-			break
-		}
-	}
-	if match {
+	if cacheControl(c, doc.Rev, oneMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
@@ -254,6 +256,11 @@ func getEditor(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if cacheControl(c, "", oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
@@ -338,6 +345,14 @@ func httpErrorHandler(err error, c echo.Context) {
 		msg = err.Error()
 	}
 
+	respHeaders := c.Response().Header()
+	switch err {
+	case registry.ErrVersionNotFound, registry.ErrAppNotFound:
+		respHeaders.Set("cache-control", "max-age=60")
+	default:
+		respHeaders.Set("cache-control", "no-cache")
+	}
+
 	if !c.Response().Committed {
 		if c.Request().Method == echo.HEAD {
 			c.NoContent(code)
@@ -355,6 +370,24 @@ func wrapErr(err error, code int) error {
 		return errHTTP
 	}
 	return errshttp.NewError(code, err.Error())
+}
+
+func cacheControl(c echo.Context, rev string, maxAge time.Duration) bool {
+	headers := c.Response().Header()
+	headers.Set("cache-control", fmt.Sprintf("max-age=%d", int(maxAge.Seconds())))
+	headers.Set("date", time.Now().UTC().Format(http.TimeFormat))
+
+	if rev != "" {
+		headers.Set("etag", rev)
+		revMatches := strings.Split(c.Request().Header.Get("if-none-match"), ",")
+		for _, revMatch := range revMatches {
+			if strings.TrimSpace(revMatch) == rev {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func Router(addr string) *echo.Echo {
