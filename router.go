@@ -33,7 +33,7 @@ func createApp(c echo.Context) (err error) {
 	if err = validateAppRequest(c, app); err != nil {
 		return err
 	}
-	editor, err := checkPermissions(c, app.Editor, "")
+	editor, err := checkPermissions(c, app.Editor)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	editor, err := checkPermissions(c, app.Editor, ver.Sha256)
+	editor, err := checkPermissions(c, app.Editor)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
-func checkPermissions(c echo.Context, editorName, versionHash string) (*auth.Editor, error) {
+func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
 		return nil, errUnauthorized
@@ -397,7 +397,8 @@ func Router(addr string) *echo.Echo {
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
-	e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
+	e.Use(middleware.Logger())
+	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
 	registry := e.Group("/registry", jsonEndpoint)
