@@ -71,7 +71,7 @@ func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration)
 		panic("maxAge is negative")
 	}
 	if maxAge > 0 {
-		binary.BigEndian.PutUint64(msg, uint64(time.Now().Add(maxAge).Unix()))
+		binary.BigEndian.PutUint64(msg, uint64(time.Now().UTC().Add(maxAge).Unix()))
 	} else {
 		binary.BigEndian.PutUint64(msg, uint64(0))
 	}
@@ -123,7 +123,7 @@ func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
 		return true
 	}
 
-	return time.Now().Before(time.Unix(t, 0))
+	return time.Now().UTC().Before(time.Unix(t, 0))
 }
 
 func (e *Editor) sessionSecret(masterSecret []byte) ([]byte, error) {

@@ -13,14 +13,6 @@ import (
 
 const (
 	viewsHelpers = `
-function key(version) {
-  var vs = version.split(".");
-  return [
-    parseInt(vs[0], 10),
-    parseInt(vs[1], 10),
-    parseInt(vs[2], 10),
-  ];
-}
 function getVersionChannel(version) {
   if (version.indexOf("-dev.") >= 0) {
     return "dev";
@@ -29,60 +21,84 @@ function getVersionChannel(version) {
     return "beta";
   }
   return "stable";
+}
+
+function expandVersion(doc) {
+  var v = [];
+  var exp = 0;
+  var sp = doc.version.split(".");
+  v[0] = parseInt(sp[0], 10);
+  v[1] = parseInt(sp[1], 10);
+  var channel = getVersionChannel(doc.version);
+  if (channel == "stable") {
+    v[2] = parseInt(sp[2], 10);
+  } else if (channel == "beta") {
+    sp = sp[2].split("-beta.");
+    v[2] = parseInt(sp[0]);
+    exp = sp[1];
+  } else if (channel == "dev") {
+    sp = sp[2].split("-dev.");
+    v[2] = parseInt(sp[0]);
+  }
+  return {
+    v: v,
+    channel: channel,
+    code: (channel == "stable") ? 1 : 0,
+    exp: exp,
+    date: doc.created_at,
+  };
 }`
 
 	devView = `
 function(doc) {
   ` + viewsHelpers + `
-  var version = doc.version;
-  var channel = getVersionChannel(version);
-  if (channel == "dev") {
-    emit(key(version.split("-dev.")[0]));
-  } else if (channel == "beta") {
-    emit(key(version.split("-beta.")[0]));
-  } else {
-    emit(key(version));
-  }
+  var version = expandVersion(doc);
+  var key = version.v.concat(version.code, +new Date(version.date))
+  emit(key, doc.version);
 }`
 
 	betaView = `
 function(doc) {
   ` + viewsHelpers + `
-  var version = doc.version;
-  var channel = getVersionChannel(version);
-  if (channel == "beta") {
-    emit(key(version.split("-beta.")[0]));
-  } else if (channel == "stable") {
-    emit(key(version));
+  var version = expandVersion(doc);
+  var channel = version.channel;
+  if (channel == "beta" || channel == "stable") {
+    var key = version.v.concat(version.code, version.exp)
+    emit(key, doc.version);
   }
 }`
 
 	stableView = `
 function(doc) {
   ` + viewsHelpers + `
-  var version = doc.version;
-  var channel = getVersionChannel(version);
+  var version = expandVersion(doc);
+  var channel = version.channel;
   if (channel == "stable") {
-    emit(key(version));
+    var key = version.v;
+    emit(key, doc.version);
   }
 }`
 )
 
-var versionsViews = map[string]string{
-	string(Dev):    devView,
-	string(Beta):   betaView,
-	string(Stable): stableView,
+type view struct {
+	Map string `json:"map"`
+}
+
+var versionsViews = map[string]view{
+	"dev":    {Map: devView},
+	"beta":   {Map: betaView},
+	"stable": {Map: stableView},
 }
 
 func versViewDocName(appName string) string {
 	return "versions-" + appName
 }
 
-func versViewsLazyCreate(appName string) error {
+func createVersionsViews(appName string) error {
 	return createViews(VersDB, versViewDocName(appName), versionsViews)
 }
 
-func createViews(dbName, ddoc string, views map[string]string) error {
+func createViews(dbName, ddoc string, views map[string]view) error {
 	chttpClient, err := chttp.New(ctx, clientURL.String())
 	if err != nil {
 		return err
@@ -90,40 +106,16 @@ func createViews(dbName, ddoc string, views map[string]string) error {
 
 	var object struct {
 		Rev   string `json:"_rev"`
-		Views map[string]struct {
-			Map string `json:"map"`
-		}
+		Views map[string]view
 	}
 
 	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
 	path := fmt.Sprintf("/%s/%s", dbName, ddocID)
-	_, err = chttpClient.DoJSON(ctx, http.MethodGet, path, nil, &object)
-	if err != nil {
-		httperr, ok := err.(*chttp.HTTPError)
-		if !ok {
-			return err
-		}
-		if httperr.StatusCode() != 404 {
-			return err
-		}
-	}
-	if err == nil {
-		var unequal bool
-		for name, code := range views {
-			if view, ok := object.Views[name]; !ok || view.Map != code {
-				unequal = true
-				break
-			}
-		}
-		if unequal {
-			return nil
-		}
-	}
 
 	var viewsBodies []string
-	for name, code := range views {
+	for name, view := range views {
 		viewsBodies = append(viewsBodies,
-			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
+			string(sprintfJSON(`%s: {"map": %s}`, name, view.Map)))
 	}
 
 	viewsBody := `{` + strings.Join(viewsBodies, ",") + `}`

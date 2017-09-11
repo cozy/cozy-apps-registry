@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -261,8 +260,8 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	if err != nil && err != ErrAppNotFound {
 		return err
 	}
+	now := time.Now().UTC()
 	if err == ErrAppNotFound {
-		now := time.Now()
 		app.ID = getAppID(app.Name)
 		app.Name = app.ID
 		app.Editor = editor.Name()
@@ -292,7 +291,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	app.Type = oldApp.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
-	app.UpdatedAt = time.Now()
+	app.UpdatedAt = now
 	if app.Category == "" {
 		app.Category = oldApp.Category
 	}
@@ -348,7 +347,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 	ver.Manifest = man
 	ver.Size = size
 	ver.TarPrefix = prefix
-	ver.CreatedAt = time.Now()
+	ver.CreatedAt = time.Now().UTC()
 
 	db, err := client.DB(ctx, VersDB)
 	if err != nil {
@@ -485,7 +484,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 
 	checkVals := map[string]interface{}{}
 	checkVals["editor"] = app.Editor
-	if ch := getVersionChannel(ver.Version); ch == Stable || ch == Beta {
+	if ch := getVersionChannel(ver.Version); ch != Dev {
 		checkVals["version"] = ver.Version
 	}
 
@@ -508,98 +507,6 @@ func getVersionChannel(version string) Channel {
 		return Beta
 	}
 	return Stable
-}
-
-type versionsSlice []*Version
-
-func (v versionsSlice) Len() int           { return len(v) }
-func (v versionsSlice) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v versionsSlice) Less(i, j int) bool { return isVersionLess(v[i], v[j]) }
-
-func isVersionLess(a, b *Version) bool {
-	vi, expi, err := expandVersion(a.Version)
-	if err != nil {
-		panic(err)
-	}
-	vj, expj, err := expandVersion(b.Version)
-	if err != nil {
-		panic(err)
-	}
-	if vi[0] < vj[0] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] < vj[1] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] < vj[2] {
-		return true
-	}
-	if vi[0] == vj[0] && vi[1] == vj[1] && vi[2] == vj[2] {
-		chi := getVersionChannel(a.Version)
-		chj := getVersionChannel(b.Version)
-		if chi == Beta && chj == Beta {
-			return expi < expj
-		}
-		if chi != chj {
-			if chi == Stable {
-				return true
-			}
-			if chj == Stable {
-				return false
-			}
-		}
-		return a.CreatedAt.Before(b.CreatedAt)
-	}
-	return false
-}
-
-func expandVersion(version string) (v [3]int, exp int, err error) {
-	sp := strings.SplitN(version, ".", 3)
-	if len(sp) != 3 {
-		goto ERROR
-	}
-	v[0], err = strconv.Atoi(sp[0])
-	if err != nil {
-		goto ERROR
-	}
-	v[1], err = strconv.Atoi(sp[1])
-	if err != nil {
-		goto ERROR
-	}
-	switch getVersionChannel(version) {
-	case Stable:
-		v[2], err = strconv.Atoi(sp[2])
-		if err != nil {
-			goto ERROR
-		}
-	case Beta:
-		sp = strings.SplitN(sp[2], betaSuffix, 2)
-		if len(sp) != 2 {
-			goto ERROR
-		}
-		v[2], err = strconv.Atoi(sp[0])
-		if err != nil {
-			goto ERROR
-		}
-		exp, err = strconv.Atoi(sp[1])
-		if err != nil {
-			goto ERROR
-		}
-	case Dev:
-		sp = strings.SplitN(sp[2], devSuffix, 2)
-		if len(sp) != 2 {
-			goto ERROR
-		}
-		v[2], err = strconv.Atoi(sp[0])
-		if err != nil {
-			goto ERROR
-		}
-	}
-	return
-
-ERROR:
-	err = ErrVersionInvalid
-	return
 }
 
 func getManifestName(appType string) string {
