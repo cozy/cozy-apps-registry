@@ -104,7 +104,7 @@ type App struct {
 	Tags           []string       `json:"tags"`
 	LogoURL        string         `json:"logo_url"`
 	ScreenshotURLs []string       `json:"screenshot_urls"`
-	Versions       *AppVersions   `json:"version,omitempty"`
+	Versions       *AppVersions   `json:"versions,omitempty"`
 }
 
 type AppDescription map[string]string
