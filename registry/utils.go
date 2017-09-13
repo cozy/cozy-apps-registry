@@ -18,32 +18,6 @@ func stringInArray(a string, list []string) bool {
 	return false
 }
 
-func assertValues(data map[string]interface{}, check map[string]interface{}) error {
-	for checkedKey, checkedVal := range check {
-		actualVal, ok := data[checkedKey]
-		if !ok {
-			return fmt.Errorf("key %s is not present", checkedKey)
-		}
-		switch v := checkedVal.(type) {
-		case int:
-			i, ok := actualVal.(int)
-			if !ok || i != v {
-				return fmt.Errorf("\"%s\" field does not match (%v != %v)",
-					checkedKey, i, v)
-			}
-		case string:
-			i, ok := actualVal.(string)
-			if !ok || strings.ToLower(i) != strings.ToLower(v) {
-				return fmt.Errorf("\"%s\" field does not match (%v != %v)",
-					checkedKey, i, v)
-			}
-		default:
-			panic("Not supported type")
-		}
-	}
-	return nil
-}
-
 func sprintfJSON(format string, a ...interface{}) json.RawMessage {
 	for i, input := range a {
 		b, _ := json.Marshal(input)

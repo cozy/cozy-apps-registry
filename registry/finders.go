@@ -115,7 +115,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	rows, err := versionViewQuery(db, appName, string(ch), map[string]interface{}{
+	rows, err := versionViewQuery(db, appName, channelToStr(ch), map[string]interface{}{
 		"limit":      1,
 		"descending": true,
 	})

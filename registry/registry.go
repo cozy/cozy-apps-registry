@@ -19,6 +19,7 @@ import (
 
 	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
@@ -79,12 +80,12 @@ var (
 	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
 )
 
-type Channel string
+type Channel int
 
 const (
-	Stable Channel = "stable"
-	Beta   Channel = "beta"
-	Dev    Channel = "dev"
+	Stable Channel = iota
+	Beta
+	Dev
 )
 
 type App struct {
@@ -361,15 +362,13 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s",
-			ver.URL, err.Error())
+			"Could not reach version on specified url %s: %s", ver.URL, err)
 		return
 	}
 	res, err := versionClient.Do(req)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s",
-			ver.URL, err.Error())
+			"Could not reach version on specified url %s: %s", ver.URL, err)
 		return
 	}
 	defer res.Body.Close()
@@ -397,8 +396,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		reader, err = gzip.NewReader(reader)
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s",
-				ver.URL, err.Error())
+				"Could not reach version on specified url %s: %s", ver.URL, err)
 			return
 		}
 	case "application/octet-stream":
@@ -418,14 +416,12 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		}
 		if err == io.ErrUnexpectedEOF {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: file is too big %s",
-				ver.URL, err.Error())
+				"Could not reach version on specified url %s: file is too big %s", ver.URL, err)
 			return
 		}
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s",
-				ver.URL, err.Error())
+				"Could not reach version on specified url %s: %s", ver.URL, err)
 			return
 		}
 
@@ -448,8 +444,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			manifestContent, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s",
-					ver.URL, err.Error())
+					"Could not reach version on specified url %s: %s", ver.URL, err)
 				return
 			}
 		}
@@ -478,25 +473,44 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 	var manifest map[string]interface{}
 	if err = json.Unmarshal(manifestContent, &manifest); err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Content of the manifest is not JSON valid: %s", err.Error())
+			"Content of the manifest is not JSON valid: %s", err)
 		return
 	}
 
-	checkVals := map[string]interface{}{}
-	checkVals["editor"] = app.Editor
-	if ch := getVersionChannel(ver.Version); ch != Dev {
-		checkVals["version"] = ver.Version
+	var errm error
+	if editor, ok := manifest["editor"].(string); !ok ||
+		strings.ToLower(editor) != strings.ToLower(app.Editor) {
+		errm = multierror.Append(errm,
+			fmt.Errorf("%q fied does not match (%q != %q)",
+				"editor", editor, app.Editor))
 	}
-
-	if err = assertValues(manifest, checkVals); err != nil {
+	if version, ok := manifest["version"].(string); !ok ||
+		!versionMatch(ver.Version, version) {
+		errm = multierror.Append(errm,
+			fmt.Errorf("%q fied does not match (%q != %q)",
+				"version", version, ver.Version))
+	}
+	if errm != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Content of the manifest does not match version object: %s",
-			err.Error())
+			"Content of the manifest does not match version object: %s", errm)
 		return
 	}
 
 	size = counter.Written()
 	return
+}
+
+func versionMatch(ver1, ver2 string) bool {
+	if getVersionChannel(ver1) != Dev {
+		return ver1 == ver2
+	}
+	ver1 = ver1[:strings.Index(ver1, devSuffix)]
+	v1 := strings.SplitN(ver1, ".", 3)
+	v2 := strings.SplitN(ver2, ".", 3)
+	if len(v1) != 3 || len(v2) != 3 {
+		return false
+	}
+	return v1[0] == v2[0] && v1[1] == v2[1] && v1[2] == v2[2]
 }
 
 func getVersionChannel(version string) Channel {
@@ -521,13 +535,17 @@ func getManifestName(appType string) string {
 
 func strToChannel(channel string) (Channel, error) {
 	switch channel {
-	case string(Stable):
+	case "stable":
 		return Stable, nil
-	case string(Beta):
+	case "beta":
 		return Beta, nil
-	case string(Dev):
+	case "dev":
 		return Dev, nil
 	default:
 		return Stable, ErrChannelInvalid
 	}
+}
+
+func channelToStr(channel Channel) string {
+	return string(channel)
 }
