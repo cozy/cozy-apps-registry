@@ -565,5 +565,13 @@ func strToChannel(channel string) (Channel, error) {
 }
 
 func channelToStr(channel Channel) string {
-	return string(channel)
+	switch channel {
+	case Stable:
+		return "stable"
+	case Beta:
+		return "beta"
+	case Dev:
+		return "dev"
+	}
+	panic("Unknown channel")
 }

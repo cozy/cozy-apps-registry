@@ -124,10 +124,10 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		"limit":      1,
 		"descending": true,
 	})
-	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, ErrVersionNotFound
 	}
@@ -162,10 +162,10 @@ func FindAppVersions(appName string) (*AppVersions, error) {
 		"descending":   false,
 		"include_docs": true,
 	})
-	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var version string
 		if err = rows.ScanValue(&version); err != nil {
