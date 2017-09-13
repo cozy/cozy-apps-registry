@@ -104,6 +104,7 @@ type App struct {
 	Tags           []string       `json:"tags"`
 	LogoURL        string         `json:"logo_url"`
 	ScreenshotURLs []string       `json:"screenshot_urls"`
+	Versions       *AppVersions   `json:"version,omitempty"`
 }
 
 type AppDescription map[string]string
@@ -248,18 +249,18 @@ func IsValidVersion(ver *Version) error {
 	return nil
 }
 
-func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
+func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	if err := IsValidApp(app); err != nil {
-		return err
+		return nil, err
 	}
 
 	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	oldApp, err := FindApp(app.Name)
 	if err != nil && err != ErrAppNotFound {
-		return err
+		return nil, err
 	}
 	now := time.Now().UTC()
 	if err == ErrAppNotFound {
@@ -268,6 +269,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 		app.Editor = editor.Name()
 		app.CreatedAt = now
 		app.UpdatedAt = now
+		app.Versions = nil
 		if app.FullName == nil {
 			app.FullName = make(AppFullName)
 		}
@@ -284,7 +286,15 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 			app.ScreenshotURLs = make([]string, 0)
 		}
 		_, _, err = db.CreateDoc(ctx, app)
-		return err
+		if err != nil {
+			return nil, err
+		}
+		app.Versions = &AppVersions{
+			Stable: make([]string, 0),
+			Beta:   make([]string, 0),
+			Dev:    make([]string, 0),
+		}
+		return app, nil
 	}
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
@@ -293,6 +303,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
 	app.UpdatedAt = now
+	app.Versions = nil
 	if app.Category == "" {
 		app.Category = oldApp.Category
 	}
@@ -315,7 +326,14 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) error {
 		app.ScreenshotURLs = oldApp.ScreenshotURLs
 	}
 	_, err = db.Put(ctx, app.ID, app)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	app.Versions, err = FindAppVersions(app.Name)
+	if err != nil {
+		return nil, err
+	}
+	return app, err
 }
 
 func CreateVersion(ver *Version, editor *auth.Editor) error {

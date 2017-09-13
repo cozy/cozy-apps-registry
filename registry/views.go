@@ -52,6 +52,9 @@ function expandVersion(doc) {
 	devView = `
 function(doc) {
   ` + viewsHelpers + `
+  if (doc.name != %q) {
+    return
+  }
   var version = expandVersion(doc);
   var key = version.v.concat(version.code, +new Date(version.date))
   emit(key, doc.version);
@@ -60,6 +63,9 @@ function(doc) {
 	betaView = `
 function(doc) {
   ` + viewsHelpers + `
+  if (doc.name != %q) {
+    return
+  }
   var version = expandVersion(doc);
   var channel = version.channel;
   if (channel == "beta" || channel == "stable") {
@@ -71,6 +77,9 @@ function(doc) {
 	stableView = `
 function(doc) {
   ` + viewsHelpers + `
+  if (doc.name != %q) {
+    return
+  }
   var version = expandVersion(doc);
   var channel = version.channel;
   if (channel == "stable") {
@@ -95,10 +104,7 @@ func versViewDocName(appName string) string {
 }
 
 func createVersionsViews(appName string) error {
-	return createViews(VersDB, versViewDocName(appName), versionsViews)
-}
-
-func createViews(dbName, ddoc string, views map[string]view) error {
+	ddoc := versViewDocName(appName)
 	chttpClient, err := chttp.New(ctx, clientURL.String())
 	if err != nil {
 		return err
@@ -110,12 +116,13 @@ func createViews(dbName, ddoc string, views map[string]view) error {
 	}
 
 	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
-	path := fmt.Sprintf("/%s/%s", dbName, ddocID)
+	path := fmt.Sprintf("/%s/%s", VersDB, ddocID)
 
 	var viewsBodies []string
-	for name, view := range views {
+	for name, view := range versionsViews {
+		code := fmt.Sprintf(view.Map, appName)
 		viewsBodies = append(viewsBodies,
-			string(sprintfJSON(`%s: {"map": %s}`, name, view.Map)))
+			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
 	}
 
 	viewsBody := `{` + strings.Join(viewsBodies, ",") + `}`

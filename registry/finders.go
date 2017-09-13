@@ -57,6 +57,11 @@ func FindApp(appName string) (*App, error) {
 		return nil, err
 	}
 
+	doc.Versions, err = FindAppVersions(doc.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	return doc, nil
 }
 
@@ -283,6 +288,13 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		// we fetch one more element so we know in this case the end of the list
 		// has been reached.
 		cursor = -1
+	}
+
+	for _, app := range res {
+		app.Versions, err = FindAppVersions(app.Name)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
 	return cursor, res, nil

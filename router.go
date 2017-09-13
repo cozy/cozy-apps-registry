@@ -44,7 +44,7 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateOrUpdateApp(app, editor); err != nil {
+	if app, err = registry.CreateOrUpdateApp(app, editor); err != nil {
 		return err
 	}
 
