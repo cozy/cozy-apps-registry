@@ -17,7 +17,7 @@ var validFilters = []string{
 }
 
 var validSorts = []string{
-	"name",
+	"slug",
 	"type",
 	"editor",
 	"category",
@@ -27,16 +27,16 @@ var validSorts = []string{
 
 const maxLimit = 200
 
-func getVersionID(appName, version string) string {
-	return getAppID(appName) + "-" + version
+func getVersionID(appSlug, version string) string {
+	return getAppID(appSlug) + "-" + version
 }
 
-func getAppID(appName string) string {
-	return strings.ToLower(appName)
+func getAppID(appSlug string) string {
+	return strings.ToLower(appSlug)
 }
 
-func FindApp(appName string) (*App, error) {
-	if !validAppNameReg.MatchString(appName) {
+func FindApp(appSlug string) (*App, error) {
+	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppInvalid
 	}
 	db, err := client.DB(ctx, AppsDB)
@@ -44,7 +44,7 @@ func FindApp(appName string) (*App, error) {
 		return nil, err
 	}
 
-	row, err := db.Get(ctx, getAppID(appName))
+	row, err := db.Get(ctx, getAppID(appSlug))
 	if kivik.StatusCode(err) == http.StatusNotFound {
 		return nil, ErrAppNotFound
 	}
@@ -57,7 +57,7 @@ func FindApp(appName string) (*App, error) {
 		return nil, err
 	}
 
-	doc.Versions, err = FindAppVersions(doc.Name)
+	doc.Versions, err = FindAppVersions(doc.Slug)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +65,8 @@ func FindApp(appName string) (*App, error) {
 	return doc, nil
 }
 
-func FindVersion(appName, version string) (*Version, error) {
-	if !validAppNameReg.MatchString(appName) {
+func FindVersion(appSlug, version string) (*Version, error) {
+	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppInvalid
 	}
 	if !validVersionReg.MatchString(version) {
@@ -78,7 +78,7 @@ func FindVersion(appName, version string) (*Version, error) {
 		return nil, err
 	}
 
-	row, err := db.Get(ctx, getVersionID(appName, version))
+	row, err := db.Get(ctx, getVersionID(appSlug, version))
 	if kivik.StatusCode(err) == http.StatusNotFound {
 		return nil, ErrVersionNotFound
 	}
@@ -93,26 +93,26 @@ func FindVersion(appName, version string) (*Version, error) {
 	return doc, nil
 }
 
-func versionViewQuery(db *kivik.DB, appName, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
-	rows, err := db.Query(ctx, versViewDocName(appName), channel, opts)
+func versionViewQuery(db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
+	rows, err := db.Query(ctx, versViewDocName(appSlug), channel, opts)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			if err = createVersionsViews(appName); err != nil {
+			if err = createVersionsViews(appSlug); err != nil {
 				return nil, err
 			}
-			return versionViewQuery(db, appName, channel, opts)
+			return versionViewQuery(db, appSlug, channel, opts)
 		}
 		return nil, err
 	}
 	return rows, nil
 }
 
-func FindLatestVersion(appName string, channel string) (*Version, error) {
+func FindLatestVersion(appSlug string, channel string) (*Version, error) {
 	ch, err := strToChannel(channel)
 	if err != nil {
 		return nil, err
 	}
-	if !validAppNameReg.MatchString(appName) {
+	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppInvalid
 	}
 	db, err := client.DB(ctx, VersDB)
@@ -120,7 +120,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	rows, err := versionViewQuery(db, appName, channelToStr(ch), map[string]interface{}{
+	rows, err := versionViewQuery(db, appSlug, channelToStr(ch), map[string]interface{}{
 		"limit":      1,
 		"descending": true,
 	})
@@ -137,7 +137,7 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	row, err := db.Get(ctx, getVersionID(appName, latestVersion))
+	row, err := db.Get(ctx, getVersionID(appSlug, latestVersion))
 	if err != nil {
 		return nil, err
 	}
@@ -150,14 +150,14 @@ func FindLatestVersion(appName string, channel string) (*Version, error) {
 	return latest, nil
 }
 
-func FindAppVersions(appName string) (*AppVersions, error) {
+func FindAppVersions(appSlug string) (*AppVersions, error) {
 	db, err := client.DB(ctx, VersDB)
 	if err != nil {
 		return nil, err
 	}
 
 	var allVersions []string
-	rows, err := versionViewQuery(db, appName, "dev", map[string]interface{}{
+	rows, err := versionViewQuery(db, appSlug, "dev", map[string]interface{}{
 		"limit":        2000,
 		"descending":   false,
 		"include_docs": true,
@@ -218,11 +218,11 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		sortField = sortField[1:]
 	}
 	if sortField == "" || !stringInArray(sortField, validSorts) {
-		sortField = "name"
+		sortField = "slug"
 	}
 	sort := fmt.Sprintf(`{"%s": "%s"}`, sortField, order)
-	if sortField != "name" {
-		sort += fmt.Sprintf(`,{"name": "%s"}`, order)
+	if sortField != "slug" {
+		sort += fmt.Sprintf(`,{"slug": "%s"}`, order)
 	}
 
 	selector := string(sprintfJSON(`%s: {"$gt": null}`, sortField))
@@ -291,7 +291,7 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 	}
 
 	for _, app := range res {
-		app.Versions, err = FindAppVersions(app.Name)
+		app.Versions, err = FindAppVersions(app.Slug)
 		if err != nil {
 			return 0, nil, err
 		}

@@ -99,12 +99,12 @@ var versionsViews = map[string]view{
 	"stable": {Map: stableView},
 }
 
-func versViewDocName(appName string) string {
-	return "versions-" + appName
+func versViewDocName(appSlug string) string {
+	return "versions-" + appSlug
 }
 
-func createVersionsViews(appName string) error {
-	ddoc := versViewDocName(appName)
+func createVersionsViews(appSlug string) error {
+	ddoc := versViewDocName(appSlug)
 	chttpClient, err := chttp.New(ctx, clientURL.String())
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func createVersionsViews(appName string) error {
 
 	var viewsBodies []string
 	for name, view := range versionsViews {
-		code := fmt.Sprintf(view.Map, appName)
+		code := fmt.Sprintf(view.Map, appSlug)
 		viewsBodies = append(viewsBodies,
 			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
 	}

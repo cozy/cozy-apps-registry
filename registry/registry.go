@@ -29,7 +29,7 @@ import (
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 
 var (
-	validAppNameReg = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
+	validSlugReg    = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
@@ -37,7 +37,7 @@ var (
 
 var (
 	ErrAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
-	ErrAppNameMismatch = errshttp.NewError(http.StatusBadRequest, "Application name does not match the one specified in the body")
+	ErrAppSlugMismatch = errshttp.NewError(http.StatusBadRequest, "Application slug does not match the one specified in the body")
 	ErrAppInvalid      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
 
 	ErrVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
@@ -69,15 +69,15 @@ var (
 	ctx = context.Background()
 
 	appsIndexes = map[string]echo.Map{
-		"by-name":       {"fields": []string{"name"}},
-		"by-type":       {"fields": []string{"type", "name", "category"}},
-		"by-editor":     {"fields": []string{"editor", "name", "category"}},
-		"by-category":   {"fields": []string{"category", "name", "editor"}},
-		"by-created_at": {"fields": []string{"created_at", "name", "category", "editor"}},
-		"by-updated_at": {"fields": []string{"updated_at", "name", "category", "editor"}},
+		"by-slug":       {"fields": []string{"slug"}},
+		"by-type":       {"fields": []string{"type", "slug", "category"}},
+		"by-editor":     {"fields": []string{"editor", "slug", "category"}},
+		"by-category":   {"fields": []string{"category", "slug", "editor"}},
+		"by-created_at": {"fields": []string{"created_at", "slug", "category", "editor"}},
+		"by-updated_at": {"fields": []string{"updated_at", "slug", "category", "editor"}},
 	}
 
-	versIndex = echo.Map{"fields": []string{"version", "name", "type"}}
+	versIndex = echo.Map{"fields": []string{"version", "slug", "type"}}
 )
 
 type Channel int
@@ -91,10 +91,11 @@ const (
 type App struct {
 	ID             string         `json:"_id,omitempty"`
 	Rev            string         `json:"_rev,omitempty"`
-	Name           string         `json:"name"`
-	FullName       AppFullName    `json:"full_name"`
+	Slug           string         `json:"slug"`
+	FullName       AppFullName    `json:"name"`
 	Type           string         `json:"type"`
 	Editor         string         `json:"editor"`
+	Developer      *Developer     `json:"developer"`
 	Description    AppDescription `json:"description"`
 	Category       string         `json:"category"`
 	Repository     string         `json:"repository"`
@@ -116,10 +117,15 @@ type AppVersions struct {
 	Dev    []string `json:"dev"`
 }
 
+type Developer struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
 type Version struct {
 	ID        string          `json:"_id,omitempty"`
 	Rev       string          `json:"_rev,omitempty"`
-	Name      string          `json:"name"`
+	Slug      string          `json:"slug"`
 	Editor    string          `json:"editor"`
 	Type      string          `json:"type"`
 	Version   string          `json:"version"`
@@ -205,7 +211,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 
 func IsValidApp(app *App) error {
 	var fields []string
-	if app.Name == "" || !validAppNameReg.MatchString(app.Name) {
+	if app.Slug == "" || !validSlugReg.MatchString(app.Slug) {
 		return ErrAppInvalid
 	}
 	if app.Editor == "" {
@@ -227,7 +233,7 @@ func IsValidApp(app *App) error {
 }
 
 func IsValidVersion(ver *Version) error {
-	if ver.Name == "" || !validAppNameReg.MatchString(ver.Name) {
+	if ver.Slug == "" || !validSlugReg.MatchString(ver.Slug) {
 		return ErrAppInvalid
 	}
 	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
@@ -258,14 +264,14 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	oldApp, err := FindApp(app.Name)
+	oldApp, err := FindApp(app.Slug)
 	if err != nil && err != ErrAppNotFound {
 		return nil, err
 	}
 	now := time.Now().UTC()
 	if err == ErrAppNotFound {
-		app.ID = getAppID(app.Name)
-		app.Name = app.ID
+		app.ID = getAppID(app.Slug)
+		app.Slug = app.ID
 		app.Editor = editor.Name()
 		app.CreatedAt = now
 		app.UpdatedAt = now
@@ -298,7 +304,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	}
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
-	app.Name = oldApp.Name
+	app.Slug = oldApp.Slug
 	app.Type = oldApp.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
@@ -312,6 +318,9 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	}
 	if app.FullName == nil {
 		app.FullName = oldApp.FullName
+	}
+	if app.Developer == nil {
+		app.Developer = oldApp.Developer
 	}
 	if app.Description == nil {
 		app.Description = oldApp.Description
@@ -329,7 +338,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app.Versions, err = FindAppVersions(app.Name)
+	app.Versions, err = FindAppVersions(app.Slug)
 	if err != nil {
 		return nil, err
 	}
@@ -341,11 +350,11 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		return err
 	}
 
-	app, err := FindApp(ver.Name)
+	app, err := FindApp(ver.Slug)
 	if err != nil {
 		return err
 	}
-	_, err = FindVersion(ver.Name, ver.Version)
+	_, err = FindVersion(ver.Slug, ver.Version)
 	if err != ErrVersionNotFound {
 		if err == nil {
 			return ErrVersionAlreadyExists
@@ -360,8 +369,8 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		return err
 	}
 
-	ver.ID = getVersionID(app.Name, ver.Version)
-	ver.Name = app.Name
+	ver.ID = getVersionID(app.Slug, ver.Version)
+	ver.Slug = app.Slug
 	ver.Editor = editor.Name()
 	ver.Manifest = man
 	ver.Size = size

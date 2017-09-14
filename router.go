@@ -65,7 +65,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	app, err := registry.FindApp(ver.Name)
+	app, err := registry.FindApp(ver.Slug)
 	if err != nil {
 		return err
 	}
@@ -190,8 +190,8 @@ func getAppsList(c echo.Context) error {
 }
 
 func getApp(c echo.Context) error {
-	appName := c.Param("app")
-	doc, err := registry.FindApp(appName)
+	appSlug := c.Param("app")
+	doc, err := registry.FindApp(appSlug)
 	if err != nil {
 		return err
 	}
@@ -211,8 +211,8 @@ func getApp(c echo.Context) error {
 }
 
 func getAppVersions(c echo.Context) error {
-	appName := c.Param("app")
-	doc, err := registry.FindAppVersions(appName)
+	appSlug := c.Param("app")
+	doc, err := registry.FindAppVersions(appSlug)
 	if err != nil {
 		return err
 	}
@@ -225,14 +225,14 @@ func getAppVersions(c echo.Context) error {
 }
 
 func getVersion(c echo.Context) error {
-	appName := c.Param("app")
+	appSlug := c.Param("app")
 	version := c.Param("version")
-	_, err := registry.FindApp(appName)
+	_, err := registry.FindApp(appSlug)
 	if err != nil {
 		return err
 	}
 
-	doc, err := registry.FindVersion(appName, version)
+	doc, err := registry.FindVersion(appSlug, version)
 	if err != nil {
 		return err
 	}
@@ -252,9 +252,9 @@ func getVersion(c echo.Context) error {
 }
 
 func getLatestVersion(c echo.Context) error {
-	appName := c.Param("app")
+	appSlug := c.Param("app")
 	channel := c.Param("channel")
-	doc, err := registry.FindLatestVersion(appName, channel)
+	doc, err := registry.FindLatestVersion(appSlug, channel)
 	if err != nil {
 		return err
 	}
@@ -323,11 +323,11 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func validateAppRequest(c echo.Context, app *registry.App) error {
-	appName := c.Param("app")
-	if app.Name == "" {
-		app.Name = appName
-	} else if appName != "" && app.Name != appName {
-		return registry.ErrAppNameMismatch
+	appSlug := c.Param("app")
+	if app.Slug == "" {
+		app.Slug = appSlug
+	} else if appSlug != "" && app.Slug != appSlug {
+		return registry.ErrAppSlugMismatch
 	}
 	if err := registry.IsValidApp(app); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
@@ -336,12 +336,12 @@ func validateAppRequest(c echo.Context, app *registry.App) error {
 }
 
 func validateVersionRequest(c echo.Context, ver *registry.Version) error {
-	appName := c.Param("app")
+	appSlug := c.Param("app")
 	version := c.Param("version")
-	if ver.Name == "" {
-		ver.Name = appName
-	} else if ver.Name != appName {
-		return registry.ErrAppNameMismatch
+	if ver.Slug == "" {
+		ver.Slug = appSlug
+	} else if ver.Slug != appSlug {
+		return registry.ErrAppSlugMismatch
 	}
 	if ver.Version == "" {
 		ver.Version = version
