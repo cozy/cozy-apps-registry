@@ -52,7 +52,7 @@ function expandVersion(doc) {
 	devView = `
 function(doc) {
   ` + viewsHelpers + `
-  if (doc.name != %q) {
+  if (doc.slug != %q) {
     return
   }
   var version = expandVersion(doc);
@@ -63,7 +63,7 @@ function(doc) {
 	betaView = `
 function(doc) {
   ` + viewsHelpers + `
-  if (doc.name != %q) {
+  if (doc.slug != %q) {
     return
   }
   var version = expandVersion(doc);
@@ -77,7 +77,7 @@ function(doc) {
 	stableView = `
 function(doc) {
   ` + viewsHelpers + `
-  if (doc.name != %q) {
+  if (doc.slug != %q) {
     return
   }
   var version = expandVersion(doc);
@@ -100,7 +100,7 @@ var versionsViews = map[string]view{
 }
 
 func versViewDocName(appSlug string) string {
-	return "versions-" + appSlug
+	return "versions-" + appSlug + "-v1"
 }
 
 func createVersionsViews(appSlug string) error {
