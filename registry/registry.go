@@ -521,7 +521,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 	{
 		version, ok := manifest["version"].(string)
 		var match bool
-		if ok {
+		if !ok {
 			// nothing
 		} else if getVersionChannel(ver.Version) != Dev {
 			match = ver.Version == version
