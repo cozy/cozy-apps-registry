@@ -511,11 +511,21 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			fmt.Errorf("%q fied does not match (%q != %q)",
 				"editor", editor, app.Editor))
 	}
-	if version, ok := manifest["version"].(string); !ok ||
-		!versionMatch(ver.Version, version) {
-		errm = multierror.Append(errm,
-			fmt.Errorf("%q fied does not match (%q != %q)",
-				"version", version, ver.Version))
+	{
+		version, ok := manifest["version"].(string)
+		var match bool
+		if ok {
+			// nothing
+		} else if getVersionChannel(ver.Version) != Dev {
+			match = ver.Version == version
+		} else {
+			match = versionMatch(ver.Version, version)
+		}
+		if !match {
+			errm = multierror.Append(errm,
+				fmt.Errorf("%q fied does not match (%q != %q)",
+					"version", version, ver.Version))
+		}
 	}
 	if errm != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -528,10 +538,8 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 }
 
 func versionMatch(ver1, ver2 string) bool {
-	if getVersionChannel(ver1) != Dev {
-		return ver1 == ver2
-	}
-	ver1 = ver1[:strings.Index(ver1, devSuffix)]
+	ver1 = stripVersionSuffix(ver1)
+	ver2 = stripVersionSuffix(ver2)
 	v1 := strings.SplitN(ver1, ".", 3)
 	v2 := strings.SplitN(ver2, ".", 3)
 	if len(v1) != 3 || len(v2) != 3 {
@@ -548,6 +556,18 @@ func getVersionChannel(version string) Channel {
 		return Beta
 	}
 	return Stable
+}
+
+func stripVersionSuffix(version string) string {
+	switch getVersionChannel(version) {
+	case Stable:
+		return version
+	case Beta:
+		return version[:strings.Index(version, betaSuffix)]
+	case Dev:
+		return version[:strings.Index(version, devSuffix)]
+	}
+	panic(fmt.Errorf("Unknown version suffix %q", version))
 }
 
 func getManifestName(appType string) string {
