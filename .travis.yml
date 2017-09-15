@@ -1,0 +1,9 @@
+language: javascript
+env:
+  global:
+    secure: SmOt0/3p3CXg/98js9KyfGTmYRdgI61G3GlSC13Dtz6qTvkxvDrykNndCTOFhho/D5tQq6g0aQaQgu6X1145DTvO6sayjwnJiC/MYIJShikGsjfJK4yKFjdCKdumkZ56vv+LxzJKEx6o/6TbPvRRkblfN12bOMLE5SYs4wWb8T0TbY7YSXr3ep8Uz0FgGACBQhf6aunMoXmPcGbobJrTjSreb8mdLZ3LsseBFVbOp47AL53j9nyR+ZzP/wqED0Lys+T5oWG3C9Dt7vNet7cNpFIHYWYpC0ipgYeKdjeGB2LyQqSKRyQkT4bqu7fS2esWsbhSxWJVM7zJ9Ml5wA3FZ7xCtH1e8Q+4BYpbQYWoRqVe71StDeJxYssQ28KsbudIujLTxuB6Pc8DRUyCmaj9cr3811ZXs1V9jskb3Pux7BzwHZCUaELY/lbCJwEKzbpW2dJ0hQ5SYHBf/ZYt7OGPjZOWgntcAw2J2QUi/rxQ+CzZfcE6KBU27PeGVZjA7iSroXLB9mgdg0xnJAo7jNeprraWPZXMU6ZEZ5/6P4zjhxdgKfJqoKkekxVdSNwSyFaN1e+diq4Bfx9gcfPHlAFUzPyKjE8hjPAezqzPXWCuTS/gc90lRM+UiCShjIhKd8zanLr8crKs0K7tAZfHZibrYXpH76O3qh/qRHiiEXhnGZE=
+script:
+- 'curl -sS -X POST -d @app.json -H "Content-Type: application/json" -H "Authorization:
+  Token $REGISTRY_TOKEN" https://registry.cozy.io/registry'
+- 'version=$(curl -sS https://github.com/$TRAVIS_REPO_SLUG/archive/$TRAVIS_COMMIT.tar.gz | shasum -a 256 | cut -d" " -f1)'
+- 'echo $version'
