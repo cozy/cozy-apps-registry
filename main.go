@@ -195,7 +195,7 @@ var verifySignatureCmd = &cobra.Command{
 	},
 }
 
-var yearDurationReg = regexp.MustCompile(`^[0-9][0-9\.]*y$`)
+var durationReg = regexp.MustCompile(`^[0-9][0-9\.]*(y|d)$`)
 
 var genTokenCmd = &cobra.Command{
 	Use:     "gen-token [editor] [max-age]",
@@ -210,11 +210,18 @@ var genTokenCmd = &cobra.Command{
 		var maxAge time.Duration
 		if len(rest) > 0 {
 			m := rest[0]
-			if yearDurationReg.MatchString(m) {
+			if durationReg.MatchString(m) {
 				var f float64
-				f, err = strconv.ParseFloat(m[:len(m)-1], 10)
+				k := m[len(m)-1:]
+				v := m[:len(m)-1]
+				f, err = strconv.ParseFloat(v, 10)
 				if err == nil {
-					maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
+					switch k {
+					case "y":
+						maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
+					case "d":
+						maxAge = time.Duration(f * 24 * float64(time.Hour))
+					}
 				}
 			} else {
 				maxAge, err = time.ParseDuration(m)
