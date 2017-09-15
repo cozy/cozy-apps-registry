@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -92,7 +93,7 @@ type App struct {
 	ID             string         `json:"_id,omitempty"`
 	Rev            string         `json:"_rev,omitempty"`
 	Slug           string         `json:"slug"`
-	FullName       AppFullName    `json:"name"`
+	Name           AppName        `json:"name"`
 	Type           string         `json:"type"`
 	Editor         string         `json:"editor"`
 	Developer      *Developer     `json:"developer"`
@@ -109,7 +110,7 @@ type App struct {
 }
 
 type AppDescription map[string]string
-type AppFullName map[string]string
+type AppName map[string]string
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -255,18 +256,18 @@ func IsValidVersion(ver *Version) error {
 	return nil
 }
 
-func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
-	if err := IsValidApp(app); err != nil {
-		return nil, err
+func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool, err error) {
+	if err = IsValidApp(app); err != nil {
+		return
 	}
 
 	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
-		return nil, err
+		return
 	}
 	oldApp, err := FindApp(app.Slug)
 	if err != nil && err != ErrAppNotFound {
-		return nil, err
+		return
 	}
 	now := time.Now().UTC()
 	if err == ErrAppNotFound {
@@ -276,8 +277,8 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 		app.CreatedAt = now
 		app.UpdatedAt = now
 		app.Versions = nil
-		if app.FullName == nil {
-			app.FullName = make(AppFullName)
+		if app.Name == nil {
+			app.Name = make(AppName)
 		}
 		if app.Description == nil {
 			app.Description = make(AppDescription)
@@ -293,31 +294,33 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 		}
 		_, _, err = db.CreateDoc(ctx, app)
 		if err != nil {
-			return nil, err
+			return
 		}
 		app.Versions = &AppVersions{
 			Stable: make([]string, 0),
 			Beta:   make([]string, 0),
 			Dev:    make([]string, 0),
 		}
-		return app, nil
+		return app, true, nil
 	}
+
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
 	app.Slug = oldApp.Slug
 	app.Type = oldApp.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
-	app.UpdatedAt = now
 	app.Versions = nil
+	oldApp.Versions = nil
+	oldApp.UpdatedAt = time.Time{}
 	if app.Category == "" {
 		app.Category = oldApp.Category
 	}
 	if app.Repository == "" {
 		app.Repository = oldApp.Repository
 	}
-	if app.FullName == nil {
-		app.FullName = oldApp.FullName
+	if app.Name == nil {
+		app.Name = oldApp.Name
 	}
 	if app.Developer == nil {
 		app.Developer = oldApp.Developer
@@ -334,15 +337,19 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (*App, error) {
 	if app.ScreenshotURLs == nil {
 		app.ScreenshotURLs = oldApp.ScreenshotURLs
 	}
+	if reflect.DeepEqual(app, oldApp) {
+		return app, false, nil
+	}
+	app.UpdatedAt = now
 	_, err = db.Put(ctx, app.ID, app)
 	if err != nil {
-		return nil, err
+		return
 	}
 	app.Versions, err = FindAppVersions(app.Slug)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return app, err
+	return app, true, nil
 }
 
 func CreateVersion(ver *Version, editor *auth.Editor) error {

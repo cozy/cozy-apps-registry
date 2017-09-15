@@ -44,8 +44,13 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	if app, err = registry.CreateOrUpdateApp(app, editor); err != nil {
+	var updated bool
+	app, updated, err = registry.CreateOrUpdateApp(app, editor)
+	if err != nil {
 		return err
+	}
+	if !updated {
+		return c.NoContent(http.StatusNotModified)
 	}
 
 	// Do not show internal identifier and revision
