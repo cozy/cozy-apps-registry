@@ -30,6 +30,10 @@ var (
 )
 
 func createApp(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
 	app := &registry.App{}
 	if err = c.Bind(app); err != nil {
 		return err
@@ -61,6 +65,10 @@ func createApp(c echo.Context) (err error) {
 }
 
 func createVersion(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
 	ver := &registry.Version{}
 	if err = c.Bind(ver); err != nil {
 		return err
@@ -71,7 +79,11 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	app, err := registry.FindApp(ver.Slug)
-	if err != nil {
+	if err != nil && err != registry.ErrAppNotFound {
+		return err
+	}
+	if err == registry.ErrAppNotFound {
+		// TODO
 		return err
 	}
 
@@ -80,7 +92,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateVersion(ver, editor); err != nil {
+	if err = registry.CreateVersion(ver, app, editor); err != nil {
 		return err
 	}
 
@@ -91,32 +103,49 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
+func checkAuthorized(c echo.Context) error {
+	token, err := extractAuthHeader(c)
+	if err != nil {
+		return err
+	}
+	if _, ok := auth.VerifyToken(sessionSecret, token, nil); !ok {
+		return errUnauthorized
+	}
+	return nil
+}
+
 func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
+	token, err := extractAuthHeader(c)
+	if err != nil {
+		return nil, err
+	}
+
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
 		return nil, errUnauthorized
 	}
 
-	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
-	if strings.HasPrefix(authHeader, authTokenScheme) {
-		tokenStr := authHeader[len(authTokenScheme):]
-		if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-			return nil, errUnauthorized
-		}
-
-		token, err := base64.StdEncoding.DecodeString(tokenStr)
-		if err != nil {
-			return nil, errUnauthorized
-		}
-
-		ok := editor.VerifySessionToken(sessionSecret, token)
-		if !ok {
-			return nil, errUnauthorized
-		}
-		return editor, nil
+	ok := editor.VerifySessionToken(sessionSecret, token)
+	if !ok {
+		return nil, errUnauthorized
 	}
+	return editor, nil
+}
 
-	return nil, errUnauthorized
+func extractAuthHeader(c echo.Context) ([]byte, error) {
+	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
+	if !strings.HasPrefix(authHeader, authTokenScheme) {
+		return nil, errUnauthorized
+	}
+	tokenStr := authHeader[len(authTokenScheme):]
+	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
+		return nil, errUnauthorized
+	}
+	token, err := base64.StdEncoding.DecodeString(tokenStr)
+	if err != nil {
+		return nil, errUnauthorized
+	}
+	return token, nil
 }
 
 func getAppsList(c echo.Context) error {
@@ -343,15 +372,19 @@ func validateAppRequest(c echo.Context, app *registry.App) error {
 func validateVersionRequest(c echo.Context, ver *registry.Version) error {
 	appSlug := c.Param("app")
 	version := c.Param("version")
-	if ver.Slug == "" {
-		ver.Slug = appSlug
-	} else if ver.Slug != appSlug {
-		return registry.ErrAppSlugMismatch
+	if appSlug != "" {
+		if ver.Slug == "" {
+			ver.Slug = appSlug
+		} else if ver.Slug != appSlug {
+			return registry.ErrAppSlugMismatch
+		}
 	}
-	if ver.Version == "" {
-		ver.Version = version
-	} else if ver.Version != version {
-		return registry.ErrVersionMismatch
+	if version != "" {
+		if ver.Version == "" {
+			ver.Version = version
+		} else if ver.Version != version {
+			return registry.ErrVersionMismatch
+		}
 	}
 	if err := registry.IsValidVersion(ver); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
@@ -434,6 +467,7 @@ func Router(addr string) *echo.Echo {
 	registry := e.Group("/registry", jsonEndpoint)
 	registry.POST("", createApp)
 	registry.POST("/:app", createApp)
+	registry.POST("/:app/versions", createVersion)
 	registry.POST("/:app/:version", createVersion)
 
 	registry.GET("", getAppsList)

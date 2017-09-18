@@ -234,12 +234,6 @@ func IsValidApp(app *App) error {
 }
 
 func IsValidVersion(ver *Version) error {
-	if ver.Slug == "" || !validSlugReg.MatchString(ver.Slug) {
-		return ErrAppInvalid
-	}
-	if ver.Version == "" || !validVersionReg.MatchString(ver.Version) {
-		return ErrVersionInvalid
-	}
 	var fields []string
 	if ver.URL == "" {
 		fields = append(fields, "url")
@@ -352,16 +346,16 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	return app, true, nil
 }
 
-func CreateVersion(ver *Version, editor *auth.Editor) error {
+func CreateVersion(ver *Version, app *App, editor *auth.Editor) error {
 	if err := IsValidVersion(ver); err != nil {
 		return err
 	}
 
-	app, err := FindApp(ver.Slug)
-	if err != nil {
-		return err
+	if app == nil {
+
 	}
-	_, err = FindVersion(ver.Slug, ver.Version)
+
+	_, err := FindVersion(ver.Slug, ver.Version)
 	if err != ErrVersionNotFound {
 		if err == nil {
 			return ErrVersionAlreadyExists

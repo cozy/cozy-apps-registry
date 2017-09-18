@@ -1,11 +1,15 @@
 package auth
 
 import (
+	"crypto/hmac"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/asn1"
+	"encoding/binary"
 	"errors"
 	"net/http"
 	"regexp"
+	"time"
 
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/scrypt"
@@ -14,9 +18,7 @@ import (
 )
 
 const (
-	masterSecretLen  = 32
-	sessionSecretLen = 32
-
+	secretLen      = 32
 	sessionSaltLen = 16
 )
 
@@ -65,6 +67,76 @@ func CkeckEditorName(editorName string) error {
 		return ErrBadEditorName
 	}
 	return nil
+}
+
+func VerifyToken(secret, token, additionalData []byte) ([]byte, bool) {
+	if len(secret) != secretLen {
+		panic("master secret has no correct length")
+	}
+
+	offset := len(token) - 32
+	if offset < 0 {
+		return nil, false
+	}
+
+	var expectedMac []byte
+	msg, msgMac := token[:offset], token[offset:]
+
+	{
+		buf := append(additionalData, msg...)
+		mac := hmac.New(sha256.New, secret)
+		mac.Write(buf)
+		expectedMac = mac.Sum(nil)
+	}
+
+	if !hmac.Equal(msgMac, expectedMac) {
+		return nil, false
+	}
+
+	// the mac does not contain max age field
+	if len(msg) < 8 {
+		return nil, false
+	}
+
+	value := msg[8:]
+
+	t := int64(binary.BigEndian.Uint64(msg))
+	if t == 0 {
+		return value, true
+	}
+
+	if !time.Now().UTC().Before(time.Unix(t, 0)) {
+		return nil, false
+	}
+
+	return value, true
+}
+
+func GenerateToken(secret, msg, additionalData []byte, maxAge time.Duration) ([]byte, error) {
+	if len(secret) != secretLen {
+		panic("master secret has no correct length")
+	}
+
+	if maxAge < 0 {
+		panic("maxAge is negative")
+	}
+
+	msg = append(make([]byte, 8), msg...)
+
+	if maxAge > 0 {
+		binary.BigEndian.PutUint64(msg, uint64(time.Now().UTC().Add(maxAge).Unix()))
+	}
+
+	var computedMac []byte
+	{
+		buf := append(additionalData, msg...)
+		mac := hmac.New(sha256.New, secret)
+		mac.Write(buf)
+		computedMac = mac.Sum(nil)
+	}
+
+	msg = append(msg, computedMac...)
+	return msg, nil
 }
 
 func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyBytes []byte) (*Editor, error) {
@@ -150,7 +222,7 @@ func DecryptMasterSecret(content, passphrase []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(secret) != masterSecretLen {
+	if len(secret) != secretLen {
 		return nil, errors.New("Bad secret file: bad length of secret")
 	}
 
@@ -158,7 +230,7 @@ func DecryptMasterSecret(content, passphrase []byte) ([]byte, error) {
 }
 
 func IsSecretClear(secret []byte) bool {
-	return len(secret) == masterSecretLen
+	return len(secret) == secretLen
 }
 
 func EncryptMasterSecret(secret, passphrase []byte) ([]byte, error) {
@@ -168,7 +240,7 @@ func EncryptMasterSecret(secret, passphrase []byte) ([]byte, error) {
 		Secret []byte
 	}
 
-	if len(secret) != masterSecretLen {
+	if len(secret) != secretLen {
 		panic("Bad len for master secret")
 	}
 	if len(passphrase) == 0 {
@@ -200,5 +272,5 @@ func EncryptMasterSecret(secret, passphrase []byte) ([]byte, error) {
 }
 
 func GenerateMasterSecret() []byte {
-	return readRand(masterSecretLen)
+	return readRand(secretLen)
 }

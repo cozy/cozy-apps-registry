@@ -2,10 +2,8 @@ package auth
 
 import (
 	"crypto"
-	"crypto/hmac"
 	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -65,74 +63,33 @@ func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration)
 	if err != nil {
 		return nil, err
 	}
-
-	msg := make([]byte, 8)
-	if maxAge < 0 {
-		panic("maxAge is negative")
+	token, err := GenerateToken(sessionSecret, nil, []byte(e.name), maxAge)
+	if err != nil {
+		return nil, err
 	}
-	if maxAge > 0 {
-		binary.BigEndian.PutUint64(msg, uint64(time.Now().UTC().Add(maxAge).Unix()))
-	} else {
-		binary.BigEndian.PutUint64(msg, uint64(0))
-	}
-
-	var computedMac []byte
-	{
-		buf := append([]byte(e.name), msg...)
-		mac := hmac.New(sha256.New, sessionSecret)
-		mac.Write(buf)
-		computedMac = mac.Sum(nil)
-	}
-
-	msg = append(msg, computedMac...)
-	return msg, nil
+	return GenerateToken(masterSecret, token, nil, 0)
 }
 
 func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
+	value, ok := VerifyToken(masterSecret, token, nil)
+	if !ok {
+		return false
+	}
 	sessionSecret, err := e.sessionSecret(masterSecret)
 	if err != nil {
 		return false
 	}
-
-	offset := len(token) - 32
-	if offset < 0 {
-		return false
-	}
-
-	var expectedMac []byte
-	msg, msgMac := token[:offset], token[offset:]
-
-	{
-		buf := append([]byte(e.name), msg...)
-		mac := hmac.New(sha256.New, sessionSecret)
-		mac.Write(buf)
-		expectedMac = mac.Sum(nil)
-	}
-
-	if !hmac.Equal(msgMac, expectedMac) {
-		return false
-	}
-
-	// should not happend since the MAC also provides integrity
-	if len(msg) < 8 {
-		return false
-	}
-
-	t := int64(binary.BigEndian.Uint64(msg))
-	if t == 0 {
-		return true
-	}
-
-	return time.Now().UTC().Before(time.Unix(t, 0))
+	_, ok = VerifyToken(sessionSecret, value, []byte(e.name))
+	return ok
 }
 
 func (e *Editor) sessionSecret(masterSecret []byte) ([]byte, error) {
-	if len(masterSecret) != masterSecretLen {
+	if len(masterSecret) != secretLen {
 		panic("master secret has no correct length")
 	}
 
 	kdf := hkdf.New(sha256.New, masterSecret, e.sessionSalt, []byte(e.name))
-	sessionSecret := make([]byte, sessionSecretLen)
+	sessionSecret := make([]byte, secretLen)
 	_, err := io.ReadFull(kdf, sessionSecret)
 	if err != nil {
 		return nil, err
