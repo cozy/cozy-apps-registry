@@ -102,15 +102,31 @@ type App struct {
 	Repository     string          `json:"repository"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
-	Locales        []string        `json:"locales"`
+	Locales        Locales         `json:"locales"`
 	Tags           []string        `json:"tags"`
 	LogoURL        string          `json:"logo_url"`
 	ScreenshotURLs []string        `json:"screenshot_urls"`
 	Versions       *AppVersions    `json:"versions,omitempty"`
 }
 
+type Locales []string
 type AppDescription map[string]string
 type AppName map[string]string
+
+func (l Locales) UnmarshalJSON(data []byte) error {
+	ss := make([]string, 0)
+	if err := json.Unmarshal(data, &ss); err != nil {
+		var m map[string]interface{}
+		if err = json.Unmarshal(data, &m); err != nil {
+			return err
+		}
+		for k := range m {
+			ss = append(ss, k)
+		}
+	}
+	copy(l, ss)
+	return nil
+}
 
 func (a *AppDescription) UnmarshalJSON(data []byte) error {
 	m := make(map[string]string)
@@ -267,6 +283,9 @@ func IsValidApp(app *App) error {
 
 func IsValidVersion(ver *VersionOptions) error {
 	var fields []string
+	if ver.Version == "" {
+		fields = append(fields, "version")
+	}
 	if ver.URL == "" {
 		fields = append(fields, "url")
 	} else if _, err := url.Parse(ver.URL); err != nil {
@@ -312,7 +331,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 			app.Description = &v
 		}
 		if app.Locales == nil {
-			app.Locales = make([]string, 0)
+			app.Locales = make(Locales, 0)
 		}
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)
@@ -458,7 +477,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	}
 
 	var packVersion string
-	var prefix, editorName string
+	var appType, prefix, editorName string
 	var manifestContent []byte
 	tarReader := tar.NewReader(reader)
 	for {
@@ -494,6 +513,11 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		}
 
 		if name == "manifest.webapp" || name == "manifest.konnector" {
+			if name == "manifest.webapp" {
+				appType = "webapp"
+			} else if name == "manifest.konnector" {
+				appType = "konnector"
+			}
 			manifestContent, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -560,10 +584,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		var match bool
 		if !ok {
 			// nothing
-		} else if getVersionChannel(opts.Version) != Dev {
+		} else if GetVersionChannel(opts.Version) != Dev {
 			match = opts.Version == version
 		} else {
-			match = versionMatch(opts.Version, version)
+			match = VersionMatch(opts.Version, version)
 		}
 		if !match {
 			errm = multierror.Append(errm,
@@ -571,10 +595,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 					"version", version, opts.Version))
 		}
 		if packVersion != "" {
-			if getVersionChannel(opts.Version) != Dev {
+			if GetVersionChannel(opts.Version) != Dev {
 				match = opts.Version != packVersion
 			} else {
-				match = versionMatch(opts.Version, packVersion)
+				match = VersionMatch(opts.Version, packVersion)
 			}
 			if !match {
 				errm = multierror.Append(errm,
@@ -592,6 +616,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	ver = new(Version)
 	ver.ID = getVersionID(slug, opts.Version)
 	ver.Slug = slug
+	ver.Version = opts.Version
+	ver.Type = appType
+	ver.URL = opts.URL
+	ver.Sha256 = opts.Sha256
 	ver.Editor = editorName
 	ver.Manifest = manifestContent
 	ver.Size = counter.Written()
@@ -600,18 +628,28 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	return
 }
 
-func versionMatch(ver1, ver2 string) bool {
-	ver1 = stripVersionSuffix(ver1)
-	ver2 = stripVersionSuffix(ver2)
-	v1 := strings.SplitN(ver1, ".", 3)
-	v2 := strings.SplitN(ver2, ".", 3)
-	if len(v1) != 3 || len(v2) != 3 {
-		return false
-	}
+func VersionMatch(ver1, ver2 string) bool {
+	v1 := SplitVersion(ver1)
+	v2 := SplitVersion(ver2)
 	return v1[0] == v2[0] && v1[1] == v2[1] && v1[2] == v2[2]
 }
 
-func getVersionChannel(version string) Channel {
+func VersionLess(ver1, ver2 string) bool {
+	v1 := SplitVersion(ver1)
+	v2 := SplitVersion(ver2)
+	if v1[0] < v2[0] {
+		return true
+	}
+	if v1[0] == v2[0] && v1[1] < v2[1] {
+		return true
+	}
+	if v1[0] == v2[0] && v1[1] == v2[1] && v1[2] < v2[2] {
+		return true
+	}
+	return false
+}
+
+func GetVersionChannel(version string) Channel {
 	if strings.Contains(version, devSuffix) {
 		return Dev
 	}
@@ -621,16 +659,18 @@ func getVersionChannel(version string) Channel {
 	return Stable
 }
 
-func stripVersionSuffix(version string) string {
-	switch getVersionChannel(version) {
-	case Stable:
-		return version
+func SplitVersion(version string) (v [3]string) {
+	switch GetVersionChannel(version) {
 	case Beta:
-		return version[:strings.Index(version, betaSuffix)]
+		version = version[:strings.Index(version, betaSuffix)]
 	case Dev:
-		return version[:strings.Index(version, devSuffix)]
+		version = version[:strings.Index(version, devSuffix)]
 	}
-	panic(fmt.Errorf("Unknown version suffix %q", version))
+	s := strings.SplitN(version, ".", 3)
+	v[0] = s[0]
+	v[1] = s[1]
+	v[2] = s[2]
+	return
 }
 
 func strToChannel(channel string) (Channel, error) {

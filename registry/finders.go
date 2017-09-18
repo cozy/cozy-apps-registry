@@ -179,7 +179,7 @@ func FindAppVersions(appSlug string) (*AppVersions, error) {
 	dev := make([]string, 0)
 
 	for _, v := range allVersions {
-		switch getVersionChannel(v) {
+		switch GetVersionChannel(v) {
 		case Stable:
 			stable = append(stable, v)
 			fallthrough

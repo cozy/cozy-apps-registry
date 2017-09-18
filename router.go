@@ -93,11 +93,25 @@ func createVersion(c echo.Context) (err error) {
 	if err != nil && err != registry.ErrAppNotFound {
 		return err
 	}
+
+	var createApp bool
 	if err == registry.ErrAppNotFound {
+		createApp = true
+	} else if registry.GetVersionChannel(ver.Version) == registry.Stable {
+		lastVersion, err := registry.FindLatestVersion(ver.Slug, "stable")
+		if err != nil && err != registry.ErrVersionNotFound {
+			return err
+		}
+		createApp = err == registry.ErrVersionNotFound ||
+			registry.VersionLess(lastVersion.Version, ver.Version)
+	}
+
+	if createApp {
 		app = &registry.App{}
 		if err := json.Unmarshal(ver.Manifest, &app); err != nil {
 			return err
 		}
+		app.Type = ver.Type
 		app, _, err = registry.CreateOrUpdateApp(app, editor)
 		if err != nil {
 			return err
