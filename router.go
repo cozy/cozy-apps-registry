@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -69,12 +70,22 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	ver := &registry.Version{}
-	if err = c.Bind(ver); err != nil {
+	opts := &registry.VersionOptions{}
+	if err = c.Bind(opts); err != nil {
 		return err
 	}
 
-	if err = validateVersionRequest(c, ver); err != nil {
+	if err = validateVersionRequest(c, opts); err != nil {
+		return err
+	}
+
+	ver, err := registry.DownloadVersion(opts)
+	if err != nil {
+		return err
+	}
+
+	editor, err := checkPermissions(c, ver.Editor)
+	if err != nil {
 		return err
 	}
 
@@ -83,16 +94,17 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	if err == registry.ErrAppNotFound {
-		// TODO
-		return err
+		app = &registry.App{}
+		if err := json.Unmarshal(ver.Manifest, &app); err != nil {
+			return err
+		}
+		app, _, err = registry.CreateOrUpdateApp(app, editor)
+		if err != nil {
+			return err
+		}
 	}
 
-	editor, err := checkPermissions(c, app.Editor)
-	if err != nil {
-		return err
-	}
-
-	if err = registry.CreateVersion(ver, app, editor); err != nil {
+	if err = registry.CreateVersion(ver, app); err != nil {
 		return err
 	}
 
@@ -369,16 +381,8 @@ func validateAppRequest(c echo.Context, app *registry.App) error {
 	return nil
 }
 
-func validateVersionRequest(c echo.Context, ver *registry.Version) error {
-	appSlug := c.Param("app")
+func validateVersionRequest(c echo.Context, ver *registry.VersionOptions) error {
 	version := c.Param("version")
-	if appSlug != "" {
-		if ver.Slug == "" {
-			ver.Slug = appSlug
-		} else if ver.Slug != appSlug {
-			return registry.ErrAppSlugMismatch
-		}
-	}
 	if version != "" {
 		if ver.Version == "" {
 			ver.Version = version
@@ -462,12 +466,12 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Gzip())
-	e.Use(middleware.Recover())
+	// e.Use(middleware.Recover())
 
 	registry := e.Group("/registry", jsonEndpoint)
 	registry.POST("", createApp)
+	registry.POST("/versions", createVersion)
 	registry.POST("/:app", createApp)
-	registry.POST("/:app/versions", createVersion)
 	registry.POST("/:app/:version", createVersion)
 
 	registry.GET("", getAppsList)

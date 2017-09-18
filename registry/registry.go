@@ -90,27 +90,53 @@ const (
 )
 
 type App struct {
-	ID             string         `json:"_id,omitempty"`
-	Rev            string         `json:"_rev,omitempty"`
-	Slug           string         `json:"slug"`
-	Name           AppName        `json:"name"`
-	Type           string         `json:"type"`
-	Editor         string         `json:"editor"`
-	Developer      *Developer     `json:"developer"`
-	Description    AppDescription `json:"description"`
-	Category       string         `json:"category"`
-	Repository     string         `json:"repository"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	Locales        []string       `json:"locales"`
-	Tags           []string       `json:"tags"`
-	LogoURL        string         `json:"logo_url"`
-	ScreenshotURLs []string       `json:"screenshot_urls"`
-	Versions       *AppVersions   `json:"versions,omitempty"`
+	ID             string          `json:"_id,omitempty"`
+	Rev            string          `json:"_rev,omitempty"`
+	Slug           string          `json:"slug"`
+	Name           *AppName        `json:"name"`
+	Type           string          `json:"type"`
+	Editor         string          `json:"editor"`
+	Developer      *Developer      `json:"developer"`
+	Description    *AppDescription `json:"description"`
+	Category       string          `json:"category"`
+	Repository     string          `json:"repository"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+	Locales        []string        `json:"locales"`
+	Tags           []string        `json:"tags"`
+	LogoURL        string          `json:"logo_url"`
+	ScreenshotURLs []string        `json:"screenshot_urls"`
+	Versions       *AppVersions    `json:"versions,omitempty"`
 }
 
 type AppDescription map[string]string
 type AppName map[string]string
+
+func (a *AppDescription) UnmarshalJSON(data []byte) error {
+	m := make(map[string]string)
+	if err := json.Unmarshal(data, &m); err != nil {
+		var s string
+		if err = json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		m["en"] = s
+	}
+	(*a) = m
+	return nil
+}
+
+func (a *AppName) UnmarshalJSON(data []byte) error {
+	m := make(map[string]string)
+	if err := json.Unmarshal(data, &m); err != nil {
+		var s string
+		if err = json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		m["en"] = s
+	}
+	(*a) = m
+	return nil
+}
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -121,6 +147,12 @@ type AppVersions struct {
 type Developer struct {
 	Name string `json:"name"`
 	URL  string `json:"url"`
+}
+
+type VersionOptions struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+	Sha256  string `json:"sha256"`
 }
 
 type Version struct {
@@ -233,7 +265,7 @@ func IsValidApp(app *App) error {
 	return nil
 }
 
-func IsValidVersion(ver *Version) error {
+func IsValidVersion(ver *VersionOptions) error {
 	var fields []string
 	if ver.URL == "" {
 		fields = append(fields, "url")
@@ -272,10 +304,12 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 		app.UpdatedAt = now
 		app.Versions = nil
 		if app.Name == nil {
-			app.Name = make(AppName)
+			v := make(AppName)
+			app.Name = &v
 		}
 		if app.Description == nil {
-			app.Description = make(AppDescription)
+			v := make(AppDescription)
+			app.Description = &v
 		}
 		if app.Locales == nil {
 			app.Locales = make([]string, 0)
@@ -346,15 +380,11 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	return app, true, nil
 }
 
-func CreateVersion(ver *Version, app *App, editor *auth.Editor) error {
-	if err := IsValidVersion(ver); err != nil {
-		return err
-	}
+func DownloadVersion(opts *VersionOptions) (*Version, error) {
+	return downloadVersion(opts)
+}
 
-	if app == nil {
-
-	}
-
+func CreateVersion(ver *Version, app *App) error {
 	_, err := FindVersion(ver.Slug, ver.Version)
 	if err != ErrVersionNotFound {
 		if err == nil {
@@ -363,20 +393,9 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) error {
 		return err
 	}
 
-	ver.Type = app.Type
-
-	man, prefix, size, err := downloadAndCheckVersion(app, ver, editor)
-	if err != nil {
-		return err
-	}
-
-	ver.ID = getVersionID(app.Slug, ver.Version)
 	ver.Slug = app.Slug
-	ver.Editor = editor.Name()
-	ver.Manifest = man
-	ver.Size = size
-	ver.TarPrefix = prefix
-	ver.CreatedAt = time.Now().UTC()
+	ver.Type = app.Type
+	ver.Editor = app.Editor
 
 	db, err := client.DB(ctx, VersDB)
 	if err != nil {
@@ -386,24 +405,28 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) error {
 	return err
 }
 
-func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manifestContent []byte, prefix string, size int64, err error) {
-	req, err := http.NewRequest(http.MethodGet, ver.URL, nil)
+func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
+	url := opts.URL
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s", ver.URL, err)
+			"Could not reach version on specified url %s: %s", url, err)
 		return
 	}
+
 	res, err := versionClient.Do(req)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s", ver.URL, err)
+			"Could not reach version on specified url %s: %s", url, err)
 		return
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != 200 {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: server responded with code %d",
-			ver.URL, res.StatusCode)
+			url, res.StatusCode)
 		return
 	}
 
@@ -424,7 +447,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		reader, err = gzip.NewReader(reader)
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", ver.URL, err)
+				"Could not reach version on specified url %s: %s", url, err)
 			return
 		}
 	case "application/octet-stream":
@@ -435,7 +458,8 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 	}
 
 	var packVersion string
-	manName := getManifestName(ver.Type)
+	var prefix, editorName string
+	var manifestContent []byte
 	tarReader := tar.NewReader(reader)
 	for {
 		var hdr *tar.Header
@@ -445,12 +469,12 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		}
 		if err == io.ErrUnexpectedEOF {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: file is too big %s", ver.URL, err)
+				"Could not reach version on specified url %s: file is too big %s", url, err)
 			return
 		}
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", ver.URL, err)
+				"Could not reach version on specified url %s: %s", url, err)
 			return
 		}
 
@@ -469,11 +493,11 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			name = split[1]
 		}
 
-		if name == manName {
+		if name == "manifest.webapp" || name == "manifest.konnector" {
 			manifestContent, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s", ver.URL, err)
+					"Could not reach version on specified url %s: %s", url, err)
 				return
 			}
 		}
@@ -483,7 +507,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			packageContent, err = ioutil.ReadAll(tarReader)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s", ver.URL, err)
+					"Could not reach version on specified url %s: %s", url, err)
 				return
 			}
 			var pack struct {
@@ -491,24 +515,17 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			}
 			if err = json.Unmarshal(packageContent, &pack); err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"File package.json is not valid in %s: %s", ver.URL, err)
+					"File package.json is not valid in %s: %s", url, err)
 				return
 			}
 			packVersion = pack.Version
 		}
 	}
 
-	shasum, _ := hex.DecodeString(ver.Sha256)
+	shasum, _ := hex.DecodeString(opts.Sha256)
 	if !bytes.Equal(shasum, h.Sum(nil)) {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Checksum does not match the calculated one")
-		return
-	}
-
-	if ver.Size > 0 && counter.Written() != ver.Size {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Size of the version does not match with the calculated one: expected %d and got %d",
-			ver.Size, counter.Written())
 		return
 	}
 
@@ -526,11 +543,16 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 	}
 
 	var errm error
-	if editor, ok := manifest["editor"].(string); !ok ||
-		strings.ToLower(editor) != strings.ToLower(app.Editor) {
+	editorName, ok := manifest["editor"].(string)
+	if !ok || editorName == "" {
 		errm = multierror.Append(errm,
-			fmt.Errorf("%q fied does not match (%q != %q)",
-				"editor", editor, app.Editor))
+			fmt.Errorf("%q field is empty", "editor"))
+	}
+
+	slug, ok := manifest["slug"].(string)
+	if !ok || slug == "" {
+		errm = multierror.Append(errm,
+			fmt.Errorf("%q field is empty", "slug"))
 	}
 
 	{
@@ -538,21 +560,21 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		var match bool
 		if !ok {
 			// nothing
-		} else if getVersionChannel(ver.Version) != Dev {
-			match = ver.Version == version
+		} else if getVersionChannel(opts.Version) != Dev {
+			match = opts.Version == version
 		} else {
-			match = versionMatch(ver.Version, version)
+			match = versionMatch(opts.Version, version)
 		}
 		if !match {
 			errm = multierror.Append(errm,
 				fmt.Errorf("%q field does not match (%q != %q)",
-					"version", version, ver.Version))
+					"version", version, opts.Version))
 		}
 		if packVersion != "" {
-			if getVersionChannel(ver.Version) != Dev {
-				match = ver.Version != packVersion
+			if getVersionChannel(opts.Version) != Dev {
+				match = opts.Version != packVersion
 			} else {
-				match = versionMatch(ver.Version, packVersion)
+				match = versionMatch(opts.Version, packVersion)
 			}
 			if !match {
 				errm = multierror.Append(errm,
@@ -567,7 +589,14 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		return
 	}
 
-	size = counter.Written()
+	ver = new(Version)
+	ver.ID = getVersionID(slug, opts.Version)
+	ver.Slug = slug
+	ver.Editor = editorName
+	ver.Manifest = manifestContent
+	ver.Size = counter.Written()
+	ver.TarPrefix = prefix
+	ver.CreatedAt = time.Now().UTC()
 	return
 }
 
@@ -602,16 +631,6 @@ func stripVersionSuffix(version string) string {
 		return version[:strings.Index(version, devSuffix)]
 	}
 	panic(fmt.Errorf("Unknown version suffix %q", version))
-}
-
-func getManifestName(appType string) string {
-	switch appType {
-	case "webapp":
-		return "manifest.webapp"
-	case "konnector":
-		return "manifest.konnector"
-	}
-	panic(fmt.Errorf("Uknown application type %s", appType))
 }
 
 func strToChannel(channel string) (Channel, error) {
