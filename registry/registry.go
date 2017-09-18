@@ -440,6 +440,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		}
 	}
 
+	var packVersion string
 	manName := getManifestName(ver.Type)
 	tarReader := tar.NewReader(reader)
 	for {
@@ -482,6 +483,25 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 				return
 			}
 		}
+
+		if name == "package.json" {
+			var packageContent []byte
+			packageContent, err = ioutil.ReadAll(tarReader)
+			if err != nil {
+				err = errshttp.NewError(http.StatusUnprocessableEntity,
+					"Could not reach version on specified url %s: %s", ver.URL, err)
+				return
+			}
+			var pack struct {
+				Version string `json:"version"`
+			}
+			if err = json.Unmarshal(packageContent, &pack); err != nil {
+				err = errshttp.NewError(http.StatusUnprocessableEntity,
+					"File package.json is not valid in %s: %s", ver.URL, err)
+				return
+			}
+			packVersion = pack.Version
+		}
 	}
 
 	shasum, _ := hex.DecodeString(ver.Sha256)
@@ -518,6 +538,7 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 			fmt.Errorf("%q fied does not match (%q != %q)",
 				"editor", editor, app.Editor))
 	}
+
 	{
 		version, ok := manifest["version"].(string)
 		var match bool
@@ -530,13 +551,25 @@ func downloadAndCheckVersion(app *App, ver *Version, editor *auth.Editor) (manif
 		}
 		if !match {
 			errm = multierror.Append(errm,
-				fmt.Errorf("%q fied does not match (%q != %q)",
+				fmt.Errorf("%q field does not match (%q != %q)",
 					"version", version, ver.Version))
+		}
+		if packVersion != "" {
+			if getVersionChannel(ver.Version) != Dev {
+				match = ver.Version != packVersion
+			} else {
+				match = versionMatch(ver.Version, packVersion)
+			}
+			if !match {
+				errm = multierror.Append(errm,
+					fmt.Errorf("version from package.json (%q != %q)",
+						version, packVersion))
+			}
 		}
 	}
 	if errm != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Content of the manifest does not match version object: %s", errm)
+			"Content of the manifest does not match: %s", errm)
 		return
 	}
 
