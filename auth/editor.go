@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"io"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/hkdf"
@@ -63,7 +64,7 @@ func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration)
 	if err != nil {
 		return nil, err
 	}
-	token, err := GenerateToken(sessionSecret, nil, []byte(e.name), maxAge)
+	token, err := GenerateToken(sessionSecret, nil, []byte(strings.ToLower(e.name)), maxAge)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
 	if err != nil {
 		return false
 	}
-	_, ok = VerifyToken(sessionSecret, value, []byte(e.name))
+	_, ok = VerifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
 	return ok
 }
 
