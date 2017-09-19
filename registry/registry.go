@@ -124,7 +124,7 @@ func (l *Locales) UnmarshalJSON(data []byte) error {
 			ss = append(ss, k)
 		}
 	}
-	*l = ss
+	(*l) = ss
 	return nil
 }
 
