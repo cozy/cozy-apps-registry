@@ -11,7 +11,7 @@ couchdb:
   # CouchDB password - flag --couchdb-password
   password: password
   # CouchDB prefix for the registries databases - flag --couchdb-prefix
-  prefix: registry1
+  # prefix: registry1
 
 # Path to the session secret file containing the master secret to generate
 # session token.
