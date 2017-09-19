@@ -102,7 +102,7 @@ type App struct {
 	Repository     string          `json:"repository"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
-	Locales        Locales         `json:"locales"`
+	Locales        *Locales        `json:"locales"`
 	Tags           []string        `json:"tags"`
 	LogoURL        string          `json:"logo_url"`
 	ScreenshotURLs []string        `json:"screenshot_urls"`
@@ -113,7 +113,7 @@ type Locales []string
 type AppDescription map[string]string
 type AppName map[string]string
 
-func (l Locales) UnmarshalJSON(data []byte) error {
+func (l *Locales) UnmarshalJSON(data []byte) error {
 	ss := make([]string, 0)
 	if err := json.Unmarshal(data, &ss); err != nil {
 		var m map[string]interface{}
@@ -124,7 +124,7 @@ func (l Locales) UnmarshalJSON(data []byte) error {
 			ss = append(ss, k)
 		}
 	}
-	copy(l, ss)
+	*l = ss
 	return nil
 }
 
@@ -331,7 +331,8 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 			app.Description = &v
 		}
 		if app.Locales == nil {
-			app.Locales = make(Locales, 0)
+			v := Locales(make([]string, 0))
+			app.Locales = &v
 		}
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)

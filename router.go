@@ -102,7 +102,7 @@ func createVersion(c echo.Context) (err error) {
 		if err != nil && err != registry.ErrVersionNotFound {
 			return err
 		}
-		createApp = err == registry.ErrVersionNotFound ||
+		createApp = (err == registry.ErrVersionNotFound) ||
 			registry.VersionLess(lastVersion.Version, ver.Version)
 	}
 
