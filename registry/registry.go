@@ -597,7 +597,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		}
 		if packVersion != "" {
 			if GetVersionChannel(opts.Version) != Dev {
-				match = opts.Version != packVersion
+				match = opts.Version == packVersion
 			} else {
 				match = VersionMatch(opts.Version, packVersion)
 			}
