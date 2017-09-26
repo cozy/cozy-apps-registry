@@ -40,6 +40,9 @@ func createApp(c echo.Context) (err error) {
 	if err = c.Bind(app); err != nil {
 		return err
 	}
+	app.Screenshots = nil
+	app.Attachments = nil
+	app.Versions = nil
 
 	if err = validateAppRequest(c, app); err != nil {
 		return err

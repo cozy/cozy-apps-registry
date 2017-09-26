@@ -325,6 +325,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	now := time.Now().UTC()
 	if err == ErrAppNotFound {
 		app.ID = getAppID(app.Slug)
+		app.Rev = ""
 		app.Slug = app.ID
 		app.Editor = editor.Name()
 		app.CreatedAt = now
@@ -367,7 +368,6 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	app.CreatedAt = oldApp.CreatedAt
 	app.Versions = nil
 	app.Screenshots = nil
-	app.Attachments = oldApp.Attachments
 	oldApp.Versions = nil
 	oldApp.Screenshots = nil
 	oldApp.UpdatedAt = time.Time{}
@@ -391,6 +391,9 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	}
 	if app.Tags == nil {
 		app.Tags = oldApp.Tags
+	}
+	if app.Attachments == nil {
+		app.Attachments = oldApp.Attachments
 	}
 	if reflect.DeepEqual(app, oldApp) {
 		return app, false, nil
@@ -436,7 +439,10 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		if err = json.Unmarshal(ver.Manifest, &app); err != nil {
 			return err
 		}
+		app.Screenshots = nil
+		app.Versions = nil
 		app.Type = ver.Type
+		app.Attachments = make(map[string]interface{}) // reset the attachments
 		app, _, err = CreateOrUpdateApp(app, editor)
 		if err != nil {
 			return err
@@ -459,6 +465,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 	if err != nil {
 		return err
 	}
+
 	_, _, err = db.CreateDoc(ctx, ver)
 	if err != nil {
 		return err
