@@ -13,13 +13,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/cozy/cozy-registry-v3/auth"
 	"github.com/cozy/cozy-registry-v3/errshttp"
+	"github.com/cozy/cozy-registry-v3/magic"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/flimzy/kivik"
@@ -28,6 +31,8 @@ import (
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
+
+const screenshotsDir = "screenshots"
 
 var (
 	validSlugReg    = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
@@ -49,7 +54,7 @@ var (
 )
 
 var versionClient = http.Client{
-	Timeout: 20 * time.Second,
+	Timeout: 30 * time.Second,
 }
 
 const (
@@ -90,28 +95,63 @@ const (
 )
 
 type App struct {
-	ID             string          `json:"_id,omitempty"`
-	Rev            string          `json:"_rev,omitempty"`
-	Slug           string          `json:"slug"`
-	Name           *AppName        `json:"name"`
-	Type           string          `json:"type"`
-	Editor         string          `json:"editor"`
-	Developer      *Developer      `json:"developer"`
-	Description    *AppDescription `json:"description"`
-	Category       string          `json:"category"`
-	Repository     string          `json:"repository"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
-	Locales        *Locales        `json:"locales"`
-	Tags           []string        `json:"tags"`
-	LogoURL        string          `json:"logo_url"`
-	ScreenshotURLs []string        `json:"screenshot_urls"`
-	Versions       *AppVersions    `json:"versions,omitempty"`
+	ID          string                 `json:"_id,omitempty"`
+	Rev         string                 `json:"_rev,omitempty"`
+	Attachments map[string]interface{} `json:"_attachments,omitempty"`
+
+	Slug        string          `json:"slug"`
+	Name        *AppName        `json:"name"`
+	Type        string          `json:"type"`
+	Editor      string          `json:"editor"`
+	Developer   *Developer      `json:"developer"`
+	Description *AppDescription `json:"description"`
+	Category    string          `json:"category"`
+	Repository  string          `json:"repository"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	Locales     *Locales        `json:"locales"`
+	Tags        []string        `json:"tags"`
+	Screenshots []string        `json:"screenshots"`
+	Versions    *AppVersions    `json:"versions,omitempty"`
 }
 
 type Locales []string
 type AppDescription map[string]string
 type AppName map[string]string
+
+type AppVersions struct {
+	Stable []string `json:"stable"`
+	Beta   []string `json:"beta"`
+	Dev    []string `json:"dev"`
+}
+
+type Developer struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+type VersionOptions struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+	Sha256  string `json:"sha256"`
+}
+
+type Version struct {
+	ID          string              `json:"_id,omitempty"`
+	Rev         string              `json:"_rev,omitempty"`
+	Attachments []*kivik.Attachment `json:"-"`
+
+	Slug      string          `json:"slug"`
+	Editor    string          `json:"editor"`
+	Type      string          `json:"type"`
+	Version   string          `json:"version"`
+	Manifest  json.RawMessage `json:"manifest"`
+	CreatedAt time.Time       `json:"created_at"`
+	URL       string          `json:"url"`
+	Size      int64           `json:"size,string"`
+	Sha256    string          `json:"sha256"`
+	TarPrefix string          `json:"tar_prefix"`
+}
 
 func (l *Locales) UnmarshalJSON(data []byte) error {
 	ss := make([]string, 0)
@@ -152,38 +192,6 @@ func (a *AppName) UnmarshalJSON(data []byte) error {
 	}
 	(*a) = m
 	return nil
-}
-
-type AppVersions struct {
-	Stable []string `json:"stable"`
-	Beta   []string `json:"beta"`
-	Dev    []string `json:"dev"`
-}
-
-type Developer struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-}
-
-type VersionOptions struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-	Sha256  string `json:"sha256"`
-}
-
-type Version struct {
-	ID        string          `json:"_id,omitempty"`
-	Rev       string          `json:"_rev,omitempty"`
-	Slug      string          `json:"slug"`
-	Editor    string          `json:"editor"`
-	Type      string          `json:"type"`
-	Version   string          `json:"version"`
-	Manifest  json.RawMessage `json:"manifest"`
-	CreatedAt time.Time       `json:"created_at"`
-	URL       string          `json:"url"`
-	Size      int64           `json:"size,string"`
-	Sha256    string          `json:"sha256"`
-	TarPrefix string          `json:"tar_prefix"`
 }
 
 func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
@@ -322,6 +330,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 		app.CreatedAt = now
 		app.UpdatedAt = now
 		app.Versions = nil
+		app.Screenshots = nil
 		if app.Name == nil {
 			v := make(AppName)
 			app.Name = &v
@@ -337,10 +346,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 		if app.Tags == nil {
 			app.Tags = make([]string, 0)
 		}
-		if app.ScreenshotURLs == nil {
-			app.ScreenshotURLs = make([]string, 0)
-		}
-		_, _, err = db.CreateDoc(ctx, app)
+		_, app.Rev, err = db.CreateDoc(ctx, app)
 		if err != nil {
 			return
 		}
@@ -349,6 +355,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 			Beta:   make([]string, 0),
 			Dev:    make([]string, 0),
 		}
+		app.Screenshots = make([]string, 0)
 		return app, true, nil
 	}
 
@@ -359,7 +366,10 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
 	app.Versions = nil
+	app.Screenshots = nil
+	app.Attachments = oldApp.Attachments
 	oldApp.Versions = nil
+	oldApp.Screenshots = nil
 	oldApp.UpdatedAt = time.Time{}
 	if app.Category == "" {
 		app.Category = oldApp.Category
@@ -382,14 +392,11 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if app.Tags == nil {
 		app.Tags = oldApp.Tags
 	}
-	if app.ScreenshotURLs == nil {
-		app.ScreenshotURLs = oldApp.ScreenshotURLs
-	}
 	if reflect.DeepEqual(app, oldApp) {
 		return app, false, nil
 	}
 	app.UpdatedAt = now
-	_, err = db.Put(ctx, app.ID, app)
+	app.Rev, err = db.Put(ctx, app.ID, app)
 	if err != nil {
 		return
 	}
@@ -397,6 +404,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if err != nil {
 		return
 	}
+	app.Screenshots = makeScreenshots(app.Attachments)
 	return app, true, nil
 }
 
@@ -404,8 +412,38 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 	return downloadVersion(opts)
 }
 
-func CreateVersion(ver *Version, app *App) error {
-	_, err := FindVersion(ver.Slug, ver.Version)
+func CreateVersion(ver *Version, editor *auth.Editor) error {
+	app, err := FindApp(ver.Slug)
+	if err != nil && err != ErrAppNotFound {
+		return err
+	}
+
+	var createOrUpdateApp bool
+	if err == ErrAppNotFound {
+		createOrUpdateApp = true
+	} else if GetVersionChannel(ver.Version) == Stable {
+		var lastVersion *Version
+		lastVersion, err = FindLatestVersion(ver.Slug, "stable")
+		if err != nil && err != ErrVersionNotFound {
+			return err
+		}
+		createOrUpdateApp = (err == ErrVersionNotFound) ||
+			versionLess(lastVersion.Version, ver.Version)
+	}
+
+	if createOrUpdateApp {
+		app = &App{}
+		if err = json.Unmarshal(ver.Manifest, &app); err != nil {
+			return err
+		}
+		app.Type = ver.Type
+		app, _, err = CreateOrUpdateApp(app, editor)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = FindVersion(ver.Slug, ver.Version)
 	if err != ErrVersionNotFound {
 		if err == nil {
 			return ErrVersionAlreadyExists
@@ -422,7 +460,24 @@ func CreateVersion(ver *Version, app *App) error {
 		return err
 	}
 	_, _, err = db.CreateDoc(ctx, ver)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if createOrUpdateApp {
+		dbApp, err := client.DB(ctx, AppsDB)
+		if err != nil {
+			return err
+		}
+		for _, att := range ver.Attachments {
+			app.Rev, err = dbApp.PutAttachment(ctx, app.ID, app.Rev, att)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
@@ -480,6 +535,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	var packVersion string
 	var appType, prefix, editorName string
 	var manifestContent []byte
+
+	buf := new(bytes.Buffer)
+	reader = io.TeeReader(reader, buf)
 	tarReader := tar.NewReader(reader)
 	for {
 		var hdr *tar.Header
@@ -513,7 +571,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			name = split[1]
 		}
 
-		if name == "manifest.webapp" || name == "manifest.konnector" {
+		if appType == "" && (name == "manifest.webapp" || name == "manifest.konnector") {
 			if name == "manifest.webapp" {
 				appType = "webapp"
 			} else if name == "manifest.konnector" {
@@ -581,7 +639,8 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	}
 
 	{
-		version, ok := manifest["version"].(string)
+		var version string
+		version, ok = manifest["version"].(string)
 		var match bool
 		if !ok {
 			// nothing
@@ -614,6 +673,70 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		return
 	}
 
+	iconPath, ok := manifest["icon"].(string)
+	if ok {
+		iconPath = path.Join("/", iconPath)
+	}
+	screenshotPaths, ok := manifest["screenshots"].([]string)
+	if ok {
+		for i, s := range screenshotPaths {
+			screenshotPaths[i] = path.Join("/", s)
+		}
+	}
+
+	var attachments []*kivik.Attachment
+	tarReader = tar.NewReader(buf)
+	for {
+		var hdr *tar.Header
+		hdr, err = tarReader.Next()
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err == io.ErrUnexpectedEOF {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: file is too big %s", url, err)
+			return
+		}
+		if err != nil {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s", url, err)
+			return
+		}
+
+		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
+			continue
+		}
+
+		name := path.Join("/", strings.TrimPrefix(hdr.Name, prefix))
+		if name == "" || name == "/" {
+			continue
+		}
+
+		isIcon := iconPath != "" && name == iconPath
+		isShot := !isIcon && stringInArray(name, screenshotPaths)
+		if !isIcon && !isShot {
+			continue
+		}
+
+		var data []byte
+		data, err = ioutil.ReadAll(tarReader)
+		if err != nil {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s", url, err)
+			return
+		}
+		var filename string
+		if isIcon {
+			filename = "icon"
+		} else if isShot {
+			filename = fmt.Sprintf("%s/%s", screenshotsDir, name)
+		}
+		mime := magic.MIMEType(name, data)
+		body := ioutil.NopCloser(bytes.NewReader(data))
+		attachments = append(attachments, kivik.NewAttachment(filename, mime, body))
+	}
+
 	ver = new(Version)
 	ver.ID = getVersionID(slug, opts.Version)
 	ver.Slug = slug
@@ -626,6 +749,18 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	ver.Size = counter.Written()
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now().UTC()
+	ver.Attachments = attachments
+	return
+}
+
+func makeScreenshots(attachments map[string]interface{}) (screens []string) {
+	screens = make([]string, 0)
+	for name := range attachments {
+		if strings.HasPrefix(name, screenshotsDir+"/") {
+			screens = append(screens, strings.TrimPrefix(name, screenshotsDir+"/"))
+		}
+	}
+	sort.Strings(screens)
 	return
 }
 
@@ -635,7 +770,7 @@ func VersionMatch(ver1, ver2 string) bool {
 	return v1[0] == v2[0] && v1[1] == v2[1] && v1[2] == v2[2]
 }
 
-func VersionLess(ver1, ver2 string) bool {
+func versionLess(ver1, ver2 string) bool {
 	v1 := SplitVersion(ver1)
 	v2 := SplitVersion(ver2)
 	if v1[0] < v2[0] {

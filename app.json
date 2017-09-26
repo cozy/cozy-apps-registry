@@ -18,7 +18,6 @@
   "repository": "https://github.com/cozy/cozy-drive",
   "locales": ["en", "fr"],
   "tags": ["drive", "files", "file", "fichiers", "fichier"],
-  "logo_url": "https://foobar.img/logo.jpg",
   "screenshot_urls": [
     "https://foobar.img/screen1.jpg",
     "https://foobar.img/screen2.jpg"

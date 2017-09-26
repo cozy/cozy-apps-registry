@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/flimzy/kivik"
+	"github.com/labstack/echo"
 )
 
 var validFilters = []string{
@@ -45,10 +46,10 @@ func FindApp(appSlug string) (*App, error) {
 	}
 
 	row, err := db.Get(ctx, getAppID(appSlug))
-	if kivik.StatusCode(err) == http.StatusNotFound {
-		return nil, ErrAppNotFound
-	}
 	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return nil, ErrAppNotFound
+		}
 		return nil, err
 	}
 
@@ -62,7 +63,29 @@ func FindApp(appSlug string) (*App, error) {
 		return nil, err
 	}
 
+	doc.Screenshots = makeScreenshots(doc.Attachments)
 	return doc, nil
+}
+
+func FindAppAttachment(appSlug, filename string) (*kivik.Attachment, error) {
+	if !validSlugReg.MatchString(appSlug) {
+		return nil, ErrAppInvalid
+	}
+
+	db, err := client.DB(ctx, AppsDB)
+	if err != nil {
+		return nil, err
+	}
+
+	att, err := db.GetAttachment(ctx, getAppID(appSlug), "", filename)
+	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return nil, echo.NewHTTPError(http.StatusNotFound)
+		}
+		return nil, err
+	}
+
+	return att, nil
 }
 
 func FindVersion(appSlug, version string) (*Version, error) {
@@ -79,10 +102,10 @@ func FindVersion(appSlug, version string) (*Version, error) {
 	}
 
 	row, err := db.Get(ctx, getVersionID(appSlug, version))
-	if kivik.StatusCode(err) == http.StatusNotFound {
-		return nil, ErrVersionNotFound
-	}
 	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return nil, ErrVersionNotFound
+		}
 		return nil, err
 	}
 
@@ -295,6 +318,7 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		if err != nil {
 			return 0, nil, err
 		}
+		app.Screenshots = makeScreenshots(app.Attachments)
 	}
 
 	return cursor, res, nil

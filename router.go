@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -61,6 +62,7 @@ func createApp(c echo.Context) (err error) {
 	// Do not show internal identifier and revision
 	app.ID = ""
 	app.Rev = ""
+	app.Attachments = nil
 
 	return c.JSON(http.StatusCreated, app)
 }
@@ -89,42 +91,14 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	app, err := registry.FindApp(ver.Slug)
-	if err != nil && err != registry.ErrAppNotFound {
-		return err
-	}
-
-	var createApp bool
-	if err == registry.ErrAppNotFound {
-		createApp = true
-	} else if registry.GetVersionChannel(ver.Version) == registry.Stable {
-		lastVersion, err := registry.FindLatestVersion(ver.Slug, "stable")
-		if err != nil && err != registry.ErrVersionNotFound {
-			return err
-		}
-		createApp = (err == registry.ErrVersionNotFound) ||
-			registry.VersionLess(lastVersion.Version, ver.Version)
-	}
-
-	if createApp {
-		app = &registry.App{}
-		if err := json.Unmarshal(ver.Manifest, &app); err != nil {
-			return err
-		}
-		app.Type = ver.Type
-		app, _, err = registry.CreateOrUpdateApp(app, editor)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err = registry.CreateVersion(ver, app); err != nil {
+	if err = registry.CreateVersion(ver, editor); err != nil {
 		return err
 	}
 
 	// Do not show internal identifier and revision
 	ver.ID = ""
 	ver.Rev = ""
+	ver.Attachments = nil
 
 	return c.JSON(http.StatusCreated, ver)
 }
@@ -223,6 +197,7 @@ func getAppsList(c echo.Context) error {
 		// Do not show internal identifier and revision
 		doc.ID = ""
 		doc.Rev = ""
+		doc.Attachments = nil
 	}
 
 	type pageInfo struct {
@@ -263,11 +238,41 @@ func getApp(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	doc.Attachments = nil
 
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
 	return c.JSON(http.StatusOK, doc)
+}
+
+func getAppIcon(c echo.Context) error {
+	appSlug := c.Param("app")
+	att, err := registry.FindAppAttachment(appSlug, "icon")
+	if err != nil {
+		return err
+	}
+
+	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
+	return c.Stream(http.StatusOK, att.ContentType, att)
+}
+
+func getAppScreenshot(c echo.Context) error {
+	appSlug := c.Param("app")
+	filename := c.Param("filename")
+	att, err := registry.FindAppAttachment(appSlug, path.Join("screenshots", filename))
+	if err != nil {
+		return err
+	}
+
+	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
+	return c.Stream(http.StatusOK, att.ContentType, att)
 }
 
 func getAppVersions(c echo.Context) error {
@@ -304,6 +309,7 @@ func getVersion(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	doc.Attachments = nil
 
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
@@ -326,6 +332,7 @@ func getLatestVersion(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
+	doc.Attachments = nil
 
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
@@ -480,7 +487,7 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Gzip())
-	// e.Use(middleware.Recover())
+	e.Use(middleware.Recover())
 
 	registry := e.Group("/registry", jsonEndpoint)
 	registry.POST("", createApp)
@@ -491,6 +498,10 @@ func Router(addr string) *echo.Echo {
 	registry.GET("", getAppsList)
 	registry.HEAD("/:app", getApp)
 	registry.GET("/:app", getApp)
+	registry.GET("/:app/icon", getAppIcon)
+	registry.HEAD("/:app/icon", getAppIcon)
+	registry.GET("/:app/screenshots/:filename", getAppScreenshot)
+	registry.HEAD("/:app/screenshots/:filename", getAppScreenshot)
 	registry.GET("/:app/versions", getAppVersions)
 	registry.HEAD("/:app/:version", getVersion)
 	registry.GET("/:app/:version", getVersion)
