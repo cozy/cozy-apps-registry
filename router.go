@@ -296,7 +296,7 @@ func getAppVersions(c echo.Context) error {
 
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
-	version := c.Param("version")
+	version := stripVersion(c.Param("version"))
 	_, err := registry.FindApp(appSlug)
 	if err != nil {
 		return err
@@ -408,7 +408,8 @@ func validateAppRequest(c echo.Context, app *registry.App) error {
 }
 
 func validateVersionRequest(c echo.Context, ver *registry.VersionOptions) error {
-	version := c.Param("version")
+	version := stripVersion(c.Param("version"))
+	ver.Version = stripVersion(ver.Version)
 	if version != "" {
 		if ver.Version == "" {
 			ver.Version = version
@@ -481,6 +482,15 @@ func cacheControl(c echo.Context, rev string, maxAge time.Duration) bool {
 	}
 
 	return false
+}
+
+// stripVersion removes the 'v' prefix if any.
+// ex: v1.3.2 -> 1.3.2
+func stripVersion(v string) string {
+	if len(v) > 0 && v[0] == 'v' {
+		v = v[1:]
+	}
+	return v
 }
 
 func Router(addr string) *echo.Echo {

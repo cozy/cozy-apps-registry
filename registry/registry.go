@@ -131,9 +131,10 @@ type Developer struct {
 }
 
 type VersionOptions struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-	Sha256  string `json:"sha256"`
+	Version    string          `json:"version"`
+	URL        string          `json:"url"`
+	Sha256     string          `json:"sha256"`
+	Parameters json.RawMessage `json:"parameters"`
 }
 
 type Version struct {
@@ -291,7 +292,7 @@ func IsValidApp(app *App) error {
 
 func IsValidVersion(ver *VersionOptions) error {
 	var fields []string
-	if ver.Version == "" {
+	if !validVersionReg.MatchString(ver.Version) {
 		fields = append(fields, "version")
 	}
 	if ver.URL == "" {
@@ -742,6 +743,14 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		mime := magic.MIMEType(name, data)
 		body := ioutil.NopCloser(bytes.NewReader(data))
 		attachments = append(attachments, kivik.NewAttachment(filename, mime, body))
+	}
+
+	if opts.Parameters != nil {
+		manifest["parameters"] = opts.Parameters
+		manifestContent, err = json.Marshal(manifest)
+		if err != nil {
+			return
+		}
 	}
 
 	ver = new(Version)
