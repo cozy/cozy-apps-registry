@@ -255,6 +255,7 @@ func getAppIcon(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	defer att.Close()
 
 	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
 		return c.NoContent(http.StatusNotModified)
@@ -270,6 +271,7 @@ func getAppScreenshot(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	defer att.Close()
 
 	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
 		return c.NoContent(http.StatusNotModified)
