@@ -488,9 +488,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 	return nil
 }
 
-func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
-	url := opts.URL
-
+func downloadRequest(url string) (reader *bytes.Reader, contentType string, err error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -498,29 +496,36 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		return
 	}
 
-	res, err := versionClient.Do(req)
+	resp, err := versionClient.Do(req)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: %s", url, err)
 		return
 	}
-	defer res.Body.Close()
+	defer resp.Body.Close()
 
-	if res.StatusCode != 200 {
+	if resp.StatusCode != 200 {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: server responded with code %d",
-			url, res.StatusCode)
+			url, resp.StatusCode)
 		return
 	}
 
-	h := sha256.New()
-	var reader io.Reader
-	counter := &Counter{}
-	reader = io.LimitReader(res.Body, maxApplicationSize)
-	reader = io.TeeReader(reader, counter)
-	reader = io.TeeReader(reader, h)
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, io.LimitReader(resp.Body, maxApplicationSize))
+	if err != nil {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s",
+			url, err)
+		return
+	}
 
-	contentType := res.Header.Get("Content-Type")
+	contentType = resp.Header.Get("content-type")
+	return bytes.NewReader(buf.Bytes()), contentType, nil
+}
+
+func tarReader(reader io.Reader, contentType string) (*tar.Reader, error) {
+	var err error
 	switch contentType {
 	case
 		"application/gzip",
@@ -529,9 +534,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		"application/tar+gzip":
 		reader, err = gzip.NewReader(reader)
 		if err != nil {
-			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", url, err)
-			return
+			return nil, err
 		}
 	case "application/octet-stream":
 		var r io.Reader
@@ -539,17 +542,46 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			reader = r
 		}
 	}
+	return tar.NewReader(reader), nil
+}
+
+func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
+	url := opts.URL
+
+	var buf *bytes.Reader
+	var contentType string
+	tryCount := 0
+	for {
+		tryCount++
+		buf, contentType, err = downloadRequest(url)
+		if err == nil {
+			break
+		} else if tryCount <= 3 {
+			continue
+		} else {
+			return nil, err
+		}
+	}
+
+	h := sha256.New()
+	counter := &Counter{}
+	var reader io.Reader = buf
+	reader = io.TeeReader(reader, counter)
+	reader = io.TeeReader(reader, h)
 
 	var packVersion string
 	var appType, prefix, editorName string
 	var manifestContent []byte
 
-	buf := new(bytes.Buffer)
-	reader = io.TeeReader(reader, buf)
-	tarReader := tar.NewReader(reader)
+	tr, err := tarReader(reader, contentType)
+	if err != nil {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s", url, err)
+		return
+	}
 	for {
 		var hdr *tar.Header
-		hdr, err = tarReader.Next()
+		hdr, err = tr.Next()
 		if err == io.EOF {
 			break
 		}
@@ -585,7 +617,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			} else if name == "manifest.konnector" {
 				appType = "konnector"
 			}
-			manifestContent, err = ioutil.ReadAll(tarReader)
+			manifestContent, err = ioutil.ReadAll(tr)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
 					"Could not reach version on specified url %s: %s", url, err)
@@ -595,7 +627,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 
 		if name == "package.json" {
 			var packageContent []byte
-			packageContent, err = ioutil.ReadAll(tarReader)
+			packageContent, err = ioutil.ReadAll(tr)
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
 					"Could not reach version on specified url %s: %s", url, err)
@@ -693,10 +725,16 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	}
 
 	var attachments []*kivik.Attachment
-	tarReader = tar.NewReader(buf)
+	buf.Seek(0, io.SeekStart)
+	tr, err = tarReader(buf, contentType)
+	if err != nil {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s", url, err)
+		return
+	}
 	for {
 		var hdr *tar.Header
-		hdr, err = tarReader.Next()
+		hdr, err = tr.Next()
 		if err == io.EOF {
 			err = nil
 			break
@@ -728,7 +766,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		}
 
 		var data []byte
-		data, err = ioutil.ReadAll(tarReader)
+		data, err = ioutil.ReadAll(tr)
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s", url, err)
