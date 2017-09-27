@@ -231,12 +231,15 @@ func FindAppVersions(appSlug string) (*AppVersions, error) {
 }
 
 func FindAppScreenshots(appSlug string, channel Channel) ([]string, error) {
+	screens := make([]string, 0)
 	ver, err := FindLatestVersion(appSlug, channel)
 	if err != nil {
+		if err == ErrVersionNotFound {
+			return screens, nil
+		}
 		return nil, err
 	}
 
-	screens := make([]string, 0)
 	for name := range ver.Attachments {
 		if strings.HasPrefix(name, screenshotsDir+"/") {
 			screens = append(screens, strings.TrimPrefix(name, screenshotsDir+"/"))

@@ -62,9 +62,9 @@ const (
 )
 
 var (
-	AppsDB    = "registry-apps"
-	VersDB    = "registry-versions"
-	EditorsDB = "registry-editors"
+	AppsDB    = "-apps"
+	VersDB    = "-versions"
+	EditorsDB = "-editors"
 )
 
 var (
@@ -221,11 +221,13 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 	}
 	clientURL = u
 
-	if prefix != "" {
-		AppsDB = prefix + "-" + AppsDB
-		VersDB = prefix + "-" + VersDB
-		EditorsDB = prefix + "-" + EditorsDB
+	if prefix == "" {
+		prefix = "registry"
 	}
+
+	AppsDB = prefix + "-" + AppsDB
+	VersDB = prefix + "-" + VersDB
+	EditorsDB = prefix + "-" + EditorsDB
 
 	dbs := []string{AppsDB, VersDB, EditorsDB}
 	for _, dbName := range dbs {
