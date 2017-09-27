@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/flimzy/kivik"
@@ -63,21 +64,33 @@ func FindApp(appSlug string) (*App, error) {
 		return nil, err
 	}
 
-	doc.Screenshots = makeScreenshots(doc.Attachments)
-	return doc, nil
-}
-
-func FindAppAttachment(appSlug, filename string) (*kivik.Attachment, error) {
-	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppInvalid
-	}
-
-	db, err := client.DB(ctx, AppsDB)
+	doc.Screenshots, err = FindAppScreenshots(doc.Slug, Stable)
 	if err != nil {
 		return nil, err
 	}
 
-	att, err := db.GetAttachment(ctx, getAppID(appSlug), "", filename)
+	return doc, nil
+}
+
+func FindAppAttachment(appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
+	if !validSlugReg.MatchString(appSlug) {
+		return nil, ErrAppInvalid
+	}
+
+	db, err := client.DB(ctx, VersDB)
+	if err != nil {
+		return nil, err
+	}
+
+	ver, err := FindLatestVersion(appSlug, channel)
+	if err != nil {
+		if err == ErrVersionNotFound {
+			return nil, echo.NewHTTPError(http.StatusNotFound)
+		}
+		return nil, err
+	}
+
+	att, err := db.GetAttachment(ctx, ver.ID, ver.Rev, filename)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			return nil, echo.NewHTTPError(http.StatusNotFound)
@@ -130,11 +143,7 @@ func versionViewQuery(db *kivik.DB, appSlug, channel string, opts map[string]int
 	return rows, nil
 }
 
-func FindLatestVersion(appSlug string, channel string) (*Version, error) {
-	ch, err := strToChannel(channel)
-	if err != nil {
-		return nil, err
-	}
+func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppInvalid
 	}
@@ -143,7 +152,7 @@ func FindLatestVersion(appSlug string, channel string) (*Version, error) {
 		return nil, err
 	}
 
-	rows, err := versionViewQuery(db, appSlug, channelToStr(ch), map[string]interface{}{
+	rows, err := versionViewQuery(db, appSlug, channelToStr(channel), map[string]interface{}{
 		"limit":      1,
 		"descending": true,
 	})
@@ -219,6 +228,23 @@ func FindAppVersions(appSlug string) (*AppVersions, error) {
 		Beta:   beta,
 		Dev:    dev,
 	}, nil
+}
+
+func FindAppScreenshots(appSlug string, channel Channel) ([]string, error) {
+	ver, err := FindLatestVersion(appSlug, channel)
+	if err != nil {
+		return nil, err
+	}
+
+	screens := make([]string, 0)
+	for name := range ver.Attachments {
+		if strings.HasPrefix(name, screenshotsDir+"/") {
+			screens = append(screens, strings.TrimPrefix(name, screenshotsDir+"/"))
+		}
+	}
+
+	sort.Strings(screens)
+	return screens, nil
 }
 
 type AppsListOptions struct {
@@ -318,7 +344,10 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		app.Screenshots = makeScreenshots(app.Attachments)
+		app.Screenshots, err = FindAppScreenshots(app.Slug, Stable)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
 	return cursor, res, nil

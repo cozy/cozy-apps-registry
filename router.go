@@ -40,9 +40,6 @@ func createApp(c echo.Context) (err error) {
 	if err = c.Bind(app); err != nil {
 		return err
 	}
-	app.Screenshots = nil
-	app.Attachments = nil
-	app.Versions = nil
 
 	if err = validateAppRequest(c, app); err != nil {
 		return err
@@ -65,7 +62,6 @@ func createApp(c echo.Context) (err error) {
 	// Do not show internal identifier and revision
 	app.ID = ""
 	app.Rev = ""
-	app.Attachments = nil
 
 	return c.JSON(http.StatusCreated, app)
 }
@@ -200,7 +196,6 @@ func getAppsList(c echo.Context) error {
 		// Do not show internal identifier and revision
 		doc.ID = ""
 		doc.Rev = ""
-		doc.Attachments = nil
 	}
 
 	type pageInfo struct {
@@ -241,7 +236,6 @@ func getApp(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
-	doc.Attachments = nil
 
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
@@ -251,7 +245,12 @@ func getApp(c echo.Context) error {
 
 func getAppIcon(c echo.Context) error {
 	appSlug := c.Param("app")
-	att, err := registry.FindAppAttachment(appSlug, "icon")
+	channel := c.Param("channel")
+	ch, err := registry.StrToChannel(channel)
+	if err != nil {
+		ch = registry.Stable
+	}
+	att, err := registry.FindAppAttachment(appSlug, "icon", ch)
 	if err != nil {
 		return err
 	}
@@ -266,8 +265,13 @@ func getAppIcon(c echo.Context) error {
 
 func getAppScreenshot(c echo.Context) error {
 	appSlug := c.Param("app")
+	channel := c.Param("channel")
 	filename := c.Param("filename")
-	att, err := registry.FindAppAttachment(appSlug, path.Join("screenshots", filename))
+	ch, err := registry.StrToChannel(channel)
+	if err != nil {
+		ch = registry.Stable
+	}
+	att, err := registry.FindAppAttachment(appSlug, path.Join("screenshots", filename), ch)
 	if err != nil {
 		return err
 	}
@@ -325,7 +329,12 @@ func getVersion(c echo.Context) error {
 func getLatestVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
-	doc, err := registry.FindLatestVersion(appSlug, channel)
+
+	ch, err := registry.StrToChannel(channel)
+	if err != nil {
+		return err
+	}
+	doc, err := registry.FindLatestVersion(appSlug, ch)
 	if err != nil {
 		return err
 	}

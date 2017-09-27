@@ -16,7 +16,6 @@ import (
 	"path"
 	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -95,9 +94,8 @@ const (
 )
 
 type App struct {
-	ID          string                 `json:"_id,omitempty"`
-	Rev         string                 `json:"_rev,omitempty"`
-	Attachments map[string]interface{} `json:"_attachments,omitempty"`
+	ID  string `json:"_id,omitempty"`
+	Rev string `json:"_rev,omitempty"`
 
 	Slug        string          `json:"slug"`
 	Name        *AppName        `json:"name"`
@@ -131,16 +129,18 @@ type Developer struct {
 }
 
 type VersionOptions struct {
-	Version    string          `json:"version"`
-	URL        string          `json:"url"`
-	Sha256     string          `json:"sha256"`
-	Parameters json.RawMessage `json:"parameters"`
+	Version     string          `json:"version"`
+	URL         string          `json:"url"`
+	Sha256      string          `json:"sha256"`
+	Parameters  json.RawMessage `json:"parameters"`
+	Icon        string          `json:"icon"`
+	Screenshots []string        `json:"screenshots"`
 }
 
 type Version struct {
-	ID          string              `json:"_id,omitempty"`
-	Rev         string              `json:"_rev,omitempty"`
-	Attachments []*kivik.Attachment `json:"-"`
+	ID          string                 `json:"_id,omitempty"`
+	Rev         string                 `json:"_rev,omitempty"`
+	Attachments map[string]interface{} `json:"_attachments,omitempty"`
 
 	Slug      string          `json:"slug"`
 	Editor    string          `json:"editor"`
@@ -152,6 +152,8 @@ type Version struct {
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
 	TarPrefix string          `json:"tar_prefix"`
+
+	attachments []*kivik.Attachment
 }
 
 func (l *Locales) UnmarshalJSON(data []byte) error {
@@ -393,9 +395,6 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if app.Tags == nil {
 		app.Tags = oldApp.Tags
 	}
-	if app.Attachments == nil {
-		app.Attachments = oldApp.Attachments
-	}
 	if reflect.DeepEqual(app, oldApp) {
 		return app, false, nil
 	}
@@ -408,7 +407,10 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if err != nil {
 		return
 	}
-	app.Screenshots = makeScreenshots(app.Attachments)
+	app.Screenshots, err = FindAppScreenshots(app.Slug, Stable)
+	if err != nil {
+		return
+	}
 	return app, true, nil
 }
 
@@ -427,7 +429,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		createOrUpdateApp = true
 	} else if GetVersionChannel(ver.Version) == Stable {
 		var lastVersion *Version
-		lastVersion, err = FindLatestVersion(ver.Slug, "stable")
+		lastVersion, err = FindLatestVersion(ver.Slug, Stable)
 		if err != nil && err != ErrVersionNotFound {
 			return err
 		}
@@ -440,10 +442,7 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		if err = json.Unmarshal(ver.Manifest, &app); err != nil {
 			return err
 		}
-		app.Screenshots = nil
-		app.Versions = nil
 		app.Type = ver.Type
-		app.Attachments = make(map[string]interface{}) // reset the attachments
 		app, _, err = CreateOrUpdateApp(app, editor)
 		if err != nil {
 			return err
@@ -467,21 +466,15 @@ func CreateVersion(ver *Version, editor *auth.Editor) error {
 		return err
 	}
 
-	_, _, err = db.CreateDoc(ctx, ver)
+	_, ver.Rev, err = db.CreateDoc(ctx, ver)
 	if err != nil {
 		return err
 	}
 
-	if createOrUpdateApp {
-		dbApp, err := client.DB(ctx, AppsDB)
+	for _, att := range ver.attachments {
+		ver.Rev, err = db.PutAttachment(ctx, ver.ID, ver.Rev, att)
 		if err != nil {
 			return err
-		}
-		for _, att := range ver.Attachments {
-			app.Rev, err = dbApp.PutAttachment(ctx, app.ID, app.Rev, att)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -713,74 +706,99 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		return
 	}
 
-	iconPath, ok := manifest["icon"].(string)
-	if ok {
-		iconPath = path.Join("/", iconPath)
-	}
-	screenshotPaths, ok := manifest["screenshots"].([]string)
-	if ok {
-		for i, s := range screenshotPaths {
-			screenshotPaths[i] = path.Join("/", s)
-		}
-	}
-
 	var attachments []*kivik.Attachment
-	buf.Seek(0, io.SeekStart)
-	tr, err = tarReader(buf, contentType)
-	if err != nil {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s", url, err)
-		return
-	}
-	for {
-		var hdr *tar.Header
-		hdr, err = tr.Next()
-		if err == io.EOF {
-			err = nil
-			break
+	{
+		var ok bool
+		var iconPath string
+		if opts.Icon != "" {
+			iconPath, ok = opts.Icon, true
+		} else {
+			iconPath, ok = manifest["icon"].(string)
 		}
-		if err == io.ErrUnexpectedEOF {
-			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: file is too big %s", url, err)
-			return
-		}
-		if err != nil {
-			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", url, err)
-			return
+		if ok {
+			iconPath = path.Join("/", iconPath)
 		}
 
-		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
-			continue
+		var screenshotPaths []string
+		if opts.Screenshots != nil {
+			screenshotPaths, ok = opts.Screenshots, true
+		} else {
+			var s []interface{}
+			s, ok = manifest["screenshots"].([]interface{})
+			if ok {
+				for _, screen := range s {
+					if str, isStr := screen.(string); isStr {
+						screenshotPaths = append(screenshotPaths, str)
+					}
+				}
+			}
+		}
+		if ok {
+			for i, s := range screenshotPaths {
+				screenshotPaths[i] = path.Join("/", s)
+			}
 		}
 
-		name := path.Join("/", strings.TrimPrefix(hdr.Name, prefix))
-		if name == "" || name == "/" {
-			continue
-		}
+		if len(screenshotPaths) > 0 || iconPath != "" {
+			buf.Seek(0, io.SeekStart)
+			tr, err = tarReader(buf, contentType)
+			if err != nil {
+				err = errshttp.NewError(http.StatusUnprocessableEntity,
+					"Could not reach version on specified url %s: %s", url, err)
+				return
+			}
 
-		isIcon := iconPath != "" && name == iconPath
-		isShot := !isIcon && stringInArray(name, screenshotPaths)
-		if !isIcon && !isShot {
-			continue
-		}
+			for {
+				var hdr *tar.Header
+				hdr, err = tr.Next()
+				if err == io.EOF {
+					err = nil
+					break
+				}
+				if err == io.ErrUnexpectedEOF {
+					err = errshttp.NewError(http.StatusUnprocessableEntity,
+						"Could not reach version on specified url %s: file is too big %s", url, err)
+					return
+				}
+				if err != nil {
+					err = errshttp.NewError(http.StatusUnprocessableEntity,
+						"Could not reach version on specified url %s: %s", url, err)
+					return
+				}
 
-		var data []byte
-		data, err = ioutil.ReadAll(tr)
-		if err != nil {
-			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", url, err)
-			return
+				if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
+					continue
+				}
+
+				name := path.Join("/", strings.TrimPrefix(hdr.Name, prefix))
+				if name == "" || name == "/" {
+					continue
+				}
+
+				isIcon := iconPath != "" && name == iconPath
+				isShot := !isIcon && stringInArray(name, screenshotPaths)
+				if !isIcon && !isShot {
+					continue
+				}
+
+				var data []byte
+				data, err = ioutil.ReadAll(tr)
+				if err != nil {
+					err = errshttp.NewError(http.StatusUnprocessableEntity,
+						"Could not reach version on specified url %s: %s", url, err)
+					return
+				}
+				var filename string
+				if isIcon {
+					filename = "icon"
+				} else if isShot {
+					filename = fmt.Sprintf("%s/%s", screenshotsDir, path.Base(name))
+				}
+				mime := magic.MIMEType(name, data)
+				body := ioutil.NopCloser(bytes.NewReader(data))
+				attachments = append(attachments, kivik.NewAttachment(filename, mime, body))
+			}
 		}
-		var filename string
-		if isIcon {
-			filename = "icon"
-		} else if isShot {
-			filename = fmt.Sprintf("%s/%s", screenshotsDir, name)
-		}
-		mime := magic.MIMEType(name, data)
-		body := ioutil.NopCloser(bytes.NewReader(data))
-		attachments = append(attachments, kivik.NewAttachment(filename, mime, body))
 	}
 
 	if opts.Parameters != nil {
@@ -803,18 +821,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	ver.Size = counter.Written()
 	ver.TarPrefix = prefix
 	ver.CreatedAt = time.Now().UTC()
-	ver.Attachments = attachments
-	return
-}
-
-func makeScreenshots(attachments map[string]interface{}) (screens []string) {
-	screens = make([]string, 0)
-	for name := range attachments {
-		if strings.HasPrefix(name, screenshotsDir+"/") {
-			screens = append(screens, strings.TrimPrefix(name, screenshotsDir+"/"))
-		}
-	}
-	sort.Strings(screens)
+	ver.attachments = attachments
 	return
 }
 
@@ -863,7 +870,7 @@ func SplitVersion(version string) (v [3]string) {
 	return
 }
 
-func strToChannel(channel string) (Channel, error) {
+func StrToChannel(channel string) (Channel, error) {
 	switch channel {
 	case "stable":
 		return Stable, nil
