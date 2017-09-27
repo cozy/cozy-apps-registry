@@ -28,6 +28,7 @@ var errUnauthorized = errshttp.NewError(http.StatusUnauthorized,
 
 var (
 	oneMinute = 1 * time.Minute
+	oneHour   = 1 * time.Hour
 	oneYear   = 365 * 24 * time.Hour
 )
 
@@ -244,43 +245,60 @@ func getApp(c echo.Context) error {
 }
 
 func getAppIcon(c echo.Context) error {
-	appSlug := c.Param("app")
-	channel := c.Param("channel")
-	ch, err := registry.StrToChannel(channel)
-	if err != nil {
-		ch = registry.Stable
-	}
-	att, err := registry.FindAppAttachment(appSlug, "icon", ch)
-	if err != nil {
-		return err
-	}
-	defer att.Close()
-
-	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
-		return c.NoContent(http.StatusNotModified)
-	}
-
-	return c.Stream(http.StatusOK, att.ContentType, att)
+	return getAppAttachment(c, "icon")
 }
 
 func getAppScreenshot(c echo.Context) error {
+	return getAppAttachment(c, path.Join("screenshots", c.Param("filename")))
+}
+
+func getAppAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
-	filename := c.Param("filename")
 	ch, err := registry.StrToChannel(channel)
 	if err != nil {
 		ch = registry.Stable
 	}
-	att, err := registry.FindAppAttachment(appSlug, path.Join("screenshots", filename), ch)
+	att, err := registry.FindAppAttachment(appSlug, filename, ch)
 	if err != nil {
 		return err
 	}
 	defer att.Close()
 
-	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneMinute) {
+	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
+	return c.Stream(http.StatusOK, att.ContentType, att)
+}
+
+func getVersionIcon(c echo.Context) error {
+	return getVersionAttachment(c, "icon")
+}
+
+func getVersionScreenshot(c echo.Context) error {
+	return getVersionAttachment(c, path.Join("screenshots", c.Param("filename")))
+}
+
+func getVersionAttachment(c echo.Context, filename string) error {
+	appSlug := c.Param("app")
+	version := c.Param("version")
+	att, err := registry.FindVersionAttachment(appSlug, version, filename)
+	if err != nil {
+		return err
+	}
+	defer att.Close()
+
+	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
 	return c.Stream(http.StatusOK, att.ContentType, att)
 }
 
@@ -522,19 +540,22 @@ func Router(addr string) *echo.Echo {
 	registry.GET("", getAppsList)
 	registry.HEAD("/:app", getApp)
 	registry.GET("/:app", getApp)
-	registry.GET("/:app/icon", getAppIcon)
-	registry.HEAD("/:app/icon", getAppIcon)
-	registry.GET("/:app/:channel/icon", getAppIcon)
-	registry.HEAD("/:app/:channel/icon", getAppIcon)
-	registry.GET("/:app/screenshots/:filename", getAppScreenshot)
-	registry.HEAD("/:app/screenshots/:filename", getAppScreenshot)
-	registry.GET("/:app/:channel/screenshots/:filename", getAppScreenshot)
-	registry.HEAD("/:app/:channel/screenshots/:filename", getAppScreenshot)
 	registry.GET("/:app/versions", getAppVersions)
 	registry.HEAD("/:app/:version", getVersion)
 	registry.GET("/:app/:version", getVersion)
 	registry.HEAD("/:app/:channel/latest", getLatestVersion)
 	registry.GET("/:app/:channel/latest", getLatestVersion)
+
+	registry.GET("/:app/icon", getAppIcon)
+	registry.HEAD("/:app/icon", getAppIcon)
+	registry.GET("/:app/screenshots/:filename", getAppScreenshot)
+	registry.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+	registry.GET("/:app/:channel/latest/icon", getAppIcon)
+	registry.HEAD("/:app/:channel/latest/icon", getAppIcon)
+	registry.HEAD("/:app/:version/icon", getVersionIcon)
+	registry.GET("/:app/:version/icon", getVersionIcon)
+	registry.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
+	registry.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 
 	e.GET("/editors", getEditorsList)
 	e.HEAD("/editors/:editor", getEditor)
