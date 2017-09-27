@@ -62,9 +62,9 @@ const (
 )
 
 var (
-	AppsDB    = "-apps"
-	VersDB    = "-versions"
-	EditorsDB = "-editors"
+	AppsDB    = "apps"
+	VersDB    = "versions"
+	EditorsDB = "editors"
 )
 
 var (
