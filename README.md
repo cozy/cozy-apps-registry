@@ -36,11 +36,9 @@ $ cozy-registry-v3 gen-token my-editor
 ```
 
 
-## How to contribute?
+## Configuration file
 
-We are eager for contributions and very happy when we receive them! It can
-code, of course, but it can also take other forms. The workflow is explained
-in [the contributing guide](docs/CONTRIBUTING.md).
+See the [example](cozy-registry.example.yml) at the root of the directory.
 
 
 ## Community

@@ -66,6 +66,8 @@ func init() {
 	rootCmd.AddCommand(printPublicKeyCmd)
 	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(addEditorCmd)
+	rootCmd.AddCommand(rmEditorCmd)
+	rootCmd.AddCommand(lsEditorsCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 }
@@ -89,10 +91,10 @@ var rootCmd = &cobra.Command{
 		} else {
 			viper.SetConfigName("cozy-registry")
 		}
+		viper.AddConfigPath("/etc/cozy")
 		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		err := viper.ReadInConfig()
 
+		err := viper.ReadInConfig()
 		if err != nil {
 			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 				cmd.Help()
@@ -443,7 +445,7 @@ var addEditorCmd = &cobra.Command{
 		// } else {
 		// }
 
-		fmt.Printf("Creating new editor...")
+		fmt.Printf("Creating new editor %q...", editorName)
 		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName)
 		if err != nil {
 			fmt.Println("failed")
@@ -451,6 +453,46 @@ var addEditorCmd = &cobra.Command{
 		}
 
 		fmt.Println("ok")
+		return nil
+	},
+}
+
+var rmEditorCmd = &cobra.Command{
+	Use:     "rm-editor [editor]",
+	Aliases: []string{"delete-editor", "remove-editor"},
+	Short:   `Remove an editor from the registry though an interactive CLI`,
+	PreRunE: prepareRegistry,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		editor, _, err := fetchEditor(args)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Deleting editor %q...", editor.Name())
+		err = editorRegistry.DeleteEditor(editor)
+		if err != nil {
+			fmt.Println("failed")
+			return err
+		}
+
+		fmt.Println("ok")
+		return nil
+	},
+}
+
+var lsEditorsCmd = &cobra.Command{
+	Use:     "ls-editors",
+	Aliases: []string{"ls-editor", "list-editor", "list-editors"},
+	Short:   `List all editors from registry.`,
+	PreRunE: prepareRegistry,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		editors, err := editorRegistry.AllEditors()
+		if err != nil {
+			return err
+		}
+		for _, editor := range editors {
+			fmt.Println(editor.Name())
+		}
 		return nil
 	},
 }
