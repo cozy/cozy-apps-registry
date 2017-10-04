@@ -68,6 +68,8 @@ func init() {
 	rootCmd.AddCommand(addEditorCmd)
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
+	rootCmd.AddCommand(exportCmd)
+	rootCmd.AddCommand(importCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 }
@@ -461,7 +463,7 @@ var rmEditorCmd = &cobra.Command{
 	Aliases: []string{"delete-editor", "remove-editor"},
 	Short:   `Remove an editor from the registry though an interactive CLI`,
 	PreRunE: prepareRegistry,
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		editor, _, err := fetchEditor(args)
 		if err != nil {
 			return err
@@ -484,7 +486,7 @@ var lsEditorsCmd = &cobra.Command{
 	Aliases: []string{"ls-editor", "list-editor", "list-editors"},
 	Short:   `List all editors from registry.`,
 	PreRunE: prepareRegistry,
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		editors, err := editorRegistry.AllEditors()
 		if err != nil {
 			return err
@@ -492,6 +494,65 @@ var lsEditorsCmd = &cobra.Command{
 		for _, editor := range editors {
 			fmt.Println(editor.Name())
 		}
+		return nil
+	},
+}
+
+var exportCmd = &cobra.Command{
+	Use:     "export [file]",
+	Short:   `Export the entire registry into one tarball file.`,
+	PreRunE: prepareRegistry,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var out io.Writer
+		if len(args) > 0 {
+			filename := args[0]
+			f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0640)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if errc := f.Close(); err == nil && errc != nil {
+					err = errc
+				}
+				if err != nil {
+					os.Remove(filename)
+				} else {
+					fmt.Printf("Export finished successfully in file %q.\n", filename)
+				}
+			}()
+			out = f
+		} else {
+			out = os.Stdout
+		}
+		return registry.Export(out)
+	},
+}
+
+var importCmd = &cobra.Command{
+	Use:     "import [file]",
+	Short:   `Import a registry from an export file.`,
+	PreRunE: prepareRegistry,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		var in io.Reader
+		if len(args) > 0 {
+			var f *os.File
+			f, err = os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if errc := f.Close(); err == nil && errc != nil {
+					err = errc
+				}
+			}()
+			in = f
+		} else {
+			in = os.Stdin
+		}
+		if err = registry.Import(in); err != nil {
+			return err
+		}
+		fmt.Println("Import finished successfully.")
 		return nil
 	},
 }

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/flimzy/kivik"
@@ -84,18 +83,21 @@ func (r *couchdbVault) DeleteEditor(editor *Editor) error {
 }
 
 func (r *couchdbVault) AllEditors() ([]*Editor, error) {
-	rows, err := r.db.Find(r.ctx, json.RawMessage(`{"selector":{},"limit":2000}`))
+	rows, err := r.db.AllDocs(r.ctx, map[string]interface{}{
+		"include_docs": true,
+		"limit":        2000,
+	})
 	if err != nil {
 		return nil, err
 	}
 	editors := make([]*Editor, 0)
 	for rows.Next() {
+		if strings.HasPrefix(rows.ID(), "_design") {
+			continue
+		}
 		var e editorForCouchdb
 		if err = rows.ScanDoc(&e); err != nil {
 			return nil, err
-		}
-		if strings.HasPrefix(e.ID, "_design") {
-			continue
 		}
 		editors = append(editors, &Editor{
 			name:           e.Name,

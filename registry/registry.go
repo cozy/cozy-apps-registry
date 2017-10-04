@@ -61,10 +61,16 @@ const (
 	betaSuffix = "-beta."
 )
 
+const (
+	AppsDBSuffix    = "apps"
+	VersDBSuffix    = "versions"
+	EditorsDBSuffix = "editors"
+)
+
 var (
-	AppsDB    = "apps"
-	VersDB    = "versions"
-	EditorsDB = "editors"
+	AppsDB    string
+	VersDB    string
+	EditorsDB string
 )
 
 var (
@@ -220,14 +226,16 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 		return nil, err
 	}
 	clientURL = u
+	clientURL.Path = ""
+	clientURL.RawPath = ""
 
 	if prefix == "" {
 		prefix = "registry"
 	}
 
-	AppsDB = prefix + "-" + AppsDB
-	VersDB = prefix + "-" + VersDB
-	EditorsDB = prefix + "-" + EditorsDB
+	AppsDB = prefix + "-" + AppsDBSuffix
+	VersDB = prefix + "-" + VersDBSuffix
+	EditorsDB = prefix + "-" + EditorsDBSuffix
 
 	dbs := []string{AppsDB, VersDB, EditorsDB}
 	for _, dbName := range dbs {
@@ -237,12 +245,12 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 			return nil, err
 		}
 		if !ok {
-			fmt.Printf("Creating database %s...", dbName)
+			fmt.Printf("Creating database %q...", dbName)
 			if err = client.CreateDB(ctx, dbName); err != nil {
 				fmt.Println("failed")
 				return nil, err
 			}
-			fmt.Println("ok")
+			fmt.Println("ok.")
 		}
 	}
 
