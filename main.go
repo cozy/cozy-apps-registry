@@ -92,7 +92,6 @@ var rootCmd = &cobra.Command{
 			viper.SetConfigName("cozy-registry")
 		}
 		viper.AddConfigPath("/etc/cozy")
-		viper.AddConfigPath(".")
 
 		err := viper.ReadInConfig()
 		if err != nil {
