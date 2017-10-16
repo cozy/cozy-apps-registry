@@ -1,5 +1,5 @@
-cozy-registry-v3
-================
+cozy-apps-registry
+==================
 
 ## What is Cozy?
 
@@ -13,7 +13,7 @@ hardware where no one profiles you.
 
 ## And what about this repository?
 
-The cozy-registry-v3 is a go project that implement the [registry
+The cozy-apps-registry is a go project that implement the [registry
 API](https://github.com/cozy/cozy-stack/blob/master/docs/registry.md)
 described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
@@ -23,16 +23,16 @@ It requires Couchdb 2.0 to work properly.
 ## Hack
 
 ```sh
-$ go get -u github.com/cozy/cozy-registry-v3
-$ cozy-registry-v3 gen-session-secret --passphrase false
-$ cozy-registry-v3 serve
+$ go get -u github.com/cozy/cozy-apps-registry
+$ cozy-apps-registry gen-session-secret --passphrase false
+$ cozy-apps-registry serve
 ```
 
 To generate a token:
 
 ```
-$ cozy-registry-v3 add-editor my-editor
-$ cozy-registry-v3 gen-token my-editor
+$ cozy-apps-registry add-editor my-editor
+$ cozy-apps-registry gen-token my-editor
 ```
 
 

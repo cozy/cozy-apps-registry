@@ -25,7 +25,7 @@ we don't know about, so please report liberally. If you're not sure if
 something is a bug or not, feel free to file a bug anyway.
 
 Opening an issue is as easy as following [this
-link](https://github.com/cozy/cozy-registry-v3/issues/new) and filling out the
+link](https://github.com/cozy/cozy-apps-registry/issues/new) and filling out the
 fields. Here are some things you can write about your bug:
 
 - A short summary
@@ -52,9 +52,9 @@ Fork the project on GitHub and [check out your copy
 locally](http://blog.campoy.cat/2014/03/github-and-go-forking-pull-requests-and.html).
 
 ```
-$ go get -u github.com/cozy/cozy-registry-v3.git
-$ cd $GOPATH/src/github.com/cozy/cozy-registry-v3
-$ git remote add fork git://github.com/username/cozy-registry-v3.git
+$ go get -u github.com/cozy/cozy-apps-registry.git
+$ cd $GOPATH/src/github.com/cozy/cozy-apps-registry
+$ git remote add fork git://github.com/username/cozy-apps-registry.git
 ```
 
 #### Step 2: Branch
@@ -100,7 +100,7 @@ $ git rebase origin/master
 $ git push fork my-branch
 ```
 
-Go to https://github.com/username/cozy-registry-v3 and select your branch. Click the
+Go to https://github.com/username/cozy-apps-registry and select your branch. Click the
 'Pull Request' button and fill out the form.
 
 Pull requests are usually reviewed within a few days. If there are comments to

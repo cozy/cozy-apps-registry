@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/scrypt"
 
-	"github.com/cozy/cozy-registry-v3/errshttp"
+	"github.com/cozy/cozy-apps-registry/errshttp"
 )
 
 const (

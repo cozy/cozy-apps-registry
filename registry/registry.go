@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/cozy-registry-v3/auth"
-	"github.com/cozy/cozy-registry-v3/errshttp"
-	"github.com/cozy/cozy-registry-v3/magic"
+	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/errshttp"
+	"github.com/cozy/cozy-apps-registry/magic"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/flimzy/kivik"

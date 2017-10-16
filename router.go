@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/cozy-registry-v3/auth"
-	"github.com/cozy/cozy-registry-v3/errshttp"
-	"github.com/cozy/cozy-registry-v3/registry"
+	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/errshttp"
+	"github.com/cozy/cozy-apps-registry/registry"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"

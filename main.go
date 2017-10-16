@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/cozy-registry-v3/auth"
-	"github.com/cozy/cozy-registry-v3/registry"
+	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
