@@ -111,25 +111,25 @@ type App struct {
 	ID  string `json:"_id,omitempty"`
 	Rev string `json:"_rev,omitempty"`
 
-	Slug        string          `json:"slug"`
-	Name        *AppName        `json:"name"`
-	Type        string          `json:"type"`
-	Editor      string          `json:"editor"`
-	Developer   *Developer      `json:"developer"`
-	Description *AppDescription `json:"description"`
-	Category    string          `json:"category"`
-	Repository  string          `json:"repository"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-	Locales     *Locales        `json:"locales"`
-	Tags        []string        `json:"tags"`
-	Screenshots []string        `json:"screenshots"`
-	Versions    *AppVersions    `json:"versions,omitempty"`
+	Slug             string       `json:"slug"`
+	Name             string       `json:"name"`
+	Type             string       `json:"type"`
+	Editor           string       `json:"editor"`
+	Locales          Locales      `json:"locales"`
+	Developer        Developer    `json:"developer"`
+	LongDescription  string       `json:"long_description"`
+	ShortDescription string       `json:"short_description"`
+	Category         string       `json:"category"`
+	Repository       string       `json:"repository"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+	Langs            []string     `json:"langs"`
+	Tags             []string     `json:"tags"`
+	Screenshots      []string     `json:"screenshots"`
+	Versions         *AppVersions `json:"versions,omitempty"`
 }
 
-type Locales []string
-type AppDescription map[string]string
-type AppName map[string]string
+type Locales map[string]interface{}
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -168,47 +168,6 @@ type Version struct {
 	TarPrefix string          `json:"tar_prefix"`
 
 	attachments []*kivik.Attachment
-}
-
-func (l *Locales) UnmarshalJSON(data []byte) error {
-	ss := make([]string, 0)
-	if err := json.Unmarshal(data, &ss); err != nil {
-		var m map[string]interface{}
-		if err = json.Unmarshal(data, &m); err != nil {
-			return err
-		}
-		for k := range m {
-			ss = append(ss, k)
-		}
-	}
-	(*l) = ss
-	return nil
-}
-
-func (a *AppDescription) UnmarshalJSON(data []byte) error {
-	m := make(map[string]string)
-	if err := json.Unmarshal(data, &m); err != nil {
-		var s string
-		if err = json.Unmarshal(data, &s); err != nil {
-			return err
-		}
-		m["en"] = s
-	}
-	(*a) = m
-	return nil
-}
-
-func (a *AppName) UnmarshalJSON(data []byte) error {
-	m := make(map[string]string)
-	if err := json.Unmarshal(data, &m); err != nil {
-		var s string
-		if err = json.Unmarshal(data, &s); err != nil {
-			return err
-		}
-		m["en"] = s
-	}
-	(*a) = m
-	return nil
 }
 
 func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
@@ -352,18 +311,8 @@ func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
 	app.Editor = editor.Name()
 	app.CreatedAt = now
 	app.UpdatedAt = now
-	{
-		v := make(AppName)
-		app.Name = &v
-	}
-	{
-		v := make(AppDescription)
-		app.Description = &v
-	}
-	{
-		v := Locales(make([]string, 0))
-		app.Locales = &v
-	}
+	app.Locales = make(Locales)
+	app.Langs = make([]string, 0)
 	app.Tags = make([]string, 0)
 	_, app.Rev, err = db.CreateDoc(ctx, app)
 	if err != nil {
@@ -403,47 +352,38 @@ func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err er
 		return
 	}
 
-	now := time.Now().UTC()
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
 	app.Slug = oldApp.Slug
 	app.Type = oldApp.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = oldApp.CreatedAt
+	app.UpdatedAt = time.Time{}
 	app.Versions = nil
 	app.Screenshots = nil
 	oldApp.Versions = nil
 	oldApp.Screenshots = nil
 	oldApp.UpdatedAt = time.Time{}
-	if app.Category == "" {
-		app.Category = oldApp.Category
-	}
-	if app.Repository == "" {
-		app.Repository = oldApp.Repository
-	}
-	if app.Name == nil {
-		app.Name = oldApp.Name
-	}
-	if app.Developer == nil {
-		app.Developer = oldApp.Developer
-	}
-	if app.Description == nil {
-		app.Description = oldApp.Description
-	}
 	if app.Locales == nil {
-		app.Locales = oldApp.Locales
+		app.Locales = make(Locales)
+	}
+	if app.Langs == nil {
+		app.Langs = make([]string, 0)
 	}
 	if app.Tags == nil {
-		app.Tags = oldApp.Tags
+		app.Tags = make([]string, 0)
 	}
+
 	if reflect.DeepEqual(app, oldApp) {
 		return app, false, nil
 	}
-	app.UpdatedAt = now
+
+	app.UpdatedAt = time.Now().UTC()
 	app.Rev, err = db.Put(ctx, app.ID, app)
 	if err != nil {
 		return
 	}
+
 	app.Versions, err = FindAppVersions(app.Slug)
 	if err != nil {
 		return
