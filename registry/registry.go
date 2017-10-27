@@ -34,17 +34,18 @@ const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 const screenshotsDir = "screenshots"
 
 var (
-	validSlugReg    = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*$`)
+	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
 )
 
 var (
-	ErrAppAlreadyExists = errshttp.NewError(http.StatusConflict, "Application already exists")
-	ErrAppNotFound      = errshttp.NewError(http.StatusNotFound, "Application was not found")
-	ErrAppSlugMismatch  = errshttp.NewError(http.StatusBadRequest, "Application slug does not match the one specified in the body")
-	ErrAppInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
+	ErrAppAlreadyExists  = errshttp.NewError(http.StatusConflict, "Application already exists")
+	ErrAppNotFound       = errshttp.NewError(http.StatusNotFound, "Application was not found")
+	ErrAppSlugMismatch   = errshttp.NewError(http.StatusBadRequest, "Application slug does not match the one specified in the body")
+	ErrAppSlugInvalid    = errshttp.NewError(http.StatusBadRequest, "Invalid application slug: should contain only lowercase alphanumeric characters and dashes")
+	ErrAppEditorMismatch = errshttp.NewError(http.StatusBadRequest, "Application can not be updated: editor can not change")
 
 	ErrVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
 	ErrVersionSlugMismatch  = errshttp.NewError(http.StatusBadRequest, "Version slug does not match the application")
@@ -249,7 +250,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 func IsValidApp(app *AppOptions) error {
 	var fields []string
 	if app.Slug == "" || !validSlugReg.MatchString(app.Slug) {
-		return ErrAppInvalid
+		return ErrAppSlugInvalid
 	}
 	if app.Editor == "" {
 		fields = append(fields, "editor")
@@ -348,7 +349,7 @@ func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err er
 	}
 
 	if oldApp.Editor != editor.Name() {
-		err = ErrAppInvalid
+		err = ErrAppEditorMismatch
 		return
 	}
 

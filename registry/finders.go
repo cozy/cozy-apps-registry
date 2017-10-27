@@ -39,7 +39,7 @@ func getAppID(appSlug string) string {
 
 func FindApp(appSlug string) (*App, error) {
 	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppInvalid
+		return nil, ErrAppSlugInvalid
 	}
 	db, err := client.DB(ctx, AppsDB)
 	if err != nil {
@@ -74,7 +74,7 @@ func FindApp(appSlug string) (*App, error) {
 
 func FindAppAttachment(appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
 	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppInvalid
+		return nil, ErrAppSlugInvalid
 	}
 
 	ver, err := FindLatestVersion(appSlug, channel)
@@ -107,7 +107,7 @@ func FindVersionAttachment(appSlug, version, filename string) (*kivik.Attachment
 
 func FindVersion(appSlug, version string) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppInvalid
+		return nil, ErrAppSlugInvalid
 	}
 	if !validVersionReg.MatchString(version) {
 		return nil, ErrVersionInvalid
@@ -149,7 +149,7 @@ func versionViewQuery(db *kivik.DB, appSlug, channel string, opts map[string]int
 
 func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppInvalid
+		return nil, ErrAppSlugInvalid
 	}
 	db, err := client.DB(ctx, VersDB)
 	if err != nil {
