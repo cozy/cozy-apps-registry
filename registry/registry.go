@@ -409,9 +409,23 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 	var needUpdate bool
 	if GetVersionChannel(ver.Version) == Stable {
 		var lastVersion *Version
-		lastVersion, err = FindLatestVersion(ver.Slug, Stable)
-		if err != nil && err != ErrVersionNotFound {
-			return err
+		{
+			lastVersion, err = FindLatestVersion(ver.Slug, Stable)
+			if err != nil && err != ErrVersionNotFound {
+				return err
+			}
+		}
+		if err == ErrVersionNotFound {
+			lastVersion, err = FindLatestVersion(ver.Slug, Beta)
+			if err != nil && err != ErrVersionNotFound {
+				return err
+			}
+		}
+		if err == ErrVersionNotFound {
+			lastVersion, err = FindLatestVersion(ver.Slug, Dev)
+			if err != nil && err != ErrVersionNotFound {
+				return err
+			}
 		}
 		needUpdate = (err == ErrVersionNotFound) ||
 			versionLess(lastVersion.Version, ver.Version)
