@@ -157,8 +157,9 @@ func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
 	}
 
 	rows, err := versionViewQuery(db, appSlug, channelToStr(channel), map[string]interface{}{
-		"limit":      1,
-		"descending": true,
+		"limit":        1,
+		"descending":   true,
+		"include_docs": true,
 	})
 	if err != nil {
 		return nil, err
@@ -168,22 +169,12 @@ func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
 		return nil, ErrVersionNotFound
 	}
 
-	var latestVersion string
-	if err = rows.ScanValue(&latestVersion); err != nil {
+	var latestVersion *Version
+	if err = rows.ScanDoc(&latestVersion); err != nil {
 		return nil, err
 	}
 
-	row, err := db.Get(ctx, getVersionID(appSlug, latestVersion))
-	if err != nil {
-		return nil, err
-	}
-
-	var latest *Version
-	if err = row.ScanDoc(&latest); err != nil {
-		return nil, err
-	}
-
-	return latest, nil
+	return latestVersion, nil
 }
 
 func FindAppVersions(appSlug string) (*AppVersions, error) {
@@ -194,9 +185,8 @@ func FindAppVersions(appSlug string) (*AppVersions, error) {
 
 	var allVersions []string
 	rows, err := versionViewQuery(db, appSlug, "dev", map[string]interface{}{
-		"limit":        2000,
-		"descending":   false,
-		"include_docs": true,
+		"limit":      2000,
+		"descending": false,
 	})
 	if err != nil {
 		return nil, err

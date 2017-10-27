@@ -37,27 +37,23 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	app := &registry.App{}
-	if err = c.Bind(app); err != nil {
+	opts := &registry.AppOptions{}
+	if err = c.Bind(opts); err != nil {
 		return err
 	}
 
-	if err = validateAppRequest(c, app); err != nil {
+	if err = validateAppRequest(c, opts); err != nil {
 		return err
 	}
 
-	editor, err := checkPermissions(c, app.Editor)
+	editor, err := checkPermissions(c, opts.Editor)
 	if err != nil {
 		return err
 	}
 
-	var updated bool
-	app, updated, err = registry.CreateOrUpdateApp(app, editor)
+	app, err := registry.CreateApp(opts, editor)
 	if err != nil {
 		return err
-	}
-	if !updated {
-		return c.NoContent(http.StatusNotModified)
 	}
 
 	// Do not show internal identifier and revision
@@ -72,10 +68,17 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
+	appSlug := c.Param("app")
+	app, err := registry.FindApp(appSlug)
+	if err != nil {
+		return err
+	}
+
 	opts := &registry.VersionOptions{}
 	if err = c.Bind(opts); err != nil {
 		return err
 	}
+	opts.Version = stripVersion(opts.Version)
 
 	if err = validateVersionRequest(c, opts); err != nil {
 		return err
@@ -91,7 +94,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateVersion(ver, editor); err != nil {
+	if err = registry.CreateVersion(ver, app, editor); err != nil {
 		return err
 	}
 
@@ -421,13 +424,7 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func validateAppRequest(c echo.Context, app *registry.App) error {
-	appSlug := c.Param("app")
-	if app.Slug == "" {
-		app.Slug = appSlug
-	} else if appSlug != "" && app.Slug != appSlug {
-		return registry.ErrAppSlugMismatch
-	}
+func validateAppRequest(c echo.Context, app *registry.AppOptions) error {
 	if err := registry.IsValidApp(app); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
 	}
@@ -435,15 +432,6 @@ func validateAppRequest(c echo.Context, app *registry.App) error {
 }
 
 func validateVersionRequest(c echo.Context, ver *registry.VersionOptions) error {
-	version := stripVersion(c.Param("version"))
-	ver.Version = stripVersion(ver.Version)
-	if version != "" {
-		if ver.Version == "" {
-			ver.Version = version
-		} else if ver.Version != version {
-			return registry.ErrVersionMismatch
-		}
-	}
 	if err := registry.IsValidVersion(ver); err != nil {
 		return wrapErr(err, http.StatusBadRequest)
 	}
@@ -533,9 +521,7 @@ func Router(addr string) *echo.Echo {
 
 	registry := e.Group("/registry", jsonEndpoint)
 	registry.POST("", createApp)
-	registry.POST("/versions", createVersion)
-	registry.POST("/:app", createApp)
-	registry.POST("/:app/:version", createVersion)
+	registry.POST("/:app", createVersion)
 
 	registry.GET("", getAppsList)
 	registry.HEAD("/:app", getApp)

@@ -25,7 +25,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/flimzy/kivik"
-	_ "github.com/flimzy/kivik/driver/couchdb" // for couchdb
+	_ "github.com/go-kivik/couchdb" // for couchdb
 	"github.com/labstack/echo"
 )
 
@@ -41,11 +41,13 @@ var (
 )
 
 var (
-	ErrAppNotFound     = errshttp.NewError(http.StatusNotFound, "Application was not found")
-	ErrAppSlugMismatch = errshttp.NewError(http.StatusBadRequest, "Application slug does not match the one specified in the body")
-	ErrAppInvalid      = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
+	ErrAppAlreadyExists = errshttp.NewError(http.StatusConflict, "Application already exists")
+	ErrAppNotFound      = errshttp.NewError(http.StatusNotFound, "Application was not found")
+	ErrAppSlugMismatch  = errshttp.NewError(http.StatusBadRequest, "Application slug does not match the one specified in the body")
+	ErrAppInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid application name: should contain only alphanumeric characters and dashes")
 
 	ErrVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
+	ErrVersionSlugMismatch  = errshttp.NewError(http.StatusBadRequest, "Version slug does not match the application")
 	ErrVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
 	ErrVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Version does not match the one specified in the body")
 	ErrVersionInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
@@ -98,6 +100,12 @@ const (
 	Beta
 	Dev
 )
+
+type AppOptions struct {
+	Slug   string `json:"slug"`
+	Editor string `json:"editor"`
+	Type   string `json:"type"`
+}
 
 type App struct {
 	ID  string `json:"_id,omitempty"`
@@ -279,7 +287,7 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 	return client, err
 }
 
-func IsValidApp(app *App) error {
+func IsValidApp(app *AppOptions) error {
 	var fields []string
 	if app.Slug == "" || !validSlugReg.MatchString(app.Slug) {
 		return ErrAppInvalid
@@ -289,11 +297,6 @@ func IsValidApp(app *App) error {
 	}
 	if !stringInArray(app.Type, validAppTypes) {
 		fields = append(fields, "type")
-	}
-	if app.Repository != "" {
-		if _, err := url.Parse(app.Repository); err != nil {
-			fields = append(fields, "repository")
-		}
 	}
 	if len(fields) > 0 {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
@@ -322,8 +325,66 @@ func IsValidVersion(ver *VersionOptions) error {
 	return nil
 }
 
-func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool, err error) {
-	if err = IsValidApp(app); err != nil {
+func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
+	if err := IsValidApp(opts); err != nil {
+		return nil, err
+	}
+
+	_, err := FindApp(opts.Slug)
+	if err == nil {
+		return nil, ErrAppAlreadyExists
+	}
+	if err != ErrAppNotFound {
+		return nil, err
+	}
+
+	db, err := client.DB(ctx, AppsDB)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	app := new(App)
+	app.ID = getAppID(opts.Slug)
+	app.Rev = ""
+	app.Slug = app.ID
+	app.Type = opts.Type
+	app.Editor = editor.Name()
+	app.CreatedAt = now
+	app.UpdatedAt = now
+	{
+		v := make(AppName)
+		app.Name = &v
+	}
+	{
+		v := make(AppDescription)
+		app.Description = &v
+	}
+	{
+		v := Locales(make([]string, 0))
+		app.Locales = &v
+	}
+	app.Tags = make([]string, 0)
+	_, app.Rev, err = db.CreateDoc(ctx, app)
+	if err != nil {
+		return nil, err
+	}
+	app.Versions = &AppVersions{
+		Stable: make([]string, 0),
+		Beta:   make([]string, 0),
+		Dev:    make([]string, 0),
+	}
+	app.Screenshots = make([]string, 0)
+	return app, nil
+}
+
+func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err error) {
+	opts := &AppOptions{
+		Slug:   app.Slug,
+		Editor: app.Editor,
+		Type:   app.Type,
+	}
+	if err = IsValidApp(opts); err != nil {
 		return
 	}
 
@@ -331,48 +392,18 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if err != nil {
 		return
 	}
+
 	oldApp, err := FindApp(app.Slug)
-	if err != nil && err != ErrAppNotFound {
+	if err != nil {
 		return
 	}
-	now := time.Now().UTC()
-	if err == ErrAppNotFound {
-		app.ID = getAppID(app.Slug)
-		app.Rev = ""
-		app.Slug = app.ID
-		app.Editor = editor.Name()
-		app.CreatedAt = now
-		app.UpdatedAt = now
-		app.Versions = nil
-		app.Screenshots = nil
-		if app.Name == nil {
-			v := make(AppName)
-			app.Name = &v
-		}
-		if app.Description == nil {
-			v := make(AppDescription)
-			app.Description = &v
-		}
-		if app.Locales == nil {
-			v := Locales(make([]string, 0))
-			app.Locales = &v
-		}
-		if app.Tags == nil {
-			app.Tags = make([]string, 0)
-		}
-		_, app.Rev, err = db.CreateDoc(ctx, app)
-		if err != nil {
-			return
-		}
-		app.Versions = &AppVersions{
-			Stable: make([]string, 0),
-			Beta:   make([]string, 0),
-			Dev:    make([]string, 0),
-		}
-		app.Screenshots = make([]string, 0)
-		return app, true, nil
+
+	if oldApp.Editor != editor.Name() {
+		err = ErrAppInvalid
+		return
 	}
 
+	now := time.Now().UTC()
 	app.ID = oldApp.ID
 	app.Rev = oldApp.Rev
 	app.Slug = oldApp.Slug
@@ -421,6 +452,7 @@ func CreateOrUpdateApp(app *App, editor *auth.Editor) (result *App, updated bool
 	if err != nil {
 		return
 	}
+
 	return app, true, nil
 }
 
@@ -428,32 +460,29 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 	return downloadVersion(opts)
 }
 
-func CreateVersion(ver *Version, editor *auth.Editor) error {
-	app, err := FindApp(ver.Slug)
-	if err != nil && err != ErrAppNotFound {
-		return err
+func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
+	if ver.Slug != app.Slug {
+		return ErrVersionMismatch
 	}
 
-	var createOrUpdateApp bool
-	if err == ErrAppNotFound {
-		createOrUpdateApp = true
-	} else if GetVersionChannel(ver.Version) == Stable {
+	var needUpdate bool
+	if GetVersionChannel(ver.Version) == Stable {
 		var lastVersion *Version
 		lastVersion, err = FindLatestVersion(ver.Slug, Stable)
 		if err != nil && err != ErrVersionNotFound {
 			return err
 		}
-		createOrUpdateApp = (err == ErrVersionNotFound) ||
+		needUpdate = (err == ErrVersionNotFound) ||
 			versionLess(lastVersion.Version, ver.Version)
 	}
 
-	if createOrUpdateApp {
+	if needUpdate {
 		app = &App{}
 		if err = json.Unmarshal(ver.Manifest, &app); err != nil {
 			return err
 		}
 		app.Type = ver.Type
-		app, _, err = CreateOrUpdateApp(app, editor)
+		app, _, err = updateApp(app, editor)
 		if err != nil {
 			return err
 		}
