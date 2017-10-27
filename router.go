@@ -84,6 +84,14 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
+	_, err = registry.FindVersion(appSlug, opts.Version)
+	if err == nil {
+		return registry.ErrVersionAlreadyExists
+	}
+	if err != registry.ErrVersionNotFound {
+		return err
+	}
+
 	ver, err := registry.DownloadVersion(opts)
 	if err != nil {
 		return err
