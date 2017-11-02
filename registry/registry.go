@@ -126,6 +126,7 @@ type App struct {
 	UpdatedAt        time.Time    `json:"updated_at"`
 	Langs            []string     `json:"langs"`
 	Tags             []string     `json:"tags"`
+	Platforms        []*Platform  `json:"platforms"`
 	Screenshots      []string     `json:"screenshots"`
 	Versions         *AppVersions `json:"versions,omitempty"`
 }
@@ -140,6 +141,11 @@ type AppVersions struct {
 
 type Developer struct {
 	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+type Platform struct {
+	Type string `json:"type"`
 	URL  string `json:"url"`
 }
 
@@ -315,6 +321,7 @@ func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
 	app.Locales = make(Locales)
 	app.Langs = make([]string, 0)
 	app.Tags = make([]string, 0)
+	app.Platforms = make([]*Platform, 0)
 	_, app.Rev, err = db.CreateDoc(ctx, app)
 	if err != nil {
 		return nil, err
@@ -373,6 +380,9 @@ func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err er
 	}
 	if app.Tags == nil {
 		app.Tags = make([]string, 0)
+	}
+	if app.Platforms == nil {
+		app.Platforms = make([]*Platform, 0)
 	}
 
 	if reflect.DeepEqual(app, oldApp) {
