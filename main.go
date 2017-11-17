@@ -27,6 +27,7 @@ import (
 const envSessionPass = "REGISTRY_SESSION_PASS"
 
 var cfgFileFlag string
+var maxAgeFlag string
 var passphraseFlag *bool
 
 var editorRegistry *auth.EditorRegistry
@@ -57,6 +58,8 @@ func init() {
 
 	flags.String("session-secret", "sessionsecret.key", "path to the session secret file")
 	checkNoErr(viper.BindPFlag("session-secret", flags.Lookup("session-secret")))
+
+	genTokenCmd.Flags().StringVar(&maxAgeFlag, "max-age", "", "validity duration of the token")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(genTokenCmd)
@@ -201,18 +204,17 @@ var verifySignatureCmd = &cobra.Command{
 var durationReg = regexp.MustCompile(`^[0-9][0-9\.]*(y|d)$`)
 
 var genTokenCmd = &cobra.Command{
-	Use:     "gen-token [editor] [max-age]",
+	Use:     "gen-token [editor]",
 	Short:   `Generate a token for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editor, rest, err := fetchEditor(args)
+		editor, _, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
 
 		var maxAge time.Duration
-		if len(rest) > 0 {
-			m := rest[0]
+		if m := maxAgeFlag; m != "" {
 			if durationReg.MatchString(m) {
 				var f float64
 				k := m[len(m)-1:]
