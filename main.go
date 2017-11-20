@@ -201,7 +201,7 @@ var verifySignatureCmd = &cobra.Command{
 	},
 }
 
-var durationReg = regexp.MustCompile(`^[0-9][0-9\.]*(y|d)$`)
+var durationReg = regexp.MustCompile(`^([0-9][0-9\.]*)(years|year|y|days|day|d)`)
 
 var genTokenCmd = &cobra.Command{
 	Use:     "gen-token [editor]",
@@ -215,24 +215,32 @@ var genTokenCmd = &cobra.Command{
 
 		var maxAge time.Duration
 		if m := maxAgeFlag; m != "" {
-			if durationReg.MatchString(m) {
-				var f float64
-				k := m[len(m)-1:]
-				v := m[:len(m)-1]
-				f, err = strconv.ParseFloat(v, 10)
-				if err == nil {
-					switch k {
-					case "y":
-						maxAge = time.Duration(f * 365.25 * 24 * float64(time.Hour))
-					case "d":
-						maxAge = time.Duration(f * 24 * float64(time.Hour))
-					}
+			for {
+				submatch := durationReg.FindStringSubmatch(m)
+				if len(submatch) != 3 {
+					break
 				}
-			} else {
-				maxAge, err = time.ParseDuration(m)
+				value := submatch[1]
+				unit := submatch[2]
+				var f float64
+				f, err = strconv.ParseFloat(value, 10)
+				if err != nil {
+					return fmt.Errorf("Could not parse max-age argument: %s", err)
+				}
+				switch unit {
+				case "y", "year", "years":
+					maxAge += time.Duration(f * 365.25 * 24.0 * float64(time.Hour))
+				case "d", "day", "days":
+					maxAge += time.Duration(f * 24.0 * float64(time.Hour))
+				}
+				m = m[len(submatch[0]):]
 			}
-			if err != nil {
-				return fmt.Errorf("Could not parse max-age argument: %s", err)
+			if m != "" {
+				age, err := time.ParseDuration(m)
+				if err != nil {
+					return fmt.Errorf("Could not parse max-age argument: %s", err)
+				}
+				maxAge += age
 			}
 		}
 

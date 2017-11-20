@@ -19,6 +19,8 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
+const RegistryVersion = "0.1.0"
+
 const authTokenScheme = "Token "
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
@@ -521,6 +523,12 @@ func Router(addr string) *echo.Echo {
 	e.HideBanner = true
 	e.HTTPErrorHandler = httpErrorHandler
 
+	e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Add("X-Apps-Registry-Version", RegistryVersion)
+			return next(c)
+		}
+	})
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.Logger())
