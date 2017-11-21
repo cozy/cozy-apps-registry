@@ -79,9 +79,6 @@ func FindAppAttachment(appSlug, filename string, channel Channel) (*kivik.Attach
 
 	ver, err := FindLatestVersion(appSlug, channel)
 	if err != nil {
-		if err == ErrVersionNotFound {
-			return nil, echo.NewHTTPError(http.StatusNotFound)
-		}
 		return nil, err
 	}
 
@@ -97,7 +94,7 @@ func FindVersionAttachment(appSlug, version, filename string) (*kivik.Attachment
 	att, err := db.GetAttachment(ctx, getVersionID(appSlug, version), "", filename)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			return nil, echo.NewHTTPError(http.StatusNotFound)
+			return nil, echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Could not find attachment %q", filename))
 		}
 		return nil, err
 	}
