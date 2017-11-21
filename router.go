@@ -17,6 +17,8 @@ import (
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/flimzy/kivik"
 )
 
 const RegistryVersion = "0.1.0"
@@ -268,15 +270,32 @@ func getAppScreenshot(c echo.Context) error {
 func getAppAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
-	ch, err := registry.StrToChannel(channel)
-	if err != nil {
-		ch = registry.Stable
+
+	var att *kivik.Attachment
+	{
+		var err error
+		if channel == "" {
+			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {
+				att, err = registry.FindAppAttachment(appSlug, filename, ch)
+				if err == nil {
+					break
+				}
+				if err != registry.ErrVersionNotFound {
+					return err
+				}
+			}
+		} else {
+			ch, err := registry.StrToChannel(channel)
+			if err != nil {
+				ch = registry.Stable
+			}
+			att, err = registry.FindAppAttachment(appSlug, filename, ch)
+		}
+		if err != nil {
+			return err
+		}
+		defer att.Close()
 	}
-	att, err := registry.FindAppAttachment(appSlug, filename, ch)
-	if err != nil {
-		return err
-	}
-	defer att.Close()
 
 	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
 		return c.NoContent(http.StatusNotModified)
