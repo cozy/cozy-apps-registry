@@ -50,7 +50,6 @@ var (
 	ErrVersionAlreadyExists = errshttp.NewError(http.StatusConflict, "Version already exists")
 	ErrVersionSlugMismatch  = errshttp.NewError(http.StatusBadRequest, "Version slug does not match the application")
 	ErrVersionNotFound      = errshttp.NewError(http.StatusNotFound, "Version was not found")
-	ErrVersionMismatch      = errshttp.NewError(http.StatusBadRequest, "Slug does not match the one specified in the body")
 	ErrVersionInvalid       = errshttp.NewError(http.StatusBadRequest, "Invalid version value")
 	ErrChannelInvalid       = errshttp.NewError(http.StatusBadRequest, `Invalid version channel: should be "stable", "beta" or "dev"`)
 )
@@ -413,7 +412,7 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 
 func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 	if ver.Slug != app.Slug {
-		return ErrVersionMismatch
+		return ErrVersionSlugMismatch
 	}
 
 	var needUpdate bool
