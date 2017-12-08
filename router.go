@@ -235,7 +235,7 @@ func getAppsList(c echo.Context) error {
 		},
 	}
 
-	return c.JSON(http.StatusOK, j)
+	return json(c, j)
 }
 
 func getApp(c echo.Context) error {
@@ -253,10 +253,7 @@ func getApp(c echo.Context) error {
 	doc.ID = ""
 	doc.Rev = ""
 
-	if c.Request().Method == http.MethodHead {
-		return c.NoContent(http.StatusOK)
-	}
-	return c.JSON(http.StatusOK, doc)
+	return json(c, doc)
 }
 
 func getAppIcon(c echo.Context) error {
@@ -302,6 +299,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 	}
 
 	if c.Request().Method == http.MethodHead {
+		c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
 		return c.NoContent(http.StatusOK)
 	}
 	return c.Stream(http.StatusOK, att.ContentType, att)
@@ -324,6 +322,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	}
 	defer att.Close()
 
+	c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
 	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
 		return c.NoContent(http.StatusNotModified)
 	}
@@ -345,7 +344,7 @@ func getAppVersions(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	return c.JSON(http.StatusOK, doc)
+	return json(c, doc)
 }
 
 func getVersion(c echo.Context) error {
@@ -370,10 +369,7 @@ func getVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
-	if c.Request().Method == http.MethodHead {
-		return c.NoContent(http.StatusOK)
-	}
-	return c.JSON(http.StatusOK, doc)
+	return json(c, doc)
 }
 
 func getLatestVersion(c echo.Context) error {
@@ -398,10 +394,7 @@ func getLatestVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
-	if c.Request().Method == http.MethodHead {
-		return c.NoContent(http.StatusOK)
-	}
-	return c.JSON(http.StatusOK, doc)
+	return json(c, doc)
 }
 
 func getEditor(c echo.Context) error {
@@ -415,10 +408,7 @@ func getEditor(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	if c.Request().Method == http.MethodHead {
-		return c.NoContent(http.StatusOK)
-	}
-	return c.JSON(http.StatusOK, editor)
+	return json(c, editor)
 }
 
 func getEditorsList(c echo.Context) error {
@@ -426,7 +416,7 @@ func getEditorsList(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, editors)
+	return json(c, editors)
 }
 
 // jsonEndPoint middleware checks that the Content-Type and Accept headers are
@@ -493,6 +483,7 @@ func httpErrorHandler(err error, c echo.Context) {
 
 	if !c.Response().Committed {
 		if c.Request().Method == echo.HEAD {
+			c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
 			c.NoContent(code)
 		} else {
 			c.JSON(code, echo.Map{"error": msg})
@@ -535,6 +526,14 @@ func stripVersion(v string) string {
 		v = v[1:]
 	}
 	return v
+}
+
+func json(c echo.Context, doc interface{}) error {
+	if c.Request().Method == http.MethodHead {
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+		return c.NoContent(http.StatusOK)
+	}
+	return c.JSON(http.StatusOK, doc)
 }
 
 func Router(addr string) *echo.Echo {
