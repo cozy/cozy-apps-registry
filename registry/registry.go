@@ -569,6 +569,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	var packVersion string
 	var appType, prefix, editorName string
 	var manifestContent []byte
+	hasPrefix := true
 
 	tr, err := tarReader(reader, contentType)
 	if err != nil {
@@ -593,25 +594,29 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			return
 		}
 
-		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
+		if hdr.Typeflag != tar.TypeReg {
 			continue
 		}
 
-		name := hdr.Name
-
-		if split := strings.SplitN(name, "/", 2); len(split) == 2 {
+		fullname := path.Join("/", hdr.Name)
+		basename := path.Base(fullname)
+		dirname := path.Dir(fullname)
+		if hasPrefix && dirname != "/" {
+			rootDirname := path.Join("/", strings.SplitN(dirname, "/", 3)[1])
 			if prefix == "" {
-				prefix = split[0]
-			} else if prefix != split[0] {
-				prefix = ""
+				prefix = rootDirname
+			} else if prefix != rootDirname {
+				hasPrefix = false
 			}
-			name = split[1]
+		} else {
+			hasPrefix = false
 		}
 
-		if appType == "" && (name == "manifest.webapp" || name == "manifest.konnector") {
-			if name == "manifest.webapp" {
+		if appType == "" &&
+			(basename == "manifest.webapp" || basename == "manifest.konnector") {
+			if basename == "manifest.webapp" {
 				appType = "webapp"
-			} else if name == "manifest.konnector" {
+			} else if basename == "manifest.konnector" {
 				appType = "konnector"
 			}
 			manifestContent, err = ioutil.ReadAll(tr)
@@ -622,7 +627,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			}
 		}
 
-		if name == "package.json" {
+		if basename == "package.json" {
 			var packageContent []byte
 			packageContent, err = ioutil.ReadAll(tr)
 			if err != nil {
@@ -640,6 +645,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 			}
 			packVersion = pack.Version
 		}
+	}
+
+	if !hasPrefix {
+		prefix = ""
 	}
 
 	shasum, _ := hex.DecodeString(opts.Sha256)
