@@ -417,7 +417,8 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 
 	var needUpdate bool
 	if GetVersionChannel(ver.Version) == Stable {
-		lastVersion, err := FindLatestVersion(ver.Slug, Stable)
+		var lastVersion *Version
+		lastVersion, err = FindLatestVersion(ver.Slug, Stable)
 		if err != nil && err != ErrVersionNotFound {
 			return err
 		}

@@ -236,7 +236,8 @@ var genTokenCmd = &cobra.Command{
 				m = m[len(submatch[0]):]
 			}
 			if m != "" {
-				age, err := time.ParseDuration(m)
+				var age time.Duration
+				age, err = time.ParseDuration(m)
 				if err != nil {
 					return fmt.Errorf("Could not parse max-age argument: %s", err)
 				}

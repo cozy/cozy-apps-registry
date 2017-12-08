@@ -270,8 +270,8 @@ func getAppAttachment(c echo.Context, filename string) error {
 
 	var att *kivik.Attachment
 	{
-		var err error
 		if channel == "" {
+			var err error
 			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {
 				att, err = registry.FindAppAttachment(appSlug, filename, ch)
 				if err == nil {
@@ -287,9 +287,9 @@ func getAppAttachment(c echo.Context, filename string) error {
 				ch = registry.Stable
 			}
 			att, err = registry.FindAppAttachment(appSlug, filename, ch)
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 		defer att.Close()
 	}
