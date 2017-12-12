@@ -784,8 +784,11 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 					continue
 				}
 
-				name := path.Join("/", strings.TrimPrefix(hdr.Name, prefix))
-				if name == "" || name == "/" {
+				name := path.Join("/", hdr.Name)
+				if prefix != "" {
+					name = path.Join("/", strings.TrimPrefix(name, prefix))
+				}
+				if name == "/" {
 					continue
 				}
 
