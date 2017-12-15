@@ -568,7 +568,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	reader = io.TeeReader(reader, h)
 
 	var packVersion string
-	var appType, prefix, editorName string
+	var appType, tarPrefix, editorName string
 	var manifestContent []byte
 	hasPrefix := true
 
@@ -604,9 +604,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		dirname := path.Dir(fullname)
 		if hasPrefix && dirname != "/" {
 			rootDirname := path.Join("/", strings.SplitN(dirname, "/", 3)[1])
-			if prefix == "" {
-				prefix = rootDirname
-			} else if prefix != rootDirname {
+			if tarPrefix == "" {
+				tarPrefix = rootDirname
+			} else if tarPrefix != rootDirname {
 				hasPrefix = false
 			}
 		} else {
@@ -649,7 +649,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	}
 
 	if !hasPrefix {
-		prefix = ""
+		tarPrefix = ""
 	}
 
 	shasum, _ := hex.DecodeString(opts.Sha256)
@@ -785,8 +785,8 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 				}
 
 				name := path.Join("/", hdr.Name)
-				if prefix != "" {
-					name = path.Join("/", strings.TrimPrefix(name, prefix))
+				if tarPrefix != "" {
+					name = path.Join("/", strings.TrimPrefix(name, tarPrefix))
 				}
 				if name == "/" {
 					continue
@@ -836,7 +836,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	ver.Editor = editorName
 	ver.Manifest = manifestContent
 	ver.Size = counter.Written()
-	ver.TarPrefix = prefix
+	ver.TarPrefix = tarPrefix
 	ver.CreatedAt = time.Now().UTC()
 	ver.attachments = attachments
 	return
