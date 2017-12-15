@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/flimzy/kivik/driver/couchdb/chttp"
+	"github.com/go-kivik/couchdb/chttp"
 )
 
 const (
@@ -140,7 +141,7 @@ func createVersionsViews(appSlug string) error {
 	})
 
 	_, err = chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
-		Body: bytes.NewReader(body),
+		Body: ioutil.NopCloser(bytes.NewReader(body)),
 	})
 	return err
 }

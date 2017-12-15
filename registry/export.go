@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flimzy/kivik"
+	"github.com/go-kivik/kivik"
 )
 
 func Export(out io.Writer) (err error) {

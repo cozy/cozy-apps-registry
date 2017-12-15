@@ -24,8 +24,8 @@ import (
 	"github.com/cozy/cozy-apps-registry/magic"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"github.com/flimzy/kivik"
 	_ "github.com/go-kivik/couchdb" // for couchdb
+	"github.com/go-kivik/kivik"
 	"github.com/labstack/echo"
 )
 

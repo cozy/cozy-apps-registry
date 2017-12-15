@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/flimzy/kivik"
+	"github.com/go-kivik/kivik"
 )
 
 type couchdbVault struct {
