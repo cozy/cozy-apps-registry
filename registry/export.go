@@ -199,7 +199,7 @@ func Import(in io.Reader) (err error) {
 			return
 		}
 		if !ok {
-			if err = client.CreateDB(ctx, dbName); err != nil {
+			if _, err = client.CreateDB(ctx, dbName); err != nil {
 				return
 			}
 		}
@@ -220,7 +220,12 @@ func Import(in io.Reader) (err error) {
 			}
 
 			fmt.Printf("Creating attachment %q...", attLong)
-			a := kivik.NewAttachment(attName, hdr.Xattrs["type"], ioutil.NopCloser(tr))
+			a := &kivik.Attachment{
+				Content:     ioutil.NopCloser(tr),
+				Size:        hdr.Size,
+				Filename:    attName,
+				ContentType: hdr.Xattrs["type"],
+			}
 			rev, err = db.PutAttachment(ctx, docID, rev, a)
 			if err != nil {
 				return fmt.Errorf("Could not create attachment %q: %s",

@@ -106,15 +106,12 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 
 func (r *couchdbVault) getEditor(editorName string) (*editorForCouchdb, error) {
 	editorID := strings.ToLower(editorName)
-	row, err := r.db.Get(r.ctx, editorID)
-	if kivik.StatusCode(err) == kivik.StatusNotFound {
-		return nil, ErrEditorNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
+	row := r.db.Get(r.ctx, editorID)
 	var doc editorForCouchdb
-	if err = row.ScanDoc(&doc); err != nil {
+	if err := row.ScanDoc(&doc); err != nil {
+		if kivik.StatusCode(err) == kivik.StatusNotFound {
+			return nil, ErrEditorNotFound
+		}
 		return nil, err
 	}
 	return &doc, nil

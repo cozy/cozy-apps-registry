@@ -240,7 +240,7 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	}
 	if !exists {
 		fmt.Printf("Creating database %q...", editorsDBName)
-		if err = client.CreateDB(ctx, editorsDBName); err != nil {
+		if _, err = client.CreateDB(ctx, editorsDBName); err != nil {
 			return
 		}
 		fmt.Println("ok.")
@@ -290,7 +290,7 @@ func (c *Context) init() (err error) {
 		}
 		if !ok {
 			fmt.Printf("Creating database %q...", dbName)
-			if err = client.CreateDB(ctx, dbName); err != nil {
+			if _, err = client.CreateDB(ctx, dbName); err != nil {
 				fmt.Println("failed")
 				return err
 			}
@@ -871,7 +871,12 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 				}
 				mime := magic.MIMEType(name, data)
 				body := ioutil.NopCloser(bytes.NewReader(data))
-				attachments = append(attachments, kivik.NewAttachment(filename, mime, body))
+				attachments = append(attachments, &kivik.Attachment{
+					Content:     body,
+					Size:        int64(len(data)),
+					Filename:    filename,
+					ContentType: mime,
+				})
 			}
 		}
 	}

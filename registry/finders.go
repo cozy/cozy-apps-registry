@@ -42,17 +42,15 @@ func FindApp(c *Context, appSlug string) (*App, error) {
 		return nil, ErrAppSlugInvalid
 	}
 
+	var doc *App
+	var err error
+
 	db := c.AppsDB()
-	row, err := db.Get(ctx, getAppID(appSlug))
-	if err != nil {
+	row := db.Get(ctx, getAppID(appSlug))
+	if err = row.ScanDoc(&doc); err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			return nil, ErrAppNotFound
 		}
-		return nil, err
-	}
-
-	var doc *App
-	if err = row.ScanDoc(&doc); err != nil {
 		return nil, err
 	}
 
@@ -105,16 +103,13 @@ func FindVersion(c *Context, appSlug, version string) (*Version, error) {
 	}
 
 	db := c.VersDB()
-	row, err := db.Get(ctx, getVersionID(appSlug, version))
-	if err != nil {
-		if kivik.StatusCode(err) == http.StatusNotFound {
-			return nil, ErrVersionNotFound
-		}
-		return nil, err
-	}
+	row := db.Get(ctx, getVersionID(appSlug, version))
 
 	var doc *Version
 	if err := row.ScanDoc(&doc); err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return nil, ErrVersionNotFound
+		}
 		return nil, err
 	}
 	return doc, nil

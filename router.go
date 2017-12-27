@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"path"
@@ -282,6 +281,9 @@ func getAppAttachment(c echo.Context, filename string) error {
 					return err
 				}
 			}
+			if att == nil {
+				return echo.NewHTTPError(http.StatusNotFound)
+			}
 		} else {
 			ch, err := registry.StrToChannel(channel)
 			if err != nil {
@@ -292,10 +294,10 @@ func getAppAttachment(c echo.Context, filename string) error {
 				return err
 			}
 		}
-		defer att.Close()
+		defer att.Content.Close()
 	}
 
-	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
+	if cacheControl(c, att.Digest, oneHour) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
@@ -303,7 +305,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 		c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
 		return c.NoContent(http.StatusOK)
 	}
-	return c.Stream(http.StatusOK, att.ContentType, att)
+	return c.Stream(http.StatusOK, att.ContentType, att.Content)
 }
 
 func getVersionIcon(c echo.Context) error {
@@ -321,17 +323,17 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer att.Close()
+	defer att.Content.Close()
 
 	c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
-	if cacheControl(c, hex.EncodeToString(att.MD5[:]), oneHour) {
+	if cacheControl(c, att.Digest, oneHour) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
-	return c.Stream(http.StatusOK, att.ContentType, att)
+	return c.Stream(http.StatusOK, att.ContentType, att.Content)
 }
 
 func getAppVersions(c echo.Context) error {
@@ -424,6 +426,7 @@ func getEditorsList(c echo.Context) error {
 // properly set for an application/json endpoint.
 func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		c.Set("json", true)
 		req := c.Request()
 		switch req.Method {
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
@@ -480,6 +483,8 @@ func httpErrorHandler(err error, c echo.Context) {
 		msg  string
 	)
 
+	isJSON, _ := c.Get("json").(bool)
+
 	if he, ok := err.(*errshttp.Error); ok {
 		code = he.StatusCode()
 		msg = err.Error()
@@ -499,11 +504,19 @@ func httpErrorHandler(err error, c echo.Context) {
 	}
 
 	if !c.Response().Committed {
-		if c.Request().Method == echo.HEAD {
-			c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
-			c.NoContent(code)
+		if isJSON {
+			if c.Request().Method == echo.HEAD {
+				c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+				c.NoContent(code)
+			} else {
+				c.JSON(code, echo.Map{"error": msg})
+			}
 		} else {
-			c.JSON(code, echo.Map{"error": msg})
+			if c.Request().Method == echo.HEAD {
+				c.NoContent(code)
+			} else {
+				c.String(code, msg)
+			}
 		}
 	}
 }
@@ -570,39 +583,41 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
-	var g *echo.Group
-	if registry.HasEmptyContext() {
-		g = e.Group("/registry", ensureContext, jsonEndpoint)
-	} else {
-		g = e.Group("/registry/:context-name", ensureContext, jsonEndpoint)
+	{
+		var g *echo.Group
+		if registry.HasEmptyContext() {
+			g = e.Group("/registry", ensureContext)
+		} else {
+			g = e.Group("/registry/:context-name", ensureContext)
+		}
+
+		g.POST("", createApp, jsonEndpoint)
+		g.POST("/:app", createVersion, jsonEndpoint)
+
+		g.GET("", getAppsList, jsonEndpoint)
+		g.HEAD("/:app", getApp, jsonEndpoint)
+		g.GET("/:app", getApp, jsonEndpoint)
+		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
+		g.HEAD("/:app/:version", getVersion, jsonEndpoint)
+		g.GET("/:app/:version", getVersion, jsonEndpoint)
+		g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+		g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+
+		g.GET("/:app/icon", getAppIcon)
+		g.HEAD("/:app/icon", getAppIcon)
+		g.GET("/:app/screenshots/:filename", getAppScreenshot)
+		g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+		g.GET("/:app/:channel/latest/icon", getAppIcon)
+		g.HEAD("/:app/:channel/latest/icon", getAppIcon)
+		g.HEAD("/:app/:version/icon", getVersionIcon)
+		g.GET("/:app/:version/icon", getVersionIcon)
+		g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
+		g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 	}
 
-	g.POST("", createApp)
-	g.POST("/:app", createVersion)
-
-	g.GET("", getAppsList)
-	g.HEAD("/:app", getApp)
-	g.GET("/:app", getApp)
-	g.GET("/:app/versions", getAppVersions)
-	g.HEAD("/:app/:version", getVersion)
-	g.GET("/:app/:version", getVersion)
-	g.HEAD("/:app/:channel/latest", getLatestVersion)
-	g.GET("/:app/:channel/latest", getLatestVersion)
-
-	g.GET("/:app/icon", getAppIcon)
-	g.HEAD("/:app/icon", getAppIcon)
-	g.GET("/:app/screenshots/:filename", getAppScreenshot)
-	g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
-	g.GET("/:app/:channel/latest/icon", getAppIcon)
-	g.HEAD("/:app/:channel/latest/icon", getAppIcon)
-	g.HEAD("/:app/:version/icon", getVersionIcon)
-	g.GET("/:app/:version/icon", getVersionIcon)
-	g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
-	g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
-
-	e.GET("/editors", getEditorsList)
-	e.HEAD("/editors/:editor", getEditor)
-	e.GET("/editors/:editor", getEditor)
+	e.GET("/editors", getEditorsList, jsonEndpoint)
+	e.HEAD("/editors/:editor", getEditor, jsonEndpoint)
+	e.GET("/editors/:editor", getEditor, jsonEndpoint)
 
 	return e
 }
