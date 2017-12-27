@@ -104,7 +104,7 @@ func versViewDocName(appSlug string) string {
 	return "versions-" + appSlug + "-v1"
 }
 
-func createVersionsViews(appSlug string) error {
+func createVersionsViews(c *Context, appSlug string) error {
 	ddoc := versViewDocName(appSlug)
 	chttpClient, err := chttp.New(ctx, clientURL.String())
 	if err != nil {
@@ -117,7 +117,7 @@ func createVersionsViews(appSlug string) error {
 	}
 
 	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
-	path := fmt.Sprintf("/%s/%s", VersDB, ddocID)
+	path := fmt.Sprintf("/%s/%s", c.VersDB().Name(), ddocID)
 
 	var viewsBodies []string
 	for name, view := range versionsViews {

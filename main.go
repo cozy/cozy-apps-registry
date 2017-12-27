@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"os"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-stack/pkg/utils"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -59,6 +61,9 @@ func init() {
 	flags.String("session-secret", "sessionsecret.key", "path to the session secret file")
 	checkNoErr(viper.BindPFlag("session-secret", flags.Lookup("session-secret")))
 
+	flags.StringSlice("contexts", nil, "list of available contexts")
+	checkNoErr(viper.BindPFlag("contexts", flags.Lookup("contexts")))
+
 	genTokenCmd.Flags().StringVar(&maxAgeFlag, "max-age", "", "validity duration of the token")
 
 	rootCmd.AddCommand(serveCmd)
@@ -77,6 +82,59 @@ func init() {
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 }
 
+func useConfig(cmd *cobra.Command) (err error) {
+	var cfgFile string
+	if cfgFileFlag == "" {
+		if file, ok := findConfigFile("cozy-registry"); ok {
+			cfgFile = file
+		}
+	} else {
+		cfgFile = cfgFileFlag
+	}
+	if cfgFile == "" {
+		return nil
+	}
+
+	tmpl := template.New(filepath.Base(cfgFile))
+	tmpl = tmpl.Option("missingkey=zero")
+	tmpl, err = tmpl.ParseFiles(cfgFile)
+	if err != nil {
+		return fmt.Errorf("Failed to parse cozy-apps-registry configuration %q: %s",
+			cfgFile, err)
+	}
+
+	dest := new(bytes.Buffer)
+	ctxt := &struct{ Env map[string]string }{Env: envMap()}
+	err = tmpl.ExecuteTemplate(dest, filepath.Base(cfgFile), ctxt)
+	if err != nil {
+		return fmt.Errorf("Failed to parse cozy-apps-registry configuration %q: %s",
+			cfgFile, err)
+	}
+
+	if ext := filepath.Ext(cfgFile); len(ext) > 0 {
+		viper.SetConfigType(ext[1:])
+	}
+	if err = viper.ReadConfig(dest); err != nil {
+		return fmt.Errorf("Failed to read cozy-apps-registry configuration %q: %s",
+			cfgFile, err)
+	}
+	return nil
+}
+
+func findConfigFile(name string) (string, bool) {
+	for _, cp := range []string{"/etc/cozy"} {
+		for _, ext := range viper.SupportedExts {
+			filename := filepath.Join(utils.AbsPath(cp), fmt.Sprintf("%s.%s", name, ext))
+			_, err := os.Stat(filename)
+			if err != nil {
+				continue
+			}
+			return filename, true
+		}
+	}
+	return "", false
+}
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		printAndExit(err)
@@ -87,26 +145,10 @@ func main() {
 var rootCmd = &cobra.Command{
 	Use:           "cozy-registry",
 	Short:         "cozy-registry is a registry site to store links to cozy applications",
-	Long:          ``,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if cfgFileFlag != "" {
-			viper.SetConfigFile(cfgFileFlag)
-		} else {
-			viper.SetConfigName("cozy-registry")
-		}
-		viper.AddConfigPath("/etc/cozy")
-
-		err := viper.ReadInConfig()
-		if err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-				cmd.Help()
-				fmt.Fprintln(os.Stderr)
-				return err
-			}
-		}
-		return nil
+		return useConfig(cmd)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
@@ -116,9 +158,9 @@ var rootCmd = &cobra.Command{
 var serveCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   `Start the registry HTTP server`,
-	PreRunE: compose(loadSessionSecret, prepareRegistry),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		address := viper.GetString("host") + ":" + strconv.Itoa(viper.GetInt("port"))
+	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareContexts),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
 		router := Router(address)
@@ -128,7 +170,7 @@ var serveCmd = &cobra.Command{
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
 		select {
-		case err := <-errc:
+		case err = <-errc:
 			return err
 		case <-c:
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -512,7 +554,7 @@ var lsEditorsCmd = &cobra.Command{
 var exportCmd = &cobra.Command{
 	Use:     "export [file]",
 	Short:   `Export the entire registry into one tarball file.`,
-	PreRunE: prepareRegistry,
+	PreRunE: compose(prepareRegistry, prepareContexts),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var out io.Writer
 		if len(args) > 0 {
@@ -542,7 +584,7 @@ var exportCmd = &cobra.Command{
 var importCmd = &cobra.Command{
 	Use:     "import [file]",
 	Short:   `Import a registry from an export file.`,
-	PreRunE: prepareRegistry,
+	PreRunE: compose(prepareRegistry, prepareContexts),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var in io.Reader
 		if len(args) > 0 {
@@ -569,7 +611,7 @@ var importCmd = &cobra.Command{
 }
 
 func prepareRegistry(cmd *cobra.Command, args []string) error {
-	client, err := registry.InitDBClient(
+	editorsDB, err := registry.InitGlobalClient(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
 		viper.GetString("couchdb.password"),
@@ -578,16 +620,25 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
 
-	vault, err := auth.NewCouchdbVault(client, registry.EditorsDB)
-	if err != nil {
-		return fmt.Errorf("Could not create vault: %s", err)
-	}
-
+	vault := auth.NewCouchDBVault(editorsDB)
 	editorRegistry, err = auth.NewEditorRegistry(vault)
 	if err != nil {
 		return fmt.Errorf("Error while loading editor registry: %s", err)
 	}
 	return nil
+}
+
+func prepareContexts(cmd *cobra.Command, args []string) error {
+	contextsNames := viper.GetStringSlice("contexts")
+	if len(contextsNames) > 0 {
+		for _, contextName := range contextsNames {
+			if err := registry.RegisterContext(contextName); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return registry.RegisterContext("")
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {
@@ -756,4 +807,13 @@ func checkNoErr(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func envMap() map[string]string {
+	env := make(map[string]string)
+	for _, i := range os.Environ() {
+		sep := strings.Index(i, "=")
+		env[i[0:sep]] = i[sep+1:]
+	}
+	return env
 }

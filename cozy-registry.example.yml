@@ -13,6 +13,13 @@ couchdb:
   # CouchDB prefix for the registries databases - flag --couchdb-prefix
   # prefix: registry1
 
+# list of supported contexts by the registry.
+#
+# if specified, the routes of the registry API will be formed with as follow:
+#   /registry/:context-name
+#
+# contexts: default registry1 registry2
+
 # Path to the session secret file containing the master secret to generate
 # session token.
 #

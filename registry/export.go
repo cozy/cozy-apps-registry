@@ -19,8 +19,6 @@ import (
 )
 
 func Export(out io.Writer) (err error) {
-	var db *kivik.DB
-
 	buf := bufio.NewWriter(out)
 	defer func() {
 		if err == nil {
@@ -42,31 +40,17 @@ func Export(out io.Writer) (err error) {
 		}
 	}()
 
-	db, err = client.DB(ctx, AppsDB)
-	if err != nil {
-		return err
-	}
-	if err = writeDocs(db, tw); err != nil {
-		return err
-	}
-
-	db, err = client.DB(ctx, VersDB)
-	if err != nil {
-		return err
-	}
-	if err = writeDocs(db, tw); err != nil {
-		return err
+	for _, c := range contexts {
+		if err = writeDocs(c.AppsDB(), tw); err != nil {
+			return
+		}
+		if err = writeDocs(c.VersDB(), tw); err != nil {
+			return
+		}
 	}
 
-	db, err = client.DB(ctx, EditorsDB)
-	if err != nil {
-		return err
-	}
-	if err = writeDocs(db, tw); err != nil {
-		return err
-	}
-
-	return nil
+	err = writeDocs(globalEditorsDB, tw)
+	return
 }
 
 func writeDocs(db *kivik.DB, tw *tar.Writer) error {
@@ -83,17 +67,7 @@ func writeDocs(db *kivik.DB, tw *tar.Writer) error {
 		name  string
 	}
 
-	var dbName string
-	switch {
-	case strings.HasSuffix(db.Name(), AppsDBSuffix):
-		dbName = AppsDBSuffix
-	case strings.HasSuffix(db.Name(), VersDBSuffix):
-		dbName = VersDBSuffix
-	case strings.HasSuffix(db.Name(), EditorsDBSuffix):
-		dbName = EditorsDBSuffix
-	default:
-		panic("unknown db name")
-	}
+	dbName := db.Name()
 
 	var atts []*attachment
 	for rows.Next() {
@@ -202,12 +176,13 @@ func Import(in io.Reader) (err error) {
 
 	tr := tar.NewReader(zr)
 	for {
-		hdr, err := tr.Next()
+		var hdr *tar.Header
+		hdr, err = tr.Next()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return err
+			return
 		}
 
 		parts := strings.SplitN(hdr.Name, "/", 3)
@@ -215,24 +190,24 @@ func Import(in io.Reader) (err error) {
 			continue
 		}
 
-		dbSuffix := parts[0]
+		dbName := parts[0]
 		docID := parts[1]
 
-		var dbName string
-		switch dbSuffix {
-		case AppsDBSuffix:
-			dbName = AppsDB
-		case VersDBSuffix:
-			dbName = VersDB
-		case EditorsDBSuffix:
-			dbName = EditorsDB
-		default:
-			return fmt.Errorf("Unknown database suffix: %q", dbSuffix)
+		var ok bool
+		ok, err = client.DBExists(ctx, dbName)
+		if err != nil {
+			return
+		}
+		if !ok {
+			if err = client.CreateDB(ctx, dbName); err != nil {
+				return
+			}
 		}
 
-		db, err := client.DB(ctx, dbName)
+		var db *kivik.DB
+		db, err = client.DB(ctx, dbName)
 		if err != nil {
-			return err
+			return
 		}
 
 		if len(parts) == 3 {

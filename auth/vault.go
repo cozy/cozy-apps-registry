@@ -20,13 +20,9 @@ type editorForCouchdb struct {
 	PublicKeyBytes []byte `json:"public_key"`
 }
 
-func NewCouchdbVault(client *kivik.Client, dbName string) (Vault, error) {
+func NewCouchDBVault(db *kivik.DB) Vault {
 	ctx := context.Background()
-	db, err := client.DB(ctx, dbName)
-	if err != nil {
-		return nil, err
-	}
-	return &couchdbVault{db, ctx}, nil
+	return &couchdbVault{db, ctx}
 }
 
 func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {

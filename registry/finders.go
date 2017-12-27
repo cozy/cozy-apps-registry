@@ -37,15 +37,12 @@ func getAppID(appSlug string) string {
 	return strings.ToLower(appSlug)
 }
 
-func FindApp(appSlug string) (*App, error) {
+func FindApp(c *Context, appSlug string) (*App, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
-	db, err := client.DB(ctx, AppsDB)
-	if err != nil {
-		return nil, err
-	}
 
+	db := c.AppsDB()
 	row, err := db.Get(ctx, getAppID(appSlug))
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
@@ -59,12 +56,12 @@ func FindApp(appSlug string) (*App, error) {
 		return nil, err
 	}
 
-	doc.Versions, err = FindAppVersions(doc.Slug)
+	doc.Versions, err = FindAppVersions(c, doc.Slug)
 	if err != nil {
 		return nil, err
 	}
 
-	doc.Screenshots, err = FindAppScreenshots(doc.Slug, Stable)
+	doc.Screenshots, err = FindAppScreenshots(c, doc.Slug, Stable)
 	if err != nil {
 		return nil, err
 	}
@@ -72,24 +69,21 @@ func FindApp(appSlug string) (*App, error) {
 	return doc, nil
 }
 
-func FindAppAttachment(appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
+func FindAppAttachment(c *Context, appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
 
-	ver, err := FindLatestVersion(appSlug, channel)
+	ver, err := FindLatestVersion(c, appSlug, channel)
 	if err != nil {
 		return nil, err
 	}
 
-	return FindVersionAttachment(appSlug, ver.Version, filename)
+	return FindVersionAttachment(c, appSlug, ver.Version, filename)
 }
 
-func FindVersionAttachment(appSlug, version, filename string) (*kivik.Attachment, error) {
-	db, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return nil, err
-	}
+func FindVersionAttachment(c *Context, appSlug, version, filename string) (*kivik.Attachment, error) {
+	db := c.VersDB()
 
 	att, err := db.GetAttachment(ctx, getVersionID(appSlug, version), "", filename)
 	if err != nil {
@@ -102,7 +96,7 @@ func FindVersionAttachment(appSlug, version, filename string) (*kivik.Attachment
 	return att, nil
 }
 
-func FindVersion(appSlug, version string) (*Version, error) {
+func FindVersion(c *Context, appSlug, version string) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -110,11 +104,7 @@ func FindVersion(appSlug, version string) (*Version, error) {
 		return nil, ErrVersionInvalid
 	}
 
-	db, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return nil, err
-	}
-
+	db := c.VersDB()
 	row, err := db.Get(ctx, getVersionID(appSlug, version))
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
@@ -130,30 +120,27 @@ func FindVersion(appSlug, version string) (*Version, error) {
 	return doc, nil
 }
 
-func versionViewQuery(db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
+func versionViewQuery(c *Context, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
 	rows, err := db.Query(ctx, versViewDocName(appSlug), channel, opts)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			if err = createVersionsViews(appSlug); err != nil {
+			if err = createVersionsViews(c, appSlug); err != nil {
 				return nil, err
 			}
-			return versionViewQuery(db, appSlug, channel, opts)
+			return versionViewQuery(c, db, appSlug, channel, opts)
 		}
 		return nil, err
 	}
 	return rows, nil
 }
 
-func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
+func FindLatestVersion(c *Context, appSlug string, channel Channel) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
-	db, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return nil, err
-	}
 
-	rows, err := versionViewQuery(db, appSlug, channelToStr(channel), map[string]interface{}{
+	db := c.VersDB()
+	rows, err := versionViewQuery(c, db, appSlug, channelToStr(channel), map[string]interface{}{
 		"limit":        1,
 		"descending":   true,
 		"include_docs": true,
@@ -174,14 +161,11 @@ func FindLatestVersion(appSlug string, channel Channel) (*Version, error) {
 	return latestVersion, nil
 }
 
-func FindAppVersions(appSlug string) (*AppVersions, error) {
-	db, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return nil, err
-	}
+func FindAppVersions(c *Context, appSlug string) (*AppVersions, error) {
+	db := c.VersDB()
 
 	var allVersions []string
-	rows, err := versionViewQuery(db, appSlug, "dev", map[string]interface{}{
+	rows, err := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
 		"limit":      2000,
 		"descending": false,
 	})
@@ -221,9 +205,9 @@ func FindAppVersions(appSlug string) (*AppVersions, error) {
 	}, nil
 }
 
-func FindAppScreenshots(appSlug string, channel Channel) ([]string, error) {
+func FindAppScreenshots(c *Context, appSlug string, channel Channel) ([]string, error) {
 	screens := make([]string, 0)
-	ver, err := FindLatestVersion(appSlug, channel)
+	ver, err := FindLatestVersion(c, appSlug, channel)
 	if err != nil {
 		if err == ErrVersionNotFound {
 			return screens, nil
@@ -248,12 +232,8 @@ type AppsListOptions struct {
 	Filters map[string]string
 }
 
-func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
-	db, err := client.DB(ctx, AppsDB)
-	if err != nil {
-		return 0, nil, err
-	}
-
+func GetAppsList(c *Context, opts *AppsListOptions) (int, []*App, error) {
+	db := c.AppsDB()
 	order := "asc"
 	sortField := opts.Sort
 	if len(sortField) > 0 && sortField[0] == '-' {
@@ -334,11 +314,11 @@ func GetAppsList(opts *AppsListOptions) (int, []*App, error) {
 	}
 
 	for _, app := range res {
-		app.Versions, err = FindAppVersions(app.Slug)
+		app.Versions, err = FindAppVersions(c, app.Slug)
 		if err != nil {
 			return 0, nil, err
 		}
-		app.Screenshots, err = FindAppScreenshots(app.Slug, Stable)
+		app.Screenshots, err = FindAppScreenshots(c, app.Slug, Stable)
 		if err != nil {
 			return 0, nil, err
 		}

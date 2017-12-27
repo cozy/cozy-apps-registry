@@ -24,6 +24,7 @@ import (
 const RegistryVersion = "0.1.0"
 
 const authTokenScheme = "Token "
+const contextKey = "context"
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
@@ -55,7 +56,7 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	app, err := registry.CreateApp(opts, editor)
+	app, err := registry.CreateApp(getContext(c), opts, editor)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(appSlug)
+	app, err := registry.FindApp(getContext(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	_, err = registry.FindVersion(appSlug, opts.Version)
+	_, err = registry.FindVersion(getContext(c), appSlug, opts.Version)
 	if err == nil {
 		return registry.ErrVersionAlreadyExists
 	}
@@ -106,7 +107,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateVersion(ver, app, editor); err != nil {
+	if err = registry.CreateVersion(getContext(c), ver, app, editor); err != nil {
 		return err
 	}
 
@@ -198,7 +199,7 @@ func getAppsList(c echo.Context) error {
 		}
 	}
 
-	next, docs, err := registry.GetAppsList(&registry.AppsListOptions{
+	next, docs, err := registry.GetAppsList(getContext(c), &registry.AppsListOptions{
 		Filters: filter,
 		Limit:   limit,
 		Cursor:  cursor,
@@ -240,7 +241,7 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindApp(appSlug)
+	doc, err := registry.FindApp(getContext(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -273,7 +274,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 		if channel == "" {
 			var err error
 			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {
-				att, err = registry.FindAppAttachment(appSlug, filename, ch)
+				att, err = registry.FindAppAttachment(getContext(c), appSlug, filename, ch)
 				if err == nil {
 					break
 				}
@@ -286,7 +287,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 			if err != nil {
 				ch = registry.Stable
 			}
-			att, err = registry.FindAppAttachment(appSlug, filename, ch)
+			att, err = registry.FindAppAttachment(getContext(c), appSlug, filename, ch)
 			if err != nil {
 				return err
 			}
@@ -316,7 +317,7 @@ func getVersionScreenshot(c echo.Context) error {
 func getVersionAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	version := c.Param("version")
-	att, err := registry.FindVersionAttachment(appSlug, version, filename)
+	att, err := registry.FindVersionAttachment(getContext(c), appSlug, version, filename)
 	if err != nil {
 		return err
 	}
@@ -335,7 +336,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 func getAppVersions(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindAppVersions(appSlug)
+	doc, err := registry.FindAppVersions(getContext(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -350,12 +351,12 @@ func getAppVersions(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	version := stripVersion(c.Param("version"))
-	_, err := registry.FindApp(appSlug)
+	_, err := registry.FindApp(getContext(c), appSlug)
 	if err != nil {
 		return err
 	}
 
-	doc, err := registry.FindVersion(appSlug, version)
+	doc, err := registry.FindVersion(getContext(c), appSlug, version)
 	if err != nil {
 		return err
 	}
@@ -380,7 +381,7 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	doc, err := registry.FindLatestVersion(appSlug, ch)
+	doc, err := registry.FindLatestVersion(getContext(c), appSlug, ch)
 	if err != nil {
 		return err
 	}
@@ -441,6 +442,22 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return next(c)
 	}
+}
+
+func ensureContext(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		contextName := c.Param("context-name")
+		context, ok := registry.GetContext(contextName)
+		if !ok {
+			return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Context %q does not exist", contextName))
+		}
+		c.Set(contextKey, context)
+		return next(c)
+	}
+}
+
+func getContext(c echo.Context) *registry.Context {
+	return c.Get(contextKey).(*registry.Context)
 }
 
 func validateAppRequest(c echo.Context, app *registry.AppOptions) error {
@@ -553,29 +570,35 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
-	registry := e.Group("/registry", jsonEndpoint)
-	registry.POST("", createApp)
-	registry.POST("/:app", createVersion)
+	var g *echo.Group
+	if registry.HasEmptyContext() {
+		g = e.Group("/registry", ensureContext, jsonEndpoint)
+	} else {
+		g = e.Group("/registry/:context-name", ensureContext, jsonEndpoint)
+	}
 
-	registry.GET("", getAppsList)
-	registry.HEAD("/:app", getApp)
-	registry.GET("/:app", getApp)
-	registry.GET("/:app/versions", getAppVersions)
-	registry.HEAD("/:app/:version", getVersion)
-	registry.GET("/:app/:version", getVersion)
-	registry.HEAD("/:app/:channel/latest", getLatestVersion)
-	registry.GET("/:app/:channel/latest", getLatestVersion)
+	g.POST("", createApp)
+	g.POST("/:app", createVersion)
 
-	registry.GET("/:app/icon", getAppIcon)
-	registry.HEAD("/:app/icon", getAppIcon)
-	registry.GET("/:app/screenshots/:filename", getAppScreenshot)
-	registry.HEAD("/:app/screenshots/:filename", getAppScreenshot)
-	registry.GET("/:app/:channel/latest/icon", getAppIcon)
-	registry.HEAD("/:app/:channel/latest/icon", getAppIcon)
-	registry.HEAD("/:app/:version/icon", getVersionIcon)
-	registry.GET("/:app/:version/icon", getVersionIcon)
-	registry.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
-	registry.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
+	g.GET("", getAppsList)
+	g.HEAD("/:app", getApp)
+	g.GET("/:app", getApp)
+	g.GET("/:app/versions", getAppVersions)
+	g.HEAD("/:app/:version", getVersion)
+	g.GET("/:app/:version", getVersion)
+	g.HEAD("/:app/:channel/latest", getLatestVersion)
+	g.GET("/:app/:channel/latest", getLatestVersion)
+
+	g.GET("/:app/icon", getAppIcon)
+	g.HEAD("/:app/icon", getAppIcon)
+	g.GET("/:app/screenshots/:filename", getAppScreenshot)
+	g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+	g.GET("/:app/:channel/latest/icon", getAppIcon)
+	g.HEAD("/:app/:channel/latest/icon", getAppIcon)
+	g.HEAD("/:app/:version/icon", getVersionIcon)
+	g.GET("/:app/:version/icon", getVersionIcon)
+	g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
+	g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 
 	e.GET("/editors", getEditorsList)
 	e.HEAD("/editors/:editor", getEditor)

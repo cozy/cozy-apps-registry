@@ -64,20 +64,18 @@ const (
 )
 
 const (
-	AppsDBSuffix    = "apps"
-	VersDBSuffix    = "versions"
-	EditorsDBSuffix = "editors"
-)
-
-var (
-	AppsDB    string
-	VersDB    string
-	EditorsDB string
+	appsDBSuffix    = "apps"
+	versDBSuffix    = "versions"
+	editorsDBSuffix = "editors"
 )
 
 var (
 	client    *kivik.Client
 	clientURL *url.URL
+	contexts  map[string]*Context
+
+	globalPrefix    string
+	globalEditorsDB *kivik.DB
 
 	ctx = context.Background()
 
@@ -100,6 +98,35 @@ const (
 	Beta
 	Dev
 )
+
+type Context struct {
+	prefix string
+	dbApps *kivik.DB
+	dbVers *kivik.DB
+}
+
+func (c *Context) AppsDB() *kivik.DB {
+	return c.dbApps
+}
+
+func (c *Context) VersDB() *kivik.DB {
+	return c.dbVers
+}
+
+func (c *Context) dbName(suffix string) (name string) {
+	if c.prefix != "" {
+		name = c.prefix + "-"
+	}
+	name += suffix
+	return dbName(name)
+}
+
+func dbName(name string) string {
+	if globalPrefix != "" {
+		return globalPrefix + "-" + name
+	}
+	return "registry-" + name
+}
 
 type AppOptions struct {
 	Slug   string `json:"slug"`
@@ -176,9 +203,11 @@ type Version struct {
 	attachments []*kivik.Attachment
 }
 
-func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
-	var err error
+func NewContext(prefix string) *Context {
+	return &Context{prefix: prefix}
+}
 
+func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err error) {
 	var userInfo *url.Userinfo
 	if user != "" {
 		if pass != "" {
@@ -190,66 +219,107 @@ func InitDBClient(addr, user, pass, prefix string) (*kivik.Client, error) {
 
 	u, err := url.Parse(addr)
 	if err != nil {
-		return nil, err
+		return
 	}
 	u.User = userInfo
 
 	client, err = kivik.New(ctx, "couch", u.String())
 	if err != nil {
-		return nil, err
+		return
 	}
 	clientURL = u
 	clientURL.Path = ""
 	clientURL.RawPath = ""
 
-	if prefix == "" {
-		prefix = "registry"
+	globalPrefix = prefix
+
+	editorsDBName := dbName(editorsDBSuffix)
+	exists, err := client.DBExists(ctx, editorsDBName)
+	if err != nil {
+		return
+	}
+	if !exists {
+		fmt.Printf("Creating database %q...", editorsDBName)
+		if err = client.CreateDB(ctx, editorsDBName); err != nil {
+			return
+		}
+		fmt.Println("ok.")
 	}
 
-	AppsDB = prefix + "-" + AppsDBSuffix
-	VersDB = prefix + "-" + VersDBSuffix
-	EditorsDB = prefix + "-" + EditorsDBSuffix
+	globalEditorsDB, err = client.DB(ctx, editorsDBName)
+	if err != nil {
+		return
+	}
 
-	dbs := []string{AppsDB, VersDB, EditorsDB}
-	for _, dbName := range dbs {
+	editorsDB = globalEditorsDB
+	return
+}
+
+func RegisterContext(name string) error {
+	if contexts == nil {
+		contexts = make(map[string]*Context)
+	}
+	if _, ok := contexts[name]; ok {
+		return fmt.Errorf("Context %q already registered", name)
+	}
+	c := NewContext(name)
+	contexts[name] = c
+	return c.init()
+}
+
+func GetContext(name string) (*Context, bool) {
+	c, ok := contexts[name]
+	return c, ok
+}
+
+func HasEmptyContext() bool {
+	if len(contexts) != 1 {
+		return false
+	}
+	_, ok := contexts[""]
+	return ok
+}
+
+func (c *Context) init() (err error) {
+	for _, suffix := range []string{appsDBSuffix, versDBSuffix} {
 		var ok bool
+		dbName := c.dbName(suffix)
 		ok, err = client.DBExists(ctx, dbName)
 		if err != nil {
-			return nil, err
+			return
 		}
 		if !ok {
 			fmt.Printf("Creating database %q...", dbName)
 			if err = client.CreateDB(ctx, dbName); err != nil {
 				fmt.Println("failed")
-				return nil, err
+				return err
 			}
 			fmt.Println("ok.")
 		}
-	}
-
-	dbApps, err := client.DB(ctx, AppsDB)
-	if err != nil {
-		return nil, err
-	}
-
-	for name, index := range appsIndexes {
-		err = dbApps.CreateIndex(ctx, "apps-index-"+name, "apps-index-"+name, index)
+		var db *kivik.DB
+		db, err = client.DB(context.Background(), dbName)
 		if err != nil {
-			return nil, err
+			return
+		}
+		switch suffix {
+		case appsDBSuffix:
+			c.dbApps = db
+		case versDBSuffix:
+			c.dbVers = db
+		default:
+			panic("unreachable")
 		}
 	}
 
-	dbVers, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return nil, err
+	for name, index := range appsIndexes {
+		err = c.AppsDB().CreateIndex(ctx, "apps-index-"+name, "apps-index-"+name, index)
+		if err != nil {
+			return
+		}
 	}
 
-	err = dbVers.CreateIndex(ctx, "versions-index", "versions-index", versIndex)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, err
+	err = c.VersDB().CreateIndex(ctx, "versions-index", "versions-index", versIndex)
+	return
 }
 
 func IsValidApp(app *AppOptions) error {
@@ -290,12 +360,12 @@ func IsValidVersion(ver *VersionOptions) error {
 	return nil
 }
 
-func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
+func CreateApp(c *Context, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	if err := IsValidApp(opts); err != nil {
 		return nil, err
 	}
 
-	_, err := FindApp(opts.Slug)
+	_, err := FindApp(c, opts.Slug)
 	if err == nil {
 		return nil, ErrAppAlreadyExists
 	}
@@ -303,11 +373,7 @@ func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
 		return nil, err
 	}
 
-	db, err := client.DB(ctx, AppsDB)
-	if err != nil {
-		return nil, err
-	}
-
+	db := c.AppsDB()
 	now := time.Now().UTC()
 	app := new(App)
 	app.ID = getAppID(opts.Slug)
@@ -334,7 +400,7 @@ func CreateApp(opts *AppOptions, editor *auth.Editor) (*App, error) {
 	return app, nil
 }
 
-func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err error) {
+func updateApp(c *Context, app *App, editor *auth.Editor) (result *App, updated bool, err error) {
 	opts := &AppOptions{
 		Slug:   app.Slug,
 		Editor: app.Editor,
@@ -344,12 +410,8 @@ func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err er
 		return
 	}
 
-	db, err := client.DB(ctx, AppsDB)
-	if err != nil {
-		return
-	}
-
-	oldApp, err := FindApp(app.Slug)
+	db := c.AppsDB()
+	oldApp, err := FindApp(c, app.Slug)
 	if err != nil {
 		return
 	}
@@ -394,11 +456,11 @@ func updateApp(app *App, editor *auth.Editor) (result *App, updated bool, err er
 		return
 	}
 
-	app.Versions, err = FindAppVersions(app.Slug)
+	app.Versions, err = FindAppVersions(c, app.Slug)
 	if err != nil {
 		return
 	}
-	app.Screenshots, err = FindAppScreenshots(app.Slug, Stable)
+	app.Screenshots, err = FindAppScreenshots(c, app.Slug, Stable)
 	if err != nil {
 		return
 	}
@@ -410,7 +472,7 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 	return downloadVersion(opts)
 }
 
-func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
+func CreateVersion(c *Context, ver *Version, app *App, editor *auth.Editor) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}
@@ -418,7 +480,7 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 	var needUpdate bool
 	if GetVersionChannel(ver.Version) == Stable {
 		var lastVersion *Version
-		lastVersion, err = FindLatestVersion(ver.Slug, Stable)
+		lastVersion, err = FindLatestVersion(c, ver.Slug, Stable)
 		if err != nil && err != ErrVersionNotFound {
 			return err
 		}
@@ -427,7 +489,7 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 	} else {
 		var lastVersion *Version
 		for _, ch := range []Channel{Stable, Beta, Dev} {
-			lastVersion, err = FindLatestVersion(ver.Slug, ch)
+			lastVersion, err = FindLatestVersion(c, ver.Slug, ch)
 			if err == nil {
 				break
 			}
@@ -448,13 +510,13 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 			return err
 		}
 		app.Type = ver.Type
-		app, _, err = updateApp(app, editor)
+		app, _, err = updateApp(c, app, editor)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = FindVersion(ver.Slug, ver.Version)
+	_, err = FindVersion(c, ver.Slug, ver.Version)
 	if err != ErrVersionNotFound {
 		if err == nil {
 			return ErrVersionAlreadyExists
@@ -466,11 +528,7 @@ func CreateVersion(ver *Version, app *App, editor *auth.Editor) (err error) {
 	ver.Type = app.Type
 	ver.Editor = app.Editor
 
-	db, err := client.DB(ctx, VersDB)
-	if err != nil {
-		return err
-	}
-
+	db := c.VersDB()
 	_, ver.Rev, err = db.CreateDoc(ctx, ver)
 	if err != nil {
 		return err
