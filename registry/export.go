@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"path"
 	"strings"
 
@@ -120,24 +118,13 @@ func writeDocs(db *kivik.DB, tw *tar.Writer) error {
 }
 
 func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename string) error {
-	u := fmt.Sprintf("%s/%s/%s/%s",
-		clientURL.String(),
-		url.PathEscape(db.Name()),
-		url.PathEscape(docID),
-		url.PathEscape(filename),
-	)
-
-	res, err := http.Get(u)
+	att, err := db.GetAttachment(ctx, docID, "", filename)
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer att.Content.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("Could not fetch attachment %q: %s",
-			fmt.Sprintf("%s/%s/%s", dbName, docID, filename), res.Status)
-	}
-	size := res.ContentLength
+	size := att.Size
 	if size < 0 {
 		return fmt.Errorf("Attachment size is unknown: %d", size)
 	}
@@ -148,14 +135,15 @@ func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename strin
 		Mode:     0640,
 		Typeflag: tar.TypeReg,
 		Xattrs: map[string]string{
-			"type": res.Header.Get("Content-Type"),
+			"content-type":     att.ContentType,
+			"content-encoding": att.ContentEncoding,
 		},
 	}
 	if err = tw.WriteHeader(hdr); err != nil {
 		return err
 	}
 
-	_, err = io.Copy(tw, res.Body)
+	_, err = io.Copy(tw, att.Content)
 	return err
 }
 
@@ -219,10 +207,11 @@ func Import(in io.Reader) (err error) {
 
 			fmt.Printf("Creating attachment %q...", attLong)
 			a := &kivik.Attachment{
-				Content:     ioutil.NopCloser(tr),
-				Size:        hdr.Size,
-				Filename:    attName,
-				ContentType: hdr.Xattrs["type"],
+				Content:         ioutil.NopCloser(tr),
+				Size:            hdr.Size,
+				Filename:        attName,
+				ContentType:     hdr.Xattrs["content-type"],
+				ContentEncoding: hdr.Xattrs["content-encoding"],
 			}
 			rev, err = db.PutAttachment(ctx, docID, rev, a)
 			if err != nil {
