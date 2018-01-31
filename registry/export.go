@@ -102,16 +102,20 @@ func writeDocs(db *kivik.DB, tw *tar.Writer) error {
 			return err
 		}
 
+		fmt.Printf(`Writing document "%s/%s"... `, db.Name(), rows.ID())
 		_, err = io.Copy(tw, bytes.NewReader(data))
 		if err != nil {
 			return err
 		}
+		fmt.Println("ok.")
 	}
 
 	for _, att := range atts {
+		fmt.Printf(`Writing attachment "%s/%s/%s... "`, db.Name(), att.docID, att.name)
 		if err = writeAttachment(db, tw, dbName, att.docID, att.name); err != nil {
 			return fmt.Errorf(`Could not write attachment "%s/%s/%s": %s`, db.Name(), att.docID, att.name, err)
 		}
+		fmt.Println("ok.")
 	}
 
 	return nil
@@ -126,7 +130,7 @@ func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename strin
 
 	size := att.Size
 	if size < 0 {
-		return fmt.Errorf("Attachment size is unknown: %d", size)
+		return fmt.Errorf("size is unknown: %d", size)
 	}
 
 	hdr := &tar.Header{
