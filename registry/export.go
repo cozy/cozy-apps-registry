@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/go-kivik/kivik"
@@ -113,7 +112,7 @@ func writeDocs(db *kivik.DB, tw *tar.Writer) error {
 
 	for _, att := range atts {
 		if err = writeAttachment(db, tw, dbName, att.docID, att.name); err != nil {
-			return err
+			return fmt.Errorf(`Could not write attachment "%s/%s/%s": %s`, db.Name(), att.docID, att.name, err)
 		}
 	}
 
@@ -138,10 +137,9 @@ func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename strin
 		return fmt.Errorf("Could not fetch attachment %q: %s",
 			fmt.Sprintf("%s/%s/%s", dbName, docID, filename), res.Status)
 	}
-
-	size, err := strconv.ParseInt(res.Header.Get("content-length"), 10, 64)
-	if err != nil {
-		return err
+	size := res.ContentLength
+	if size < 0 {
+		return fmt.Errorf("Attachment size is unknown: %d", size)
 	}
 
 	hdr := &tar.Header{
