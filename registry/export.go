@@ -128,9 +128,18 @@ func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename strin
 	}
 	defer att.Content.Close()
 
+	var body io.Reader
 	size := att.Size
 	if size < 0 {
-		return fmt.Errorf("size is unknown: %d", size)
+		var b []byte
+		b, err = ioutil.ReadAll(att.Content)
+		if err != nil {
+			return err
+		}
+		size = int64(len(b))
+		body = bytes.NewReader(b)
+	} else {
+		body = att.Content
 	}
 
 	hdr := &tar.Header{
@@ -147,7 +156,7 @@ func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename strin
 		return err
 	}
 
-	_, err = io.Copy(tw, att.Content)
+	_, err = io.Copy(tw, body)
 	return err
 }
 
