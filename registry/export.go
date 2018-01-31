@@ -111,7 +111,7 @@ func writeDocs(db *kivik.DB, tw *tar.Writer) error {
 	}
 
 	for _, att := range atts {
-		fmt.Printf(`Writing attachment "%s/%s/%s... "`, db.Name(), att.docID, att.name)
+		fmt.Printf(`Writing attachment "%s/%s/%s"... `, db.Name(), att.docID, att.name)
 		if err = writeAttachment(db, tw, dbName, att.docID, att.name); err != nil {
 			return fmt.Errorf(`Could not write attachment "%s/%s/%s": %s`, db.Name(), att.docID, att.name, err)
 		}
