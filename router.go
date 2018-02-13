@@ -27,9 +27,6 @@ const contextKey = "context"
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
-var errUnauthorized = errshttp.NewError(http.StatusUnauthorized,
-	http.StatusText(http.StatusUnauthorized))
-
 var (
 	oneMinute = 1 * time.Minute
 	oneHour   = 1 * time.Hour
@@ -124,7 +121,7 @@ func checkAuthorized(c echo.Context) error {
 		return err
 	}
 	if _, ok := auth.VerifyToken(sessionSecret, token, nil); !ok {
-		return errUnauthorized
+		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
 	}
 	return nil
 }
@@ -137,12 +134,12 @@ func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
 
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
-		return nil, errUnauthorized
+		return nil, errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
 	}
 
 	ok := editor.VerifySessionToken(sessionSecret, token)
 	if !ok {
-		return nil, errUnauthorized
+		return nil, errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
 	}
 	return editor, nil
 }
@@ -150,15 +147,16 @@ func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
 func extractAuthHeader(c echo.Context) ([]byte, error) {
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 	if !strings.HasPrefix(authHeader, authTokenScheme) {
-		return nil, errUnauthorized
+		return nil, errshttp.NewError(http.StatusUnauthorized, "Missing prefix from authorization header")
 	}
+	fmt.Println(c.Request().Header.Get(echo.HeaderAuthorization))
 	tokenStr := authHeader[len(authTokenScheme):]
 	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
-		return nil, errUnauthorized
+		return nil, errshttp.NewError(http.StatusUnauthorized, "Token is too long")
 	}
 	token, err := base64.StdEncoding.DecodeString(tokenStr)
 	if err != nil {
-		return nil, errUnauthorized
+		return nil, errshttp.NewError(http.StatusUnauthorized, "Token is not properly base64 encoded")
 	}
 	return token, nil
 }
