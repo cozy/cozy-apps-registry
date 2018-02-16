@@ -36,6 +36,7 @@ const screenshotsDir = "screenshots"
 var (
 	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
+	validContextReg = regexp.MustCompile(`^[a-z]+[a-z0-9\-]*$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
 )
@@ -259,12 +260,28 @@ func RegisterContext(name string) error {
 	if contexts == nil {
 		contexts = make(map[string]*Context)
 	}
+	name = strings.TrimSpace(name)
+	if name == "__default__" {
+		name = ""
+	} else {
+		if !validContextReg.MatchString(name) {
+			return fmt.Errorf("Context named %q contains invalid characters", name)
+		}
+	}
 	if _, ok := contexts[name]; ok {
 		return fmt.Errorf("Context %q already registered", name)
 	}
 	c := NewContext(name)
 	contexts[name] = c
 	return c.init()
+}
+
+func GetContextsNames() (cs []string) {
+	cs = make([]string, 0, len(contexts))
+	for n := range contexts {
+		cs = append(cs, n)
+	}
+	return cs
 }
 
 func GetContext(name string) (*Context, bool) {

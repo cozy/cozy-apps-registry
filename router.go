@@ -149,7 +149,6 @@ func extractAuthHeader(c echo.Context) ([]byte, error) {
 	if !strings.HasPrefix(authHeader, authTokenScheme) {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Missing prefix from authorization header")
 	}
-	fmt.Println(c.Request().Header.Get(echo.HeaderAuthorization))
 	tokenStr := authHeader[len(authTokenScheme):]
 	if len(tokenStr) > 1024 { // tokens should be much less than 128bytes
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Token is too long")
@@ -445,15 +444,16 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func ensureContext(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		contextName := c.Param("context-name")
-		context, ok := registry.GetContext(contextName)
-		if !ok {
-			return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Context %q does not exist", contextName))
+func ensureContext(contextName string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			context, ok := registry.GetContext(contextName)
+			if !ok {
+				return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Context %q does not exist", contextName))
+			}
+			c.Set(contextKey, context)
+			return next(c)
 		}
-		c.Set(contextKey, context)
-		return next(c)
 	}
 }
 
@@ -583,34 +583,32 @@ func Router(addr string) *echo.Echo {
 
 	{
 		var g *echo.Group
-		if registry.HasEmptyContext() {
-			g = e.Group("/registry", ensureContext)
-		} else {
-			g = e.Group("/registry/:context-name", ensureContext)
+		for _, c := range registry.GetContextsNames() {
+			g = e.Group(c+"/registry", ensureContext(c))
+
+			g.POST("", createApp, jsonEndpoint)
+			g.POST("/:app", createVersion, jsonEndpoint)
+
+			g.GET("", getAppsList, jsonEndpoint)
+			g.HEAD("/:app", getApp, jsonEndpoint)
+			g.GET("/:app", getApp, jsonEndpoint)
+			g.GET("/:app/versions", getAppVersions, jsonEndpoint)
+			g.HEAD("/:app/:version", getVersion, jsonEndpoint)
+			g.GET("/:app/:version", getVersion, jsonEndpoint)
+			g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+			g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+
+			g.GET("/:app/icon", getAppIcon)
+			g.HEAD("/:app/icon", getAppIcon)
+			g.GET("/:app/screenshots/:filename", getAppScreenshot)
+			g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+			g.GET("/:app/:channel/latest/icon", getAppIcon)
+			g.HEAD("/:app/:channel/latest/icon", getAppIcon)
+			g.HEAD("/:app/:version/icon", getVersionIcon)
+			g.GET("/:app/:version/icon", getVersionIcon)
+			g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
+			g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 		}
-
-		g.POST("", createApp, jsonEndpoint)
-		g.POST("/:app", createVersion, jsonEndpoint)
-
-		g.GET("", getAppsList, jsonEndpoint)
-		g.HEAD("/:app", getApp, jsonEndpoint)
-		g.GET("/:app", getApp, jsonEndpoint)
-		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
-		g.HEAD("/:app/:version", getVersion, jsonEndpoint)
-		g.GET("/:app/:version", getVersion, jsonEndpoint)
-		g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
-		g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
-
-		g.GET("/:app/icon", getAppIcon)
-		g.HEAD("/:app/icon", getAppIcon)
-		g.GET("/:app/screenshots/:filename", getAppScreenshot)
-		g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
-		g.GET("/:app/:channel/latest/icon", getAppIcon)
-		g.HEAD("/:app/:channel/latest/icon", getAppIcon)
-		g.HEAD("/:app/:version/icon", getVersionIcon)
-		g.GET("/:app/:version/icon", getVersionIcon)
-		g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
-		g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 	}
 
 	e.GET("/editors", getEditorsList, jsonEndpoint)

@@ -639,7 +639,7 @@ func prepareContexts(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	}
-	return registry.RegisterContext("")
+	return registry.RegisterContext("__default__")
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {
