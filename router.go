@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -582,9 +583,14 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Recover())
 
 	{
-		var g *echo.Group
 		for _, c := range registry.GetContextsNames() {
-			g = e.Group(c+"/registry", ensureContext(c))
+			var groupName string
+			if c == "" {
+				groupName = "/registry"
+			} else {
+				groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
+			}
+			g := e.Group(groupName, ensureContext(c))
 
 			g.POST("", createApp, jsonEndpoint)
 			g.POST("/:app", createVersion, jsonEndpoint)
