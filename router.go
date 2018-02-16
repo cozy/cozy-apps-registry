@@ -582,39 +582,37 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
-	{
-		for _, c := range registry.GetContextsNames() {
-			var groupName string
-			if c == "" {
-				groupName = "/registry"
-			} else {
-				groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
-			}
-			g := e.Group(groupName, ensureContext(c))
-
-			g.POST("", createApp, jsonEndpoint)
-			g.POST("/:app", createVersion, jsonEndpoint)
-
-			g.GET("", getAppsList, jsonEndpoint)
-			g.HEAD("/:app", getApp, jsonEndpoint)
-			g.GET("/:app", getApp, jsonEndpoint)
-			g.GET("/:app/versions", getAppVersions, jsonEndpoint)
-			g.HEAD("/:app/:version", getVersion, jsonEndpoint)
-			g.GET("/:app/:version", getVersion, jsonEndpoint)
-			g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
-			g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
-
-			g.GET("/:app/icon", getAppIcon)
-			g.HEAD("/:app/icon", getAppIcon)
-			g.GET("/:app/screenshots/:filename", getAppScreenshot)
-			g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
-			g.GET("/:app/:channel/latest/icon", getAppIcon)
-			g.HEAD("/:app/:channel/latest/icon", getAppIcon)
-			g.HEAD("/:app/:version/icon", getVersionIcon)
-			g.GET("/:app/:version/icon", getVersionIcon)
-			g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
-			g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
+	for _, c := range registry.GetContextsNames() {
+		var groupName string
+		if c == "" {
+			groupName = "/registry"
+		} else {
+			groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
 		}
+		g := e.Group(groupName, ensureContext(c))
+
+		g.POST("", createApp, jsonEndpoint)
+		g.POST("/:app", createVersion, jsonEndpoint)
+
+		g.GET("", getAppsList, jsonEndpoint)
+		g.HEAD("/:app", getApp, jsonEndpoint)
+		g.GET("/:app", getApp, jsonEndpoint)
+		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
+		g.HEAD("/:app/:version", getVersion, jsonEndpoint)
+		g.GET("/:app/:version", getVersion, jsonEndpoint)
+		g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+		g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+
+		g.GET("/:app/icon", getAppIcon)
+		g.HEAD("/:app/icon", getAppIcon)
+		g.GET("/:app/screenshots/:filename", getAppScreenshot)
+		g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+		g.GET("/:app/:channel/latest/icon", getAppIcon)
+		g.HEAD("/:app/:channel/latest/icon", getAppIcon)
+		g.HEAD("/:app/:version/icon", getVersionIcon)
+		g.GET("/:app/:version/icon", getVersionIcon)
+		g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
+		g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
 	}
 
 	e.GET("/editors", getEditorsList, jsonEndpoint)
