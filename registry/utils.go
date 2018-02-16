@@ -20,7 +20,10 @@ func stringInArray(a string, list []string) bool {
 
 func sprintfJSON(format string, a ...interface{}) json.RawMessage {
 	for i, input := range a {
-		b, _ := json.Marshal(input)
+		b, err := json.Marshal(input)
+		if err != nil {
+			panic(err)
+		}
 		a[i] = string(b)
 	}
 	return json.RawMessage([]byte(fmt.Sprintf(format, a...)))

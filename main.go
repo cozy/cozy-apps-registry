@@ -393,7 +393,7 @@ var genSessionSecret = &cobra.Command{
 		}
 
 		fmt.Printf("Creating file %q... ", filePath)
-		file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY|os.O_EXCL, 0660)
+		file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY|os.O_EXCL, 0600)
 		if err != nil {
 			return err
 		}
