@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -86,7 +85,6 @@ var (
 		"by-editor":     {"fields": []string{"editor", "slug", "category"}},
 		"by-category":   {"fields": []string{"category", "slug", "editor"}},
 		"by-created_at": {"fields": []string{"created_at", "slug", "category", "editor"}},
-		"by-updated_at": {"fields": []string{"updated_at", "slug", "category", "editor"}},
 	}
 
 	versIndex = echo.Map{"fields": []string{"version", "slug", "type"}}
@@ -139,23 +137,12 @@ type App struct {
 	ID  string `json:"_id,omitempty"`
 	Rev string `json:"_rev,omitempty"`
 
-	Slug             string       `json:"slug"`
-	Name             string       `json:"name"`
-	Type             string       `json:"type"`
-	Editor           string       `json:"editor"`
-	Locales          Locales      `json:"locales"`
-	Developer        Developer    `json:"developer"`
-	LongDescription  string       `json:"long_description"`
-	ShortDescription string       `json:"short_description"`
-	Category         string       `json:"category"`
-	Repository       string       `json:"repository"`
-	CreatedAt        time.Time    `json:"created_at"`
-	UpdatedAt        time.Time    `json:"updated_at"`
-	Langs            []string     `json:"langs"`
-	Tags             []string     `json:"tags"`
-	Platforms        []*Platform  `json:"platforms"`
-	Screenshots      []string     `json:"screenshots"`
-	Versions         *AppVersions `json:"versions,omitempty"`
+	Slug      string       `json:"slug"`
+	Name      string       `json:"name"`
+	Type      string       `json:"type"`
+	Editor    string       `json:"editor"`
+	CreatedAt time.Time    `json:"created_at"`
+	Versions  *AppVersions `json:"versions,omitempty"`
 }
 
 type Locales map[string]interface{}
@@ -399,11 +386,6 @@ func CreateApp(c *Context, opts *AppOptions, editor *auth.Editor) (*App, error) 
 	app.Type = opts.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = now
-	app.UpdatedAt = now
-	app.Locales = make(Locales)
-	app.Langs = make([]string, 0)
-	app.Tags = make([]string, 0)
-	app.Platforms = make([]*Platform, 0)
 	_, app.Rev, err = db.CreateDoc(ctx, app)
 	if err != nil {
 		return nil, err
@@ -413,76 +395,7 @@ func CreateApp(c *Context, opts *AppOptions, editor *auth.Editor) (*App, error) 
 		Beta:   make([]string, 0),
 		Dev:    make([]string, 0),
 	}
-	app.Screenshots = make([]string, 0)
 	return app, nil
-}
-
-func updateApp(c *Context, app *App, editor *auth.Editor) (result *App, updated bool, err error) {
-	opts := &AppOptions{
-		Slug:   app.Slug,
-		Editor: app.Editor,
-		Type:   app.Type,
-	}
-	if err = IsValidApp(opts); err != nil {
-		return
-	}
-
-	db := c.AppsDB()
-	oldApp, err := FindApp(c, app.Slug)
-	if err != nil {
-		return
-	}
-
-	if oldApp.Editor != editor.Name() {
-		err = ErrAppEditorMismatch
-		return
-	}
-
-	app.ID = oldApp.ID
-	app.Rev = oldApp.Rev
-	app.Slug = oldApp.Slug
-	app.Type = oldApp.Type
-	app.Editor = editor.Name()
-	app.CreatedAt = oldApp.CreatedAt
-	app.UpdatedAt = time.Time{}
-	app.Versions = nil
-	app.Screenshots = nil
-	oldApp.Versions = nil
-	oldApp.Screenshots = nil
-	oldApp.UpdatedAt = time.Time{}
-	if app.Locales == nil {
-		app.Locales = make(Locales)
-	}
-	if app.Langs == nil {
-		app.Langs = make([]string, 0)
-	}
-	if app.Tags == nil {
-		app.Tags = make([]string, 0)
-	}
-	if app.Platforms == nil {
-		app.Platforms = make([]*Platform, 0)
-	}
-
-	if reflect.DeepEqual(app, oldApp) {
-		return app, false, nil
-	}
-
-	app.UpdatedAt = time.Now().UTC()
-	app.Rev, err = db.Put(ctx, app.ID, app)
-	if err != nil {
-		return
-	}
-
-	app.Versions, err = FindAppVersions(c, app.Slug)
-	if err != nil {
-		return
-	}
-	app.Screenshots, err = FindAppScreenshots(c, app.Slug, Stable)
-	if err != nil {
-		return
-	}
-
-	return app, true, nil
 }
 
 func DownloadVersion(opts *VersionOptions) (*Version, error) {
@@ -494,50 +407,11 @@ func CreateVersion(c *Context, ver *Version, app *App, editor *auth.Editor) (err
 		return ErrVersionSlugMismatch
 	}
 
-	var needUpdate bool
-	if GetVersionChannel(ver.Version) == Stable {
-		var lastVersion *Version
-		lastVersion, err = FindLatestVersion(c, ver.Slug, Stable)
-		if err != nil && err != ErrVersionNotFound {
-			return err
-		}
-		needUpdate = (err == ErrVersionNotFound) ||
-			versionLess(lastVersion.Version, ver.Version)
-	} else {
-		var lastVersion *Version
-		for _, ch := range []Channel{Stable, Beta, Dev} {
-			lastVersion, err = FindLatestVersion(c, ver.Slug, ch)
-			if err == nil {
-				break
-			}
-			if err != ErrVersionNotFound {
-				return err
-			}
-		}
-		if err == ErrVersionNotFound {
-			needUpdate = true
-		} else if GetVersionChannel(lastVersion.Version) != Stable {
-			needUpdate = versionLess(lastVersion.Version, ver.Version)
-		}
-	}
-
-	if needUpdate {
-		app = &App{}
-		if err = json.Unmarshal(ver.Manifest, &app); err != nil {
-			return err
-		}
-		app.Type = ver.Type
-		app, _, err = updateApp(c, app, editor)
-		if err != nil {
-			return err
-		}
-	}
-
 	_, err = FindVersion(c, ver.Slug, ver.Version)
+	if err == nil {
+		return ErrVersionAlreadyExists
+	}
 	if err != ErrVersionNotFound {
-		if err == nil {
-			return ErrVersionAlreadyExists
-		}
 		return err
 	}
 

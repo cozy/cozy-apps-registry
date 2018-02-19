@@ -59,11 +59,6 @@ func FindApp(c *Context, appSlug string) (*App, error) {
 		return nil, err
 	}
 
-	doc.Screenshots, err = FindAppScreenshots(c, doc.Slug, Stable)
-	if err != nil {
-		return nil, err
-	}
-
 	return doc, nil
 }
 
@@ -310,10 +305,6 @@ func GetAppsList(c *Context, opts *AppsListOptions) (int, []*App, error) {
 
 	for _, app := range res {
 		app.Versions, err = FindAppVersions(c, app.Slug)
-		if err != nil {
-			return 0, nil, err
-		}
-		app.Screenshots, err = FindAppScreenshots(c, app.Slug, Stable)
 		if err != nil {
 			return 0, nil, err
 		}
