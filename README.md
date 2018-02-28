@@ -180,7 +180,7 @@ To be publishable, your application requires some informations in its `manifest.
       "url": "#"
     }
   ],
-  "category": "cozy",
+  "categories": ["cozy"],
   "source": "https://github.com/cozy/cozy-drive.git@build",
   "editor": "Cozy",
   "developer": {
@@ -215,7 +215,7 @@ Languages      | for konnectors only, the konnector development language used (e
 locales        | an object with language slug as property, each name property is an object of localized informations (see the second part below)
 langs          | Languages available in your app (can be different from locales)
 platforms      | List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
-category       | category of your apps to display grouped in the cozy-bar (see authorized categories), it will be 'others' by default if empty
+categories     | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
 source         | where the files of the app can be downloaded (by default it will look for the branch `build`)
 editor         | the editor's name to display on the cozy-bar
 developer      | `name` and `url` for the developer
