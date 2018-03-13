@@ -152,6 +152,7 @@ To be publishable, your application requires some informations in its `manifest.
 ```json
 {
   "name": "Drive",
+  "name_prefix": "Cozy",
   "slug": "drive",
   "icon": "drive.svg",
   "type": "webapp",
@@ -208,6 +209,7 @@ Here are all properties meaning:
 Field          | Description
 ---------------|-------------------------------------------------------------
 name           | the name to display on the home
+name_prefix    | the prefix to display with the name
 slug           | the default slug that should never change (alpha-numeric lowercase)
 icon           | path to the icon for the home (path in the build)
 type           | type of application (`konnector` or `webapp`)
