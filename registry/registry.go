@@ -435,7 +435,7 @@ func CreateVersion(c *Context, ver *Version, app *App, editor *auth.Editor) (err
 	return nil
 }
 
-func downloadRequest(url string) (reader *bytes.Reader, contentType string, err error) {
+func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -464,6 +464,15 @@ func downloadRequest(url string) (reader *bytes.Reader, contentType string, err 
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Could not reach version on specified url %s: %s",
 			url, err)
+		return
+	}
+
+	h := sha256.New()
+	h.Write(buf.Bytes())
+	e, _ := hex.DecodeString(shasum)
+	if !bytes.Equal(e, h.Sum(nil)) {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Checksum does not match the calculated one")
 		return
 	}
 
@@ -500,7 +509,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	tryCount := 0
 	for {
 		tryCount++
-		buf, contentType, err = downloadRequest(url)
+		buf, contentType, err = downloadRequest(url, opts.Sha256)
 		if err == nil {
 			break
 		} else if tryCount <= 3 {
@@ -510,11 +519,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		}
 	}
 
-	h := sha256.New()
 	counter := &Counter{}
 	var reader io.Reader = buf
 	reader = io.TeeReader(reader, counter)
-	reader = io.TeeReader(reader, h)
 
 	var packVersion string
 	var appType, tarPrefix, editorName string
@@ -599,13 +606,6 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 
 	if !hasPrefix {
 		tarPrefix = ""
-	}
-
-	shasum, _ := hex.DecodeString(opts.Sha256)
-	if !bytes.Equal(shasum, h.Sum(nil)) {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Checksum does not match the calculated one")
-		return
 	}
 
 	if len(manifestContent) == 0 {
@@ -800,21 +800,6 @@ func VersionMatch(ver1, ver2 string) bool {
 	v1 := SplitVersion(ver1)
 	v2 := SplitVersion(ver2)
 	return v1[0] == v2[0] && v1[1] == v2[1] && v1[2] == v2[2]
-}
-
-func versionLess(ver1, ver2 string) bool {
-	v1 := SplitVersion(ver1)
-	v2 := SplitVersion(ver2)
-	if v1[0] < v2[0] {
-		return true
-	}
-	if v1[0] == v2[0] && v1[1] < v2[1] {
-		return true
-	}
-	if v1[0] == v2[0] && v1[1] == v2[1] && v1[2] < v2[2] {
-		return true
-	}
-	return false
 }
 
 func GetVersionChannel(version string) Channel {

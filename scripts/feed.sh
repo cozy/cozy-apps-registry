@@ -11,9 +11,9 @@ curl -s $couch_addr/_all_dbs | jq -r '.[]' | grep "registry-" | \
   xargs -I % python -c "import urllib; print urllib.quote('''%''', safe='')" | \
   xargs -I % curl -X DELETE ${couch_addr}/%
 
-reg1=("bank" "drive" "health" "photos" "collect")
-reg2=("drive" "homebook" "bank" "collect")
-reg3=("bank" "collect" "drive" "onboarding" "photos" "settings")
+reg1=("banks" "drive" "health" "photos" "collect")
+reg2=("drive" "homebook" "banks" "collect")
+reg3=("banks" "collect" "drive" "onboarding" "photos" "settings")
 
 cozy-apps-registry add-editor cozy
 cozy-apps-registry --port 8081 --contexts __default__,reg2,reg3 serve &
