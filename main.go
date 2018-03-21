@@ -61,7 +61,10 @@ func init() {
 	flags.String("session-secret", "sessionsecret.key", "path to the session secret file")
 	checkNoErr(viper.BindPFlag("session-secret", flags.Lookup("session-secret")))
 
-	flags.StringSlice("contexts", nil, "list of available contexts")
+	flags.StringSlice("spaces", nil, "list of available spaces")
+	checkNoErr(viper.BindPFlag("spaces", flags.Lookup("spaces")))
+
+	flags.StringSlice("contexts", nil, "deprecated and renamed `--spaces`")
 	checkNoErr(viper.BindPFlag("contexts", flags.Lookup("contexts")))
 
 	genTokenCmd.Flags().StringVar(&maxAgeFlag, "max-age", "", "validity duration of the token")
@@ -158,7 +161,7 @@ var rootCmd = &cobra.Command{
 var serveCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   `Start the registry HTTP server`,
-	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareContexts),
+	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
@@ -554,7 +557,7 @@ var lsEditorsCmd = &cobra.Command{
 var exportCmd = &cobra.Command{
 	Use:     "export [file]",
 	Short:   `Export the entire registry into one tarball file.`,
-	PreRunE: compose(prepareRegistry, prepareContexts),
+	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var out io.Writer
 		if len(args) > 0 {
@@ -585,7 +588,7 @@ var exportCmd = &cobra.Command{
 var importCmd = &cobra.Command{
 	Use:     "import [file]",
 	Short:   `Import a registry from an export file.`,
-	PreRunE: compose(prepareRegistry, prepareContexts),
+	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var in io.Reader
 		if len(args) > 0 {
@@ -629,17 +632,20 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func prepareContexts(cmd *cobra.Command, args []string) error {
-	contextsNames := viper.GetStringSlice("contexts")
-	if len(contextsNames) > 0 {
-		for _, contextName := range contextsNames {
-			if err := registry.RegisterContext(contextName); err != nil {
+func prepareSpaces(cmd *cobra.Command, args []string) error {
+	spacesNames := viper.GetStringSlice("spaces")
+	if len(spacesNames) == 0 {
+		spacesNames = viper.GetStringSlice("contexts") // retro-compat
+	}
+	if len(spacesNames) > 0 {
+		for _, spaceName := range spacesNames {
+			if err := registry.RegisterSpace(spaceName); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return registry.RegisterContext("__default__")
+	return registry.RegisterSpace("__default__")
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {

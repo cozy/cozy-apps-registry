@@ -24,7 +24,7 @@ import (
 const RegistryVersion = "0.1.0"
 
 const authTokenScheme = "Token "
-const contextKey = "context"
+const spaceKey = "space"
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
@@ -53,7 +53,7 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	app, err := registry.CreateApp(getContext(c), opts, editor)
+	app, err := registry.CreateApp(getSpace(c), opts, editor)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getContext(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	_, err = registry.FindVersion(getContext(c), appSlug, opts.Version)
+	_, err = registry.FindVersion(getSpace(c), appSlug, opts.Version)
 	if err == nil {
 		return registry.ErrVersionAlreadyExists
 	}
@@ -104,7 +104,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateVersion(getContext(c), ver, app, editor); err != nil {
+	if err = registry.CreateVersion(getSpace(c), ver, app, editor); err != nil {
 		return err
 	}
 
@@ -196,7 +196,7 @@ func getAppsList(c echo.Context) error {
 		}
 	}
 
-	next, docs, err := registry.GetAppsList(getContext(c), &registry.AppsListOptions{
+	next, docs, err := registry.GetAppsList(getSpace(c), &registry.AppsListOptions{
 		Filters: filter,
 		Limit:   limit,
 		Cursor:  cursor,
@@ -238,7 +238,7 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindApp(getContext(c), appSlug)
+	doc, err := registry.FindApp(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 		if channel == "" {
 			var err error
 			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {
-				att, err = registry.FindAppAttachment(getContext(c), appSlug, filename, ch)
+				att, err = registry.FindAppAttachment(getSpace(c), appSlug, filename, ch)
 				if err == nil {
 					break
 				}
@@ -287,7 +287,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 			if err != nil {
 				ch = registry.Stable
 			}
-			att, err = registry.FindAppAttachment(getContext(c), appSlug, filename, ch)
+			att, err = registry.FindAppAttachment(getSpace(c), appSlug, filename, ch)
 			if err != nil {
 				return err
 			}
@@ -317,7 +317,7 @@ func getVersionScreenshot(c echo.Context) error {
 func getVersionAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	version := c.Param("version")
-	att, err := registry.FindVersionAttachment(getContext(c), appSlug, version, filename)
+	att, err := registry.FindVersionAttachment(getSpace(c), appSlug, version, filename)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 func getAppVersions(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindAppVersions(getContext(c), appSlug)
+	doc, err := registry.FindAppVersions(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -351,12 +351,12 @@ func getAppVersions(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	version := stripVersion(c.Param("version"))
-	_, err := registry.FindApp(getContext(c), appSlug)
+	_, err := registry.FindApp(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
 
-	doc, err := registry.FindVersion(getContext(c), appSlug, version)
+	doc, err := registry.FindVersion(getSpace(c), appSlug, version)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	doc, err := registry.FindLatestVersion(getContext(c), appSlug, ch)
+	doc, err := registry.FindLatestVersion(getSpace(c), appSlug, ch)
 	if err != nil {
 		return err
 	}
@@ -445,21 +445,21 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func ensureContext(contextName string) echo.MiddlewareFunc {
+func ensureSpace(spaceName string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			context, ok := registry.GetContext(contextName)
+			space, ok := registry.GetSpace(spaceName)
 			if !ok {
-				return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Context %q does not exist", contextName))
+				return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Space %q does not exist", spaceName))
 			}
-			c.Set(contextKey, context)
+			c.Set(spaceKey, space)
 			return next(c)
 		}
 	}
 }
 
-func getContext(c echo.Context) *registry.Context {
-	return c.Get(contextKey).(*registry.Context)
+func getSpace(c echo.Context) *registry.Space {
+	return c.Get(spaceKey).(*registry.Space)
 }
 
 func validateAppRequest(c echo.Context, app *registry.AppOptions) error {
@@ -582,14 +582,14 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
-	for _, c := range registry.GetContextsNames() {
+	for _, c := range registry.GetSpacesNames() {
 		var groupName string
 		if c == "" {
 			groupName = "/registry"
 		} else {
 			groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
 		}
-		g := e.Group(groupName, ensureContext(c))
+		g := e.Group(groupName, ensureSpace(c))
 
 		g.POST("", createApp, jsonEndpoint)
 		g.POST("/:app", createVersion, jsonEndpoint)

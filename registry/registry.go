@@ -35,7 +35,7 @@ const screenshotsDir = "screenshots"
 var (
 	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
-	validContextReg = regexp.MustCompile(`^[a-z]+[a-z0-9\-]*$`)
+	validSpaceReg   = regexp.MustCompile(`^[a-z]+[a-z0-9\-]*$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
 )
@@ -72,7 +72,7 @@ const (
 var (
 	client    *kivik.Client
 	clientURL *url.URL
-	contexts  map[string]*Context
+	spaces    map[string]*Space
 
 	globalPrefix    string
 	globalEditorsDB *kivik.DB
@@ -98,21 +98,21 @@ const (
 	Dev
 )
 
-type Context struct {
+type Space struct {
 	prefix string
 	dbApps *kivik.DB
 	dbVers *kivik.DB
 }
 
-func (c *Context) AppsDB() *kivik.DB {
+func (c *Space) AppsDB() *kivik.DB {
 	return c.dbApps
 }
 
-func (c *Context) VersDB() *kivik.DB {
+func (c *Space) VersDB() *kivik.DB {
 	return c.dbVers
 }
 
-func (c *Context) dbName(suffix string) (name string) {
+func (c *Space) dbName(suffix string) (name string) {
 	if c.prefix != "" {
 		name = c.prefix + "-"
 	}
@@ -191,8 +191,8 @@ type Version struct {
 	attachments []*kivik.Attachment
 }
 
-func NewContext(prefix string) *Context {
-	return &Context{prefix: prefix}
+func NewSpace(prefix string) *Space {
+	return &Space{prefix: prefix}
 }
 
 func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err error) {
@@ -243,48 +243,40 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	return
 }
 
-func RegisterContext(name string) error {
-	if contexts == nil {
-		contexts = make(map[string]*Context)
+func RegisterSpace(name string) error {
+	if spaces == nil {
+		spaces = make(map[string]*Space)
 	}
 	name = strings.TrimSpace(name)
 	if name == "__default__" {
 		name = ""
 	} else {
-		if !validContextReg.MatchString(name) {
-			return fmt.Errorf("Context named %q contains invalid characters", name)
+		if !validSpaceReg.MatchString(name) {
+			return fmt.Errorf("Space named %q contains invalid characters", name)
 		}
 	}
-	if _, ok := contexts[name]; ok {
-		return fmt.Errorf("Context %q already registered", name)
+	if _, ok := spaces[name]; ok {
+		return fmt.Errorf("Space %q already registered", name)
 	}
-	c := NewContext(name)
-	contexts[name] = c
+	c := NewSpace(name)
+	spaces[name] = c
 	return c.init()
 }
 
-func GetContextsNames() (cs []string) {
-	cs = make([]string, 0, len(contexts))
-	for n := range contexts {
+func GetSpacesNames() (cs []string) {
+	cs = make([]string, 0, len(spaces))
+	for n := range spaces {
 		cs = append(cs, n)
 	}
 	return cs
 }
 
-func GetContext(name string) (*Context, bool) {
-	c, ok := contexts[name]
+func GetSpace(name string) (*Space, bool) {
+	c, ok := spaces[name]
 	return c, ok
 }
 
-func HasEmptyContext() bool {
-	if len(contexts) != 1 {
-		return false
-	}
-	_, ok := contexts[""]
-	return ok
-}
-
-func (c *Context) init() (err error) {
+func (c *Space) init() (err error) {
 	for _, suffix := range []string{appsDBSuffix, versDBSuffix} {
 		var ok bool
 		dbName := c.dbName(suffix)
@@ -364,7 +356,7 @@ func IsValidVersion(ver *VersionOptions) error {
 	return nil
 }
 
-func CreateApp(c *Context, opts *AppOptions, editor *auth.Editor) (*App, error) {
+func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	if err := IsValidApp(opts); err != nil {
 		return nil, err
 	}
@@ -402,7 +394,7 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 	return downloadVersion(opts)
 }
 
-func CreateVersion(c *Context, ver *Version, app *App, editor *auth.Editor) (err error) {
+func CreateVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}

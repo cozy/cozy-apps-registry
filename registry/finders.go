@@ -37,7 +37,7 @@ func getAppID(appSlug string) string {
 	return strings.ToLower(appSlug)
 }
 
-func FindApp(c *Context, appSlug string) (*App, error) {
+func FindApp(c *Space, appSlug string) (*App, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -62,7 +62,7 @@ func FindApp(c *Context, appSlug string) (*App, error) {
 	return doc, nil
 }
 
-func FindAppAttachment(c *Context, appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
+func FindAppAttachment(c *Space, appSlug, filename string, channel Channel) (*kivik.Attachment, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -75,7 +75,7 @@ func FindAppAttachment(c *Context, appSlug, filename string, channel Channel) (*
 	return FindVersionAttachment(c, appSlug, ver.Version, filename)
 }
 
-func FindVersionAttachment(c *Context, appSlug, version, filename string) (*kivik.Attachment, error) {
+func FindVersionAttachment(c *Space, appSlug, version, filename string) (*kivik.Attachment, error) {
 	db := c.VersDB()
 
 	att, err := db.GetAttachment(ctx, getVersionID(appSlug, version), "", filename)
@@ -89,7 +89,7 @@ func FindVersionAttachment(c *Context, appSlug, version, filename string) (*kivi
 	return att, nil
 }
 
-func FindVersion(c *Context, appSlug, version string) (*Version, error) {
+func FindVersion(c *Space, appSlug, version string) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -110,7 +110,7 @@ func FindVersion(c *Context, appSlug, version string) (*Version, error) {
 	return doc, nil
 }
 
-func versionViewQuery(c *Context, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
+func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
 	rows, err := db.Query(ctx, versViewDocName(appSlug), channel, opts)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
@@ -124,7 +124,7 @@ func versionViewQuery(c *Context, db *kivik.DB, appSlug, channel string, opts ma
 	return rows, nil
 }
 
-func FindLatestVersion(c *Context, appSlug string, channel Channel) (*Version, error) {
+func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -151,7 +151,7 @@ func FindLatestVersion(c *Context, appSlug string, channel Channel) (*Version, e
 	return latestVersion, nil
 }
 
-func FindAppVersions(c *Context, appSlug string) (*AppVersions, error) {
+func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 	db := c.VersDB()
 
 	var allVersions []string
@@ -195,7 +195,7 @@ func FindAppVersions(c *Context, appSlug string) (*AppVersions, error) {
 	}, nil
 }
 
-func FindAppScreenshots(c *Context, appSlug string, channel Channel) ([]string, error) {
+func FindAppScreenshots(c *Space, appSlug string, channel Channel) ([]string, error) {
 	screens := make([]string, 0)
 	ver, err := FindLatestVersion(c, appSlug, channel)
 	if err != nil {
@@ -222,7 +222,7 @@ type AppsListOptions struct {
 	Filters map[string]string
 }
 
-func GetAppsList(c *Context, opts *AppsListOptions) (int, []*App, error) {
+func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	db := c.AppsDB()
 	order := "asc"
 	sortField := opts.Sort

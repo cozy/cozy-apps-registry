@@ -37,7 +37,7 @@ func Export(out io.Writer) (err error) {
 		}
 	}()
 
-	for _, c := range contexts {
+	for _, c := range spaces {
 		if err = writeDocs(c.AppsDB(), tw); err != nil {
 			return
 		}

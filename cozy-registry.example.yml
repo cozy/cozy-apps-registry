@@ -13,15 +13,15 @@ couchdb:
   # CouchDB prefix for the registries databases - flag --couchdb-prefix
   # prefix: registry1
 
-# List of supported contexts by the registry.
+# List of supported spaces by the registry.
 #
 # If specified, the routes of the registry API will be formed with as follow:
-#   /:context-name/registry/
+#   /:space-name/registry/
 #
-# The `__default__` name is a special identifier to specify a context with an
+# The `__default__` name is a special identifier to specify a space with an
 # empty name, that will respond on /registry/
 #
-# contexts: __default__ registry1 registry2
+# spaces: __default__ registry1 registry2
 
 # Path to the session secret file containing the master secret to generate
 # session token.

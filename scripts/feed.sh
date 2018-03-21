@@ -16,7 +16,7 @@ reg2=("drive" "homebook" "banks" "collect")
 reg3=("banks" "collect" "drive" "onboarding" "photos" "settings")
 
 cozy-apps-registry add-editor cozy
-cozy-apps-registry --port 8081 --contexts __default__,reg2,reg3 serve &
+cozy-apps-registry --port 8081 --spaces __default__,reg2,reg3 serve &
 pid=$!
 sleep 1
 

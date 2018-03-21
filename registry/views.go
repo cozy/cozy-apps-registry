@@ -104,7 +104,7 @@ func versViewDocName(appSlug string) string {
 	return "versions-" + appSlug + "-v1"
 }
 
-func createVersionsViews(c *Context, appSlug string) error {
+func createVersionsViews(c *Space, appSlug string) error {
 	ddoc := versViewDocName(appSlug)
 	chttpClient, err := chttp.New(ctx, clientURL.String())
 	if err != nil {
