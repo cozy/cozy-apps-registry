@@ -35,7 +35,7 @@ const screenshotsDir = "screenshots"
 var (
 	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
-	validSpaceReg   = regexp.MustCompile(`^[a-z]+[a-z0-9\-]*$`)
+	validSpaceReg   = regexp.MustCompile(`^[a-z]+[a-z0-9\_\-]*$`)
 
 	validAppTypes = []string{"webapp", "konnector"}
 )
