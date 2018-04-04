@@ -49,7 +49,6 @@ Since this is a golang project, you can install it using `go` with the followed 
 
 ```shell
 go get -u github.com/cozy/cozy-apps-registry
-go install
 cd $GOPATH/src/github.com/cozy/cozy-apps-registry/
 ```
 
@@ -269,17 +268,15 @@ curl -X "POST" "http://localhost:8081/registry" \
      -H "Authorization: Token {{EDITOR_TOKEN}}" \
      -H "Content-Type: application/json" \
      -d $'{
-  "slug": "drive",
-  "repository": "https://github.com/cozy/cozy-drive",
+  "slug": "collect",
   "type": "webapp",
-  "editor": {{EDITOR}}
+  "editor": "{{EDITOR}}"
 }'
 ```
 
 Field          | Description
 ---------------|-------------------------------------------------------------
 slug           | your application unique ID
-repository     | where the files of the app can be downloaded (by default it will look for the branch `build`)
 type           | kind of application (it can be only `webapp` or `konnector`)
 editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
@@ -298,15 +295,15 @@ Let's add the version 1.0.0 of the Drive application as example:
 
 ```shell
 # {{EDITOR_TOKEN}} -> your generated editor access token
-curl -X "POST" "http://localhost:8081/registry/drive" \
+curl -X "POST" "http://localhost:8081/registry/collect" \
      -H "Authorization: Token {{EDITOR_TOKEN}}" \
      -H "Content-Type: application/json" \
      -d $'{
-  "url": "https://github.com/cozy/cozy-drive/archive/1.0.0.tar.gz",
-  "sha256": "90c751ad68be1d273f824c91e53db89e1fdb794136b8877a94062bdc2444f889",
-  "version": "1.0.0",
+  "url": "https://github.com/cozy/cozy-collect/archive/1.0.1.tar.gz",
+  "sha256": "96212bf53ab618808da0a92c7b6d9f2867b1f9487ba7c1c29606826b107041b5",
+  "version": "1.0.1",
   "type": "webapp",
-  "editor": {{EDITOR}}
+  "editor": "{{EDITOR}}"
 }'
 ```
 
