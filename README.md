@@ -260,7 +260,7 @@ __:pushpin: A new application without registered version won't be displayed by t
 To add a new application, you have to do a `POST` request which all the informations needed to the route `registryAddress/registry`
 with `registryAddress` your registry address (for example here `http://localhost:8081`).
 
-Let's add the Drive application with the previous manifest as example:
+Let's add the Collect application as example:
 
 ```shell
 # {{EDITOR_TOKEN}} -> your generated editor access token
@@ -284,6 +284,8 @@ __:warning: Here the `slug` is the unique ID of the application in the registry,
 
 ### 3) Add a new version of a registered application
 
+__Here we will show the classical way to add a version using `curl` as reference. But you may need to look at our dedicated tool [`cozy-app-publish`][cozy-app-publish] or the [Automation CI part](#automation-ci) of this documentation instead.__
+
 > __Prequisites__:
 > - For this step, you will need your editor token access generated when you created your editor (see [below](#4-create-an-editor)). You have to replace all `{{EDITOR_TOKEN}}` in this documentation by this token.
 > - The communication with the registry is done through HTTP requests for now. So we will use the `curl` command line tool to register our application here.
@@ -291,7 +293,7 @@ __:warning: Here the `slug` is the unique ID of the application in the registry,
 To add a new application, you have to do a `POST` request which all the informations needed to the route `registryAddress/registry/:appSlug`
 with `registryAddress` your registry address (for example here `http://localhost:8081`), `:appName` your application slug (here `drive`).
 
-Let's add the version 1.0.0 of the Drive application as example:
+Let's add the version 1.0.1 of the Collect application as example:
 
 ```shell
 # {{EDITOR_TOKEN}} -> your generated editor access token
@@ -329,116 +331,41 @@ In this tutorial, we assume:
   - you have a token allowing you to publish applications for your `editor`:
     `{{EDITOR_TOKEN}}`
   - you are working on a repository plugged on travis and named on github
-    `cozy/cozy-example`
+    `myname/cozy-example`
 
 You first need to add the token to your travis configuration file
-`.travis.yml`. To do so, you need the [`travis` utility](https://github.com
-/travis-ci/travis.rb#installation) to encrypt its value.
+`.travis.yml`. To do so, you need the [`travis` utility](https://github.com/travis-ci/travis.rb#installation) to encrypt its value.
 
 ```sh
-$ travis encrypt REGISTRY_TOKEN={{EDITOR_TOKEN}} --add -r cozy/cozy-example
+$ travis encrypt REGISTRY_TOKEN={{EDITOR_TOKEN}} --add -r myname/cozy-example
 Please add the following to your .travis.yml file:
 
   secure: "jUAjk..LOOOOONG_ENCRYPTED_STRING.....jdk89="
 ```
 
-Like said, you need to add this block of ciphered data in the `.travis.yml`.
+Like said, you need to add this block of ciphered data in the `.travis.yml` (if it's not already done automatically).
 This will allow you to use the `REGISTRY_TOKEN` variable in your deployment
 script.
 
-Then you can adapt this script as your [`after_deploy`, `after_success` or `script`](https://docs.travis-ci.com/user/customizing-the-build#The-Build-Lifecycle) property like:
+Then you can add a script as your [`after_deploy`, `after_success` or `script`](https://docs.travis-ci.com/user/customizing-the-build#The-Build-Lifecycle) property to publish your app using our publishing tool [`cozy-app-publish`][cozy-app-publish]:
 
 ```yml
 ...
 after_success:
-- bash publish_script.sh
+- yarn add cozy-app-publish
+- yarn cozy-app-publish --travis --editor {{EDITOR_TOKEN}} --token $REGISTRY_TOKEN --build-dir '.' --on-branch build
 ...
 ```
 
 > __Important notices:__
-> - The `.travis.yml` which will run this script must be in your build target directory if your want that Travis run it only on CI from the build branch update.
-> - Same thing for the script (here `publish_script.sh`), don't forget to make it available in your build directory.
+> - The `.travis.yml` which will run this command must be in your build target directory if your want that Travis runs it only on CI from the build branch update.
+> - [`cozy-app-publish`][cozy-app-publish] will use the github archive URL computing to get the application tarball. If your applicaiton is not on Github, you may need to use the manual mode of the command.
 
-It contains environment variables that you can adapt as your need (or create new ones):
-  - `COZY_APP_VERSION`: the version string of the deployed version
-  - `COZY_BUILD_URL`: the URL of the deployed tarball for your application
-  - `COZY_BUILD_BRANCH`: the name of the build branch from which the script creates dev releases
-
-Here is an example of script that can be run on Travis when there is new update on the `build` branch:
-
-```bash
-#!/bin/bash
-set -e
-
-# Environnment variables:
-#   COZY_APP_VERSION: the version string of the deployed version
-#   COZY_APP_SLUG: the slug string of the deployed application
-#   COZY_BUILD_URL: the URL of the deployed tarball for your application
-#   COZY_BUILD_BRANCH: the name of the build branch from which the script
-#                      creates dev releases
-
-[ -z "${COZY_BUILD_BRANCH}" ] && COZY_BUILD_BRANCH="build"
-[ -z "${REGISTRY_EDITOR}" ] && REGISTRY_EDITOR="Cozy"
-[ -z "${REGISTRY_URL}"] && REGISTRY_URL="https://staging-apps-registry.cozycloud.cc/registry"
-
-# don't publish on pull requests
-if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
-    echo "No deployment: in pull-request"
-    exit 0
-fi
-
-# Run this publishing script only on CI from the build branch
-# and at each update of this branch
-if [ "${TRAVIS_BRANCH}" != "${COZY_BUILD_BRANCH}" ]; then
-    printf 'No deployment: not in %s branch (TRAVIS_BRANCH=%s TRAVIS_TAG=%s)\n' "${COZY_BUILD_BRANCH}" "${TRAVIS_BRANCH}" "${TRAVIS_TAG}"
-    exit 0
-fi
-
-# find app manifest
-manfile=$(find "${TRAVIS_BUILD_DIR}" \( -name "manifest.webapp" -o -name "manifest.konnector" \) | head -n1)
-
-# if git tag, version = tag, else, version = versionFromManifest-dev.sha256
-if [ -z "${COZY_APP_VERSION}" ]; then
-    if [ -n "${TRAVIS_TAG}" ]; then
-        COZY_APP_VERSION="${TRAVIS_TAG}"
-    else
-        COZY_APP_VERSION="$(jq -r '.version' < "${manfile}")-dev.${TRAVIS_COMMIT}"
-    fi
-fi
-
-# get app slug from the manifest
-if [ -z "${COZY_APP_SLUG}" ]; then
-    COZY_APP_SLUG="$(jq -r '.slug' < "${manfile}")"
-fi
-
-# if git tag, get archive url from the tag,
-# else, get archive url from the the commit hash
-if [ -z "${COZY_BUILD_URL}" ]; then
-    url="https://github.com/${TRAVIS_REPO_SLUG}/archive"
-    if [ -n "${TRAVIS_TAG}" ]; then
-        COZY_BUILD_URL="${url}/${TRAVIS_TAG}.tar.gz"
-    else
-        COZY_BUILD_URL="${url}/${TRAVIS_COMMIT}.tar.gz"
-    fi
-fi
-
-# get the sha256 hash from the archive from the url
-shasum=$(curl -sSL --fail "${COZY_BUILD_URL}" | shasum -a 256 | cut -d" " -f1)
-
-printf 'Publishing version "%s" from "%s" (%s) to %s\n' "${COZY_APP_VERSION}" "${COZY_BUILD_URL}" "${shasum}" "${REGISTRY_URL}/${COZY_APP_SLUG}"
-
-# publish the application
-curl -sS --fail -X POST \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Token ${REGISTRY_TOKEN}" \
-    -d "{\"editor\": \"${REGISTRY_EDITOR}\", \"version\": \"${COZY_APP_VERSION}\", \"url\": \"${COZY_BUILD_URL}\", \"sha256\": \"${shasum}\", \"type\": \"webapp\"}" \
-    "${REGISTRY_URL}/${COZY_APP_SLUG}"
-```
-
-__This script will:__
+__The previous [`cozy-app-publish`][cozy-app-publish] command will:__
   - Publish a new stable version when git tag (ex: `1.0.0`).
   - Publish a new beta version when git tag with `-beta` inside (ex: `1.0.1-beta2`). (The registry will automatically detect a beta release if there is the term `beta` in the version)
-  - Publish a new dev version at each new CI build on the `COZY_BUILD_BRANCH` which is `build` here.
+  - Publish a new dev version at each new CI build on the `build` branch as specified by the `--on-branch` option here.
+  - Suppose that all the build files are in the root folder (`build` branch here) as specified by the `--build-dir` option here.
 
 ### Access to our official apps registry
 
@@ -461,6 +388,7 @@ You can reach the Cozy Community by:
 
 
 [cozy]: https://cozy.io "Cozy Cloud"
+[cozy-app-publish]: https://github.com/cozy/cozy-app-publish
 [freenode]: http://webchat.freenode.net/?randomnick=1&channels=%23cozycloud&uio=d4
 [forum]: https://forum.cozy.io/
 [github]: https://github.com/cozy/
