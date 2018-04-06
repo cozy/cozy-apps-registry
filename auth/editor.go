@@ -41,8 +41,7 @@ func (e *Editor) Name() string {
 }
 
 func (e *Editor) IsComplete() bool {
-	return len(e.name) > 0 &&
-		len(e.sessionSalt) == sessionSaltLen
+	return len(e.name) > 0 && len(e.sessionSalt) == saltsLen
 }
 
 func (e *Editor) VerifySignature(message, signature []byte) bool {
@@ -59,37 +58,62 @@ func (e *Editor) VerifySignature(message, signature []byte) bool {
 	return err == nil
 }
 
-func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
-	sessionSecret, err := e.sessionSecret(masterSecret)
+func (e *Editor) GenerateMasterToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
+	editorSecret, err := e.derivateSecret(masterSecret, e.masterSalt)
 	if err != nil {
 		return nil, err
 	}
-	token, err := GenerateToken(sessionSecret, nil, []byte(strings.ToLower(e.name)), maxAge)
+	token, err := generateToken(editorSecret, nil, nil, 0)
 	if err != nil {
 		return nil, err
 	}
-	return GenerateToken(masterSecret, token, nil, 0)
+	return generateToken(masterSecret, token, nil, maxAge)
 }
 
-func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
-	value, ok := VerifyToken(masterSecret, token, nil)
+func (e *Editor) VerifyMasterToken(masterSecret, token []byte) bool {
+	value, ok := verifyToken(masterSecret, token, nil)
 	if !ok {
 		return false
 	}
-	sessionSecret, err := e.sessionSecret(masterSecret)
+	sessionSecret, err := e.derivateSecret(masterSecret, e.masterSalt)
 	if err != nil {
 		return false
 	}
-	_, ok = VerifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
+	_, ok = verifyToken(sessionSecret, value, nil)
 	return ok
 }
 
-func (e *Editor) sessionSecret(masterSecret []byte) ([]byte, error) {
+func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
+	sessionSecret, err := e.derivateSecret(masterSecret, e.sessionSalt)
+	if err != nil {
+		return nil, err
+	}
+	token, err := generateToken(sessionSecret, nil, []byte(strings.ToLower(e.name)), 0)
+	if err != nil {
+		return nil, err
+	}
+	return generateToken(masterSecret, token, nil, maxAge)
+}
+
+func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
+	value, ok := verifyToken(masterSecret, token, nil)
+	if !ok {
+		return false
+	}
+	sessionSecret, err := e.derivateSecret(masterSecret, e.sessionSalt)
+	if err != nil {
+		return false
+	}
+	_, ok = verifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
+	return ok
+}
+
+func (e *Editor) derivateSecret(masterSecret, salt []byte) ([]byte, error) {
 	if len(masterSecret) != secretLen {
 		panic("master secret has no correct length")
 	}
 
-	kdf := hkdf.New(sha256.New, masterSecret, e.sessionSalt, []byte(e.name))
+	kdf := hkdf.New(sha256.New, masterSecret, salt, []byte(e.name))
 	sessionSecret := make([]byte, secretLen)
 	_, err := io.ReadFull(kdf, sessionSecret)
 	if err != nil {

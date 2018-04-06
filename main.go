@@ -29,7 +29,8 @@ import (
 const envSessionPass = "REGISTRY_SESSION_PASS"
 
 var cfgFileFlag string
-var maxAgeFlag string
+var tokenMaxAgeFlag string
+var tokenMasterFlag bool
 var passphraseFlag *bool
 
 var editorRegistry *auth.EditorRegistry
@@ -67,8 +68,6 @@ func init() {
 	flags.StringSlice("contexts", nil, "deprecated and renamed `--spaces`")
 	checkNoErr(viper.BindPFlag("contexts", flags.Lookup("contexts")))
 
-	genTokenCmd.Flags().StringVar(&maxAgeFlag, "max-age", "", "validity duration of the token")
-
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(genTokenCmd)
 	rootCmd.AddCommand(verifyTokenCmd)
@@ -83,6 +82,12 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
+
+	genTokenCmd.Flags().StringVar(&tokenMaxAgeFlag, "max-age", "", "validity duration of the token")
+
+	genTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "generate a master token to create applications")
+	revokeTokensCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "revoke a master tokens")
+	verifyTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "verify a master tokens")
 }
 
 func useConfig(cmd *cobra.Command) (err error) {
@@ -249,7 +254,8 @@ var verifySignatureCmd = &cobra.Command{
 var durationReg = regexp.MustCompile(`^([0-9][0-9\.]*)(years|year|y|days|day|d)`)
 
 var genTokenCmd = &cobra.Command{
-	Use:     "gen-token [editor]",
+	Use:     "gen-editor-token [editor]",
+	Aliases: []string{"gen-token"},
 	Short:   `Generate a token for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -258,39 +264,17 @@ var genTokenCmd = &cobra.Command{
 			return err
 		}
 
-		var maxAge time.Duration
-		if m := maxAgeFlag; m != "" {
-			for {
-				submatch := durationReg.FindStringSubmatch(m)
-				if len(submatch) != 3 {
-					break
-				}
-				value := submatch[1]
-				unit := submatch[2]
-				var f float64
-				f, err = strconv.ParseFloat(value, 10)
-				if err != nil {
-					return fmt.Errorf("Could not parse max-age argument: %s", err)
-				}
-				switch unit {
-				case "y", "year", "years":
-					maxAge += time.Duration(f * 365.25 * 24.0 * float64(time.Hour))
-				case "d", "day", "days":
-					maxAge += time.Duration(f * 24.0 * float64(time.Hour))
-				}
-				m = m[len(submatch[0]):]
-			}
-			if m != "" {
-				var age time.Duration
-				age, err = time.ParseDuration(m)
-				if err != nil {
-					return fmt.Errorf("Could not parse max-age argument: %s", err)
-				}
-				maxAge += age
-			}
+		maxAge, err := extractMagAge()
+		if err != nil {
+			return err
 		}
 
-		token, err := editor.GenerateSessionToken(sessionSecret, maxAge)
+		var token []byte
+		if tokenMasterFlag {
+			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
+		} else {
+			token, err = editor.GenerateSessionToken(sessionSecret, maxAge)
+		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
 				editor.Name(), err)
@@ -299,6 +283,42 @@ var genTokenCmd = &cobra.Command{
 		fmt.Println(base64.StdEncoding.EncodeToString(token))
 		return nil
 	},
+}
+
+func extractMagAge() (maxAge time.Duration, err error) {
+	if m := tokenMaxAgeFlag; m != "" {
+		for {
+			submatch := durationReg.FindStringSubmatch(m)
+			if len(submatch) != 3 {
+				break
+			}
+			value := submatch[1]
+			unit := submatch[2]
+			var f float64
+			f, err = strconv.ParseFloat(value, 10)
+			if err != nil {
+				err = fmt.Errorf("Could not parse max-age argument: %s", err)
+				return
+			}
+			switch unit {
+			case "y", "year", "years":
+				maxAge += time.Duration(f * 365.25 * 24.0 * float64(time.Hour))
+			case "d", "day", "days":
+				maxAge += time.Duration(f * 24.0 * float64(time.Hour))
+			}
+			m = m[len(submatch[0]):]
+		}
+		if m != "" {
+			var age time.Duration
+			age, err = time.ParseDuration(m)
+			if err != nil {
+				err = fmt.Errorf("Could not parse max-age argument: %s", err)
+				return
+			}
+			maxAge += age
+		}
+	}
+	return
 }
 
 var verifyTokenCmd = &cobra.Command{
@@ -328,41 +348,44 @@ var verifyTokenCmd = &cobra.Command{
 			token = tokenB64
 		}
 
-		fmt.Fprintf(os.Stderr, "Checking token...")
-		if !editor.VerifySessionToken(sessionSecret, token) {
-			return fmt.Errorf("failed: bad token")
+		var ok bool
+		if tokenMasterFlag {
+			ok = editor.VerifyMasterToken(sessionSecret, token)
+		} else {
+			ok = editor.VerifySessionToken(sessionSecret, token)
 		}
-		fmt.Fprintln(os.Stderr, "ok")
+		if !ok {
+			return fmt.Errorf("token is **not** valid")
+		}
+		fmt.Println("token is valid")
 		return nil
 	},
 }
 
 var revokeTokensCmd = &cobra.Command{
-	Use:     "revoke-tokens [editor] [token]",
+	Use:     "revoke-tokens [editor]",
 	Short:   `Revoke all tokens that have been generated for the specified editor`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editor, rest, err := fetchEditor(args)
+		editor, _, err := fetchEditor(args)
 		if err != nil {
 			return err
 		}
-
-		var tokenVal string
-		if len(rest) == 0 {
-			tokenVal = prompt("Token:")
+		var question string
+		if tokenMasterFlag {
+			question = "Are you sure you want to revoke MASTER tokens from %q ?"
 		} else {
-			tokenVal = rest[0]
+			question = "Are you sure you want to revoke SESSIONS tokens from %q ?"
 		}
-
-		token, err := base64.StdEncoding.DecodeString(tokenVal)
-		if err != nil {
-			return fmt.Errorf("Token is not properly base64 encoded: %s", err)
-		}
-
-		if !askQuestion(true, "Are you sure you want to revoke tokens from %q ?", editor.Name()) {
+		if !askQuestion(true, question, editor.Name()) {
 			return nil
 		}
-		return editorRegistry.RevokeSessionTokens(editor, sessionSecret, token)
+		if tokenMasterFlag {
+			err = editorRegistry.RevokeMasterTokens(editor)
+		} else {
+			err = editorRegistry.RevokeSessionTokens(editor)
+		}
+		return err
 	},
 }
 

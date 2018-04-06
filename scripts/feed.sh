@@ -25,7 +25,7 @@ for name in "${reg1[@]}"; do
     --silent --fail \
     -X POST http://localhost:8081/registry/ \
     -H 'Content-Type:application/json' \
-    -H "Authorization: Token $(cozy-apps-registry gen-token cozy)" \
+    -H "Authorization: Token $(cozy-apps-registry gen-token --master cozy)" \
     -d "{\"slug\": \"${name}\", \"editor\":\"cozy\", \"type\": \"webapp\"}" \
     > /dev/null
 done
@@ -35,7 +35,7 @@ for name in "${reg2[@]}"; do
     --silent --fail \
     -X POST http://localhost:8081/reg2/registry/ \
     -H 'Content-Type:application/json' \
-    -H "Authorization: Token $(cozy-apps-registry gen-token cozy)" \
+    -H "Authorization: Token $(cozy-apps-registry gen-token --master cozy)" \
     -d "{\"slug\": \"${name}\", \"editor\":\"cozy\", \"type\": \"webapp\"}" \
     > /dev/null
 done
@@ -45,7 +45,7 @@ for name in "${reg3[@]}"; do
     --silent --fail \
     -X POST http://localhost:8081/reg3/registry \
     -H 'Content-Type:application/json' \
-    -H "Authorization: Token $(cozy-apps-registry gen-token cozy)" \
+    -H "Authorization: Token $(cozy-apps-registry gen-token --master cozy)" \
     -d "{\"slug\": \"${name}\", \"editor\":\"cozy\", \"type\": \"webapp\"}" \
     > /dev/null
 done

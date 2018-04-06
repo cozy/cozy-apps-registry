@@ -44,12 +44,12 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = validateAppRequest(c, opts); err != nil {
-		return err
+	editor, err := checkPermissions(c, opts.Editor, true /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
 
-	editor, err := checkPermissions(c, opts.Editor)
-	if err != nil {
+	if err = validateAppRequest(c, opts); err != nil {
 		return err
 	}
 
@@ -99,9 +99,9 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	editor, err := checkPermissions(c, ver.Editor)
+	editor, err := checkPermissions(c, ver.Editor, false /* = not master */)
 	if err != nil {
-		return err
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
 
 	if err = registry.CreateVersion(getSpace(c), ver, app, editor); err != nil {
@@ -121,24 +121,27 @@ func checkAuthorized(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := auth.VerifyToken(sessionSecret, token, nil); !ok {
+	if !auth.VerifyTokenAuthentication(sessionSecret, token) {
 		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
 	}
 	return nil
 }
 
-func checkPermissions(c echo.Context, editorName string) (*auth.Editor, error) {
+func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Editor, error) {
 	token, err := extractAuthHeader(c)
 	if err != nil {
 		return nil, err
 	}
-
 	editor, err := editorRegistry.GetEditor(editorName)
 	if err != nil {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
 	}
-
-	ok := editor.VerifySessionToken(sessionSecret, token)
+	var ok bool
+	if master {
+		ok = editor.VerifyMasterToken(sessionSecret, token)
+	} else {
+		ok = editor.VerifySessionToken(sessionSecret, token)
+	}
 	if !ok {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
 	}

@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	secretLen      = 32
-	sessionSaltLen = 16
+	secretLen = 32
+	saltsLen  = 16
 )
 
 var (
@@ -53,6 +53,7 @@ type (
 	Editor struct {
 		name           string
 		sessionSalt    []byte
+		masterSalt     []byte
 		publicKeyBytes []byte
 		publicKey      *rsa.PublicKey
 	}
@@ -69,7 +70,12 @@ func CkeckEditorName(editorName string) error {
 	return nil
 }
 
-func VerifyToken(secret, token, additionalData []byte) ([]byte, bool) {
+func VerifyTokenAuthentication(masterSecret, token []byte) bool {
+	_, ok := verifyToken(masterSecret, token, nil)
+	return ok
+}
+
+func verifyToken(secret, token, additionalData []byte) ([]byte, bool) {
 	if len(secret) != secretLen {
 		panic("master secret has no correct length")
 	}
@@ -112,7 +118,7 @@ func VerifyToken(secret, token, additionalData []byte) ([]byte, bool) {
 	return value, true
 }
 
-func GenerateToken(secret, msg, additionalData []byte, maxAge time.Duration) ([]byte, error) {
+func generateToken(secret, msg, additionalData []byte, maxAge time.Duration) ([]byte, error) {
 	if len(secret) != secretLen {
 		panic("master secret has no correct length")
 	}
@@ -151,7 +157,8 @@ func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyB
 
 	editor := &Editor{
 		name:           editorName,
-		sessionSalt:    readRand(sessionSaltLen),
+		sessionSalt:    readRand(saltsLen),
+		masterSalt:     readRand(saltsLen),
 		publicKeyBytes: publicKeyBytes,
 		publicKey:      publicKey,
 	}
@@ -166,23 +173,24 @@ func (r *EditorRegistry) CreateEditorWithoutPublicKey(editorName string) (*Edito
 	if err := CkeckEditorName(editorName); err != nil {
 		return nil, err
 	}
-
 	editor := &Editor{
 		name:        editorName,
-		sessionSalt: readRand(sessionSaltLen),
+		sessionSalt: readRand(saltsLen),
+		masterSalt:  readRand(saltsLen),
 	}
-
 	if err := r.CreateEditor(editor); err != nil {
 		return nil, err
 	}
 	return editor, nil
 }
 
-func (r *EditorRegistry) RevokeSessionTokens(editor *Editor, masterSecret, token []byte) error {
-	if !editor.VerifySessionToken(masterSecret, token) {
-		return ErrUnauthorized
-	}
-	editor.sessionSalt = readRand(sessionSaltLen)
+func (r *EditorRegistry) RevokeMasterTokens(editor *Editor) error {
+	editor.masterSalt = readRand(saltsLen)
+	return r.UpdateEditor(editor)
+}
+
+func (r *EditorRegistry) RevokeSessionTokens(editor *Editor) error {
+	editor.sessionSalt = readRand(saltsLen)
 	return r.UpdateEditor(editor)
 }
 
