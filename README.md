@@ -247,6 +247,22 @@ changes           | a description of your new version of the application or all 
 
 ### 2) Add a new application in the registry
 
+#### Our official apps registry
+
+Official registry URL: `https://apps-registry.cozycloud.cc`
+
+In order to use our official repository, you need a token for a specific
+editor. To do so, concact us directly at the address contact@cozycloud.cc
+with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
+- `slug` of your application
+- `editor` name that you want
+
+We will provide you with the correct token.
+
+#### Custom registry
+
+See the details below to know how to add a new application in a custom `cozy-apps-registry` instance (local or not).
+<details>
 > __Prequisites__:
 > - For this step, you will need your editor token access generated when you created your editor (see [below](#4-create-an-editor)). You have to replace all `{{EDITOR_TOKEN}}` in this documentation by this token.
 > - The communication with the registry is done through HTTP requests for now. So we will use the `curl` command line tool to register our application here.
@@ -281,8 +297,38 @@ type           | kind of application (it can be only `webapp` or `konnector`)
 editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 __:warning: Here the `slug` is the unique ID of the application in the registry, so it can't be changed after the application is already registered.__
+</details>
 
 ### 3) Add a new version of a registered application
+
+#### Via [`cozy-app-publish`][cozy-app-publish] (highly recommanded)
+
+__Here we will show the classical way to add a version using the manual mode of [`cozy-app-publish`][cozy-app-publish] as reference. But you may need to look at  the [Automation CI part](#automation-ci) of this documentation instead.__
+
+> __Prequisites__:
+> - For this step, you will need your editor token access generated when you created your editor (see [below](#4-create-an-editor)). You have to replace all `{{EDITOR_TOKEN}}` in this documentation by this token.
+> - Don't forget to build your application first (run `yarn build`), `cozy-app-publish` will read the manifest from your build
+
+Firstly, install the [`cozy-app-publish`][cozy-app-publish] package using
+ `yarn` or `npm`:
+```
+yarn add cozy-app-publish --dev
+```
+
+> You can also install the package as a global package, but don't forget to update it frequently
+
+Then use it to publish your application, here is an example for `collect`:
+
+```
+yarn cozy-app-publish \
+--token {{EDITOR_TOKEN}} \
+--build-url https://github.com/cozy/cozy-collect/archive/042cef26d9d33ea604fe4364eaab569980b500c9.tar.gz \
+--manual-version 1.0.2-dev.042cef26d9d33ea604fe4364eaab569980b500c9
+```
+
+If you need more information about this tool, you can go to the official [`cozy-app-publish` documentation](https://github.com/cozy/cozy-app-publish).
+
+#### Via `curl`
 
 __Here we will show the classical way to add a version using `curl` as reference. But you may need to look at our dedicated tool [`cozy-app-publish`][cozy-app-publish] or the [Automation CI part](#automation-ci) of this documentation instead.__
 
@@ -369,10 +415,13 @@ __The previous [`cozy-app-publish`][cozy-app-publish] command will:__
 
 ### Access to our official apps registry
 
-In order to access to our official repository, you need a token for a specific
+Official registry URL: `https://apps-registry.cozycloud.cc`
+
+In order to use our official repository, you need a token for a specific
 editor. To do so, concact us directly at the address contact@cozycloud.cc
-with a mail using the following title prefix: `[registry]` and
-precising the name of the editor of your application.
+with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
+- `slug` of your application
+- `editor` name that you want
 
 We will provide you with the correct token.
 
