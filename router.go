@@ -136,10 +136,8 @@ func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Edi
 	if err != nil {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
 	}
-	var ok bool
-	if master {
-		ok = editor.VerifyMasterToken(sessionSecret, token)
-	} else {
+	ok := editor.VerifyMasterToken(sessionSecret, token)
+	if !ok && !master {
 		ok = editor.VerifyEditorToken(sessionSecret, token)
 	}
 	if !ok {

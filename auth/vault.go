@@ -43,7 +43,7 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 		needUpdate = true
 	}
 	if len(editor.editorSalt) == 0 {
-		editor.masterSalt = readRand(saltsLen)
+		editor.editorSalt = readRand(saltsLen)
 		needUpdate = true
 	}
 	if needUpdate {
