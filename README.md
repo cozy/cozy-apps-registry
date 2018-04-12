@@ -151,6 +151,7 @@ __:warning: Important:__ In this whole documentation, by the term `application`,
 To be publishable, your application requires some informations in its `manifest.webapp`, the manifest of a Cozy application. Here is an example for the application Drive:
 
 <details>
+
 ```json
 {
   "name": "Drive",
@@ -205,6 +206,7 @@ To be publishable, your application requires some informations in its `manifest.
   "intents": {...}
 }
 ```
+
 </details>
 
 ##### For a connector
@@ -212,6 +214,7 @@ To be publishable, your application requires some informations in its `manifest.
 To be publishable, your konnector requires some informations in its `manifest.konnector`, the manifest of a Cozy konnector. Here is an example for the konnector `cozy-konnector-trainline`:
 
 <details>
+
 ```json
 {
   "version": "0.1.0",
@@ -260,6 +263,7 @@ To be publishable, your konnector requires some informations in its `manifest.ko
   }
 }
 ```
+
 </details>
 
 
