@@ -30,6 +30,8 @@ import (
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 
+const screenshotsDir = "screenshots"
+
 var (
 	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
@@ -767,7 +769,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 				if isIcon {
 					filename = "icon"
 				} else if isShot {
-					filename = fmt.Sprintf("screenshots/%s", name)
+					filename = fmt.Sprintf("%s/%s", screenshotsDir, name)
 				} else {
 					panic("unreachable")
 				}
