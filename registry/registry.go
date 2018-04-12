@@ -191,6 +191,20 @@ type Version struct {
 	attachments []*kivik.Attachment
 }
 
+// Manifest type contains a subset of the attributes contained in the manifest
+// of applications. It is only here to help us reading some informations from
+// the manifest that are useful to us, without manipulating maps.
+type Manifest struct {
+	Editor      string   `json:"editor"`
+	Slug        string   `json:"slug"`
+	Version     string   `json:"version"`
+	Icon        string   `json:"icon"`
+	Screenshots []string `json:"screenshots"`
+	Locales     map[string]struct {
+		Screenshots []string `json:"screenshots"`
+	} `json:"locales"`
+}
+
 func NewSpace(prefix string) *Space {
 	return &Space{prefix: prefix}
 }
@@ -516,7 +530,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	reader = io.TeeReader(reader, counter)
 
 	var packVersion string
-	var appType, tarPrefix, editorName string
+	var appType, tarPrefix string
 	var manifestContent []byte
 	hasPrefix := true
 
@@ -613,24 +627,30 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		return
 	}
 
+	var parsedManifest Manifest
+	if err = json.Unmarshal(manifestContent, &parsedManifest); err != nil {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Content of the manifest is not JSON valid: %s", err)
+		return
+	}
+
 	var errm error
-	editorName, ok := manifest["editor"].(string)
-	if !ok || editorName == "" {
+	editorName := parsedManifest.Editor
+	if editorName == "" {
 		errm = multierror.Append(errm,
 			fmt.Errorf("%q field is empty", "editor"))
 	}
 
-	slug, ok := manifest["slug"].(string)
-	if !ok || slug == "" {
+	slug := parsedManifest.Slug
+	if slug == "" {
 		errm = multierror.Append(errm,
 			fmt.Errorf("%q field is empty", "slug"))
 	}
 
 	{
-		var version string
-		version, ok = manifest["version"].(string)
+		version := parsedManifest.Version
 		var match bool
-		if !ok {
+		if version == "" {
 			// nothing
 		} else if GetVersionChannel(opts.Version) != Dev {
 			match = opts.Version == version
@@ -663,34 +683,33 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 
 	var attachments []*kivik.Attachment
 	{
-		var ok bool
 		var iconPath string
 		if opts.Icon != "" {
-			iconPath, ok = opts.Icon, true
+			iconPath = opts.Icon
 		} else {
-			iconPath, ok = manifest["icon"].(string)
+			iconPath = parsedManifest.Icon
 		}
-		if ok {
+		if iconPath == "" {
 			iconPath = path.Join("/", iconPath)
 		}
 
 		var screenshotPaths []string
 		if opts.Screenshots != nil {
-			screenshotPaths, ok = opts.Screenshots, true
+			screenshotPaths = opts.Screenshots
+			for i, shot := range screenshotPaths {
+				screenshotPaths[i] = path.Join("/", shot)
+			}
 		} else {
-			var s []interface{}
-			s, ok = manifest["screenshots"].([]interface{})
-			if ok {
-				for _, screen := range s {
-					if str, isStr := screen.(string); isStr {
-						screenshotPaths = append(screenshotPaths, str)
+			for _, shot := range parsedManifest.Screenshots {
+				screenshotPaths = append(screenshotPaths, path.Join("/", shot))
+			}
+			for _, locale := range parsedManifest.Locales {
+				for _, shot := range locale.Screenshots {
+					shot = path.Join("/", shot)
+					if !stringInArray(shot, screenshotPaths) {
+						screenshotPaths = append(screenshotPaths, shot)
 					}
 				}
-			}
-		}
-		if ok {
-			for i, s := range screenshotPaths {
-				screenshotPaths[i] = path.Join("/", s)
 			}
 		}
 

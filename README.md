@@ -311,6 +311,7 @@ name              | the name to display on the home
 short_description | a short description of the application
 long_description  | a longer and more complete description of the application
 changes           | a description of your new version of the application or all changes since the last version, this part will be the changelog part of the application page in `cozy-store`
+screenshots       | an array of paths to the screenshots of the application of this specific locale (paths in the build)
 
 
 > __Notices:__
