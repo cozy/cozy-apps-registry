@@ -3,7 +3,6 @@ package registry
 import (
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
 
 	"github.com/cozy/echo"
@@ -193,26 +192,6 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 		Beta:   beta,
 		Dev:    dev,
 	}, nil
-}
-
-func FindAppScreenshots(c *Space, appSlug string, channel Channel) ([]string, error) {
-	screens := make([]string, 0)
-	ver, err := FindLatestVersion(c, appSlug, channel)
-	if err != nil {
-		if err == ErrVersionNotFound {
-			return screens, nil
-		}
-		return nil, err
-	}
-
-	for name := range ver.Attachments {
-		if strings.HasPrefix(name, screenshotsDir+"/") {
-			screens = append(screens, strings.TrimPrefix(name, screenshotsDir+"/"))
-		}
-	}
-
-	sort.Strings(screens)
-	return screens, nil
 }
 
 type AppsListOptions struct {

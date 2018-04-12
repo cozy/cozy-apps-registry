@@ -312,7 +312,13 @@ func getVersionIcon(c echo.Context) error {
 }
 
 func getVersionScreenshot(c echo.Context) error {
-	return getVersionAttachment(c, path.Join("screenshots", c.Param("filename")))
+	err := getVersionAttachment(c, path.Join("screenshots", c.Param("*")))
+	if err != nil {
+		if errh, ok := err.(*echo.HTTPError); ok && errh.Code == http.StatusNotFound {
+			err = getVersionAttachment(c, path.Join("screenshots", path.Base(c.Param("*"))))
+		}
+	}
+	return err
 }
 
 func getVersionAttachment(c echo.Context, filename string) error {
@@ -612,8 +618,8 @@ func Router(addr string) *echo.Echo {
 		g.HEAD("/:app/:channel/latest/icon", getAppIcon)
 		g.HEAD("/:app/:version/icon", getVersionIcon)
 		g.GET("/:app/:version/icon", getVersionIcon)
-		g.HEAD("/:app/:version/screenshots/:filename", getVersionScreenshot)
-		g.GET("/:app/:version/screenshots/:filename", getVersionScreenshot)
+		g.HEAD("/:app/:version/screenshots/*", getVersionScreenshot)
+		g.GET("/:app/:version/screenshots/*", getVersionScreenshot)
 	}
 
 	e.GET("/editors", getEditorsList, jsonEndpoint)

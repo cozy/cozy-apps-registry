@@ -243,7 +243,7 @@ To be publishable, your konnector requires some informations in its `manifest.ko
       }
     }
   },
-  "data_type": [
+  "data_types": [
     "bill"
   ],
   "permissions": {...},
@@ -275,7 +275,7 @@ Here are all properties meaning for the manifest file (for webapp and konnectors
 Field          | Description
 ---------------|-------------------------------------------------------------
 `categories`     | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
-`data_type`      | _(konnector specific)_ Array of the data type the konnector will manage
+`data_types`     | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`      | `name` and `url` for the developer
 `editor`         | the editor's name to display on the cozy-bar
 `fields`         | _(konnector specific)_ JSON object describing the fields need by the konnector. Used to generate a form. See [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#fields-property)
