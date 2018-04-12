@@ -15,8 +15,8 @@ import (
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
 
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/cozy/echo"
+	"github.com/cozy/echo/middleware"
 
 	"github.com/go-kivik/kivik"
 )

@@ -23,9 +23,9 @@ import (
 	"github.com/cozy/cozy-apps-registry/magic"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"github.com/cozy/echo"
 	_ "github.com/go-kivik/couchdb" // for couchdb
 	"github.com/go-kivik/kivik"
-	"github.com/labstack/echo"
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo

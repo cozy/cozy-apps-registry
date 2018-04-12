@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
-	"github.com/labstack/echo"
 )
 
 var validFilters = []string{
