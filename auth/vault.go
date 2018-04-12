@@ -16,7 +16,7 @@ type editorForCouchdb struct {
 	ID             string `json:"_id,omitempty"`
 	Rev            string `json:"_rev,omitempty"`
 	Name           string `json:"name"`
-	SessionSalt    []byte `json:"session_secret_salt"`
+	EditorSalt     []byte `json:"session_secret_salt"`
 	MasterSalt     []byte `json:"master_secret_salt"`
 	PublicKeyBytes []byte `json:"public_key"`
 }
@@ -33,7 +33,7 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 	}
 	editor := &Editor{
 		name:           e.Name,
-		sessionSalt:    e.SessionSalt,
+		editorSalt:     e.EditorSalt,
 		masterSalt:     e.MasterSalt,
 		publicKeyBytes: e.PublicKeyBytes,
 	}
@@ -42,7 +42,7 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 		editor.masterSalt = readRand(saltsLen)
 		needUpdate = true
 	}
-	if len(editor.sessionSalt) == 0 {
+	if len(editor.editorSalt) == 0 {
 		editor.masterSalt = readRand(saltsLen)
 		needUpdate = true
 	}
@@ -65,7 +65,7 @@ func (r *couchdbVault) CreateEditor(editor *Editor) error {
 	_, _, err = r.db.CreateDoc(r.ctx, &editorForCouchdb{
 		ID:             strings.ToLower(editor.name),
 		Name:           editor.name,
-		SessionSalt:    editor.sessionSalt,
+		EditorSalt:     editor.editorSalt,
 		MasterSalt:     editor.masterSalt,
 		PublicKeyBytes: editor.publicKeyBytes,
 	})
@@ -81,7 +81,7 @@ func (r *couchdbVault) UpdateEditor(editor *Editor) error {
 		ID:             e.ID,
 		Rev:            e.Rev,
 		Name:           editor.name,
-		SessionSalt:    editor.sessionSalt,
+		EditorSalt:     editor.editorSalt,
 		MasterSalt:     editor.masterSalt,
 		PublicKeyBytes: editor.publicKeyBytes,
 	})
@@ -116,7 +116,7 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 		}
 		editors = append(editors, &Editor{
 			name:           e.Name,
-			sessionSalt:    e.SessionSalt,
+			editorSalt:     e.EditorSalt,
 			masterSalt:     e.MasterSalt,
 			publicKeyBytes: e.PublicKeyBytes,
 		})

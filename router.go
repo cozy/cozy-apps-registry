@@ -140,7 +140,7 @@ func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Edi
 	if master {
 		ok = editor.VerifyMasterToken(sessionSecret, token)
 	} else {
-		ok = editor.VerifySessionToken(sessionSecret, token)
+		ok = editor.VerifyEditorToken(sessionSecret, token)
 	}
 	if !ok {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")

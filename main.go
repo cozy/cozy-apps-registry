@@ -273,7 +273,7 @@ var genTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
 		} else {
-			token, err = editor.GenerateSessionToken(sessionSecret, maxAge)
+			token, err = editor.GenerateEditorToken(sessionSecret, maxAge)
 		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
@@ -352,7 +352,7 @@ var verifyTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			ok = editor.VerifyMasterToken(sessionSecret, token)
 		} else {
-			ok = editor.VerifySessionToken(sessionSecret, token)
+			ok = editor.VerifyEditorToken(sessionSecret, token)
 		}
 		if !ok {
 			return fmt.Errorf("token is **not** valid")
@@ -383,7 +383,7 @@ var revokeTokensCmd = &cobra.Command{
 		if tokenMasterFlag {
 			err = editorRegistry.RevokeMasterTokens(editor)
 		} else {
-			err = editorRegistry.RevokeSessionTokens(editor)
+			err = editorRegistry.RevokeEditorTokens(editor)
 		}
 		return err
 	},

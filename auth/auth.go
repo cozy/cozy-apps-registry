@@ -52,7 +52,7 @@ type (
 
 	Editor struct {
 		name           string
-		sessionSalt    []byte
+		editorSalt     []byte
 		masterSalt     []byte
 		publicKeyBytes []byte
 		publicKey      *rsa.PublicKey
@@ -157,7 +157,7 @@ func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyB
 
 	editor := &Editor{
 		name:           editorName,
-		sessionSalt:    readRand(saltsLen),
+		editorSalt:     readRand(saltsLen),
 		masterSalt:     readRand(saltsLen),
 		publicKeyBytes: publicKeyBytes,
 		publicKey:      publicKey,
@@ -174,9 +174,9 @@ func (r *EditorRegistry) CreateEditorWithoutPublicKey(editorName string) (*Edito
 		return nil, err
 	}
 	editor := &Editor{
-		name:        editorName,
-		sessionSalt: readRand(saltsLen),
-		masterSalt:  readRand(saltsLen),
+		name:       editorName,
+		editorSalt: readRand(saltsLen),
+		masterSalt: readRand(saltsLen),
 	}
 	if err := r.CreateEditor(editor); err != nil {
 		return nil, err
@@ -189,8 +189,8 @@ func (r *EditorRegistry) RevokeMasterTokens(editor *Editor) error {
 	return r.UpdateEditor(editor)
 }
 
-func (r *EditorRegistry) RevokeSessionTokens(editor *Editor) error {
-	editor.sessionSalt = readRand(saltsLen)
+func (r *EditorRegistry) RevokeEditorTokens(editor *Editor) error {
+	editor.editorSalt = readRand(saltsLen)
 	return r.UpdateEditor(editor)
 }
 

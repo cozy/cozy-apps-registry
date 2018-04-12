@@ -41,7 +41,7 @@ func (e *Editor) Name() string {
 }
 
 func (e *Editor) IsComplete() bool {
-	return len(e.name) > 0 && len(e.sessionSalt) == saltsLen
+	return len(e.name) > 0 && len(e.editorSalt) == saltsLen
 }
 
 func (e *Editor) VerifySignature(message, signature []byte) bool {
@@ -83,8 +83,8 @@ func (e *Editor) VerifyMasterToken(masterSecret, token []byte) bool {
 	return ok
 }
 
-func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
-	sessionSecret, err := e.derivateSecret(masterSecret, e.sessionSalt)
+func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
+	sessionSecret, err := e.derivateSecret(masterSecret, e.editorSalt)
 	if err != nil {
 		return nil, err
 	}
@@ -95,12 +95,12 @@ func (e *Editor) GenerateSessionToken(masterSecret []byte, maxAge time.Duration)
 	return generateToken(masterSecret, token, nil, maxAge)
 }
 
-func (e *Editor) VerifySessionToken(masterSecret, token []byte) bool {
+func (e *Editor) VerifyEditorToken(masterSecret, token []byte) bool {
 	value, ok := verifyToken(masterSecret, token, nil)
 	if !ok {
 		return false
 	}
-	sessionSecret, err := e.derivateSecret(masterSecret, e.sessionSalt)
+	sessionSecret, err := e.derivateSecret(masterSecret, e.editorSalt)
 	if err != nil {
 		return false
 	}
