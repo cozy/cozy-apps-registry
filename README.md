@@ -117,7 +117,7 @@ In another terminal, run these commands to create an editor (the one that will s
 
 ```shell
 cozy-apps-registry add-editor Cozy -c cozy-registry.yml
-cozy-apps-registry gen-token Cozy -c cozy-registry.yml
+cozy-apps-registry gen-token --master Cozy -c cozy-registry.yml
 ```
 
 Here we go, you have now an registry ready and running on the 8081 port.
@@ -242,7 +242,7 @@ To be publishable, your konnector requires some informations in its `manifest.ko
       }
     }
   },
-  "dataType": [
+  "data_type": [
     "bill"
   ],
   "permissions": {...},
@@ -273,35 +273,35 @@ Here are all properties meaning for the manifest file (for webapp and konnectors
 
 Field          | Description
 ---------------|-------------------------------------------------------------
-categories     | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
-dataType       | _(konnector specific)_ Array of the data type the konnector will manage
-developer      | `name` and `url` for the developer
-editor         | the editor's name to display on the cozy-bar
-fields         | _(konnector specific)_ JSON object describing the fields need by the konnector. Used to generate a form. See [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#fields-property)
-frequency      | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default : `weekly`.
-icon           | path to the icon for the home (path in the build)
-intents        | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://cozy.github.io/cozy-stack/intents.html) for more details)
-langs          | Languages available in your app (can be different from locales)
-language       | _(konnector specific)_ the konnector development language used (ex: `node`)
-license        | [the SPDX license identifier](https://spdx.org/licenses/)
-locales        | an object with language slug as property, each name property is an object of localized informations (see the second part below)
-messages       | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See example in [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#messages-example).
-name           | the name to display on the home
-name_prefix    | the prefix to display with the name
-oauth          | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
-parameters     | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
-permissions    | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
-platforms      | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
-routes         | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details)
-screenshots    | an array of path sto the screenshots of the application (paths in the build)
-services       | _(application specific)_ a map of the services associated with the app (see [cozy-stack services doc](https://cozy.github.io/cozy-stack/apps.html#services) for more details)
-slug           | the default slug that should never change (alpha-numeric lowercase)
-source         | where the files of the app can be downloaded (by default it will look for the branch `build`)
-tags           | a list a tags describing your application and features (useful for indexing and search)
-time_interval  | _(konnector specific)_ By defaults, konnector triggers are scheduled randomly between 00:00 AM and 05:00 AM. Those two values can be overwritten thanks to this property, by passing an array containing two values: first is the interval start hour, second is the interval end hour. Example: `[15, 21]` will randomly schedule the konnector trigger between 15:00 (03:00 PM) and 21:00 (09:00 PM).
-type           | type of application (`konnector` or `webapp`)
-version        | the current version number
-vendor_link    | _(konnector specific)_ URL to editor or service website
+`categories`     | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
+`data_type`      | _(konnector specific)_ Array of the data type the konnector will manage
+`developer`      | `name` and `url` for the developer
+`editor`         | the editor's name to display on the cozy-bar
+`fields`         | _(konnector specific)_ JSON object describing the fields need by the konnector. Used to generate a form. See [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#fields-property)
+`frequency`      | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default : `weekly`.
+`icon`           | path to the icon for the home (path in the build)
+`intents`        | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://cozy.github.io/cozy-stack/intents.html) for more details)
+`langs`          | Languages available in your app (can be different from locales)
+`language`       | _(konnector specific)_ the konnector development language used (ex: `node`)
+`license`        | [the SPDX license identifier](https://spdx.org/licenses/)
+`locales`        | an object with language slug as property, each name property is an object of localized informations (see the second part below)
+`messages`       | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See example in [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#messages-example).
+`name`           | the name to display on the home
+`name_prefix`    | the prefix to display with the name
+`oauth`          | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
+`parameters`     | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
+`permissions`    | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
+`platforms`      | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
+`routes`         | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details)
+`screenshots`    | an array of paths to the screenshots of the application (paths in the build)
+`services`       | _(application specific)_ a map of the services associated with the app (see [cozy-stack services doc](https://cozy.github.io/cozy-stack/apps.html#services) for more details)
+`slug`           | the default slug that should never change (alpha-numeric lowercase)
+`source`         | where the files of the app can be downloaded (by default it will look for the branch `build`)
+`tags`           | a list a tags describing your application and features (useful for indexing and search)
+`time_interval`  | _(konnector specific)_ By defaults, konnector triggers are scheduled randomly between 00:00 AM and 05:00 AM. Those two values can be overwritten thanks to this property, by passing an array containing two values: first is the interval start hour, second is the interval end hour. Example: `[15, 21]` will randomly schedule the konnector trigger between 15:00 (03:00 PM) and 21:00 (09:00 PM).
+`type`           | type of application (`konnector` or `webapp`)
+`version`        | the current version number
+`vendor_link`    | _(konnector specific)_ URL to editor or service website
 
 Here are the properties that you can override using `locales` (we recommand to automatically build these properties according to your locales files if you're using a translating tool like `transifex`) :
 
