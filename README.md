@@ -27,6 +27,7 @@
     - [3) Add a new version of a registered application](#3-add-a-new-version-of-a-registered-application)
     - [Automation (CI)](#automation-ci)
     - [Access to our official apps registry](#access-to-our-official-apps-registry)
+- __[Access control and tokens](#access-control-and-tokens)__
 - __[Community](#community)__
 
 
@@ -500,6 +501,46 @@ with a mail using the following title prefix: `[registry]` and provide us these 
 
 We will provide you with the correct token.
 
+## Access control and tokens
+
+The read-only routes of the registry are all public and do not require any
+access-contre. However routes allowing to create applications and versions have
+access-control policies associated to them.
+
+The registry has two types of access permissions, that are associated to two
+different tokens:
+
+  - **editor tokens**: these tokens give access to the publication of new versions
+    on the registry, for a specific editor name, at these conditions:
+    * the version's application must already exist in the registry
+    * the version's application must have the same "editor" value as the token
+  - **master tokens**: these tokens are allowed to create and register new
+    applications on the registry, and associate them with an existing editor
+    name. They also have the same accesses as the editor tokens.
+
+In order to create tokens, the binary offers a `gen-token` command-line. Here are some examples to illustrates some usages:
+
+```sh
+# Generating tokens
+  # generate an editor token for the editor "cozy"
+  $ cozy-apps-registry gen-token cozy
+  # generate an editor token for the editor "cozy" expiring after 30 days
+  $ cozy-apps-registry gen-token cozy --max-age 30d
+  # generate a master token associated with the editor "cozy" expiring after 30 days
+  $ cozy-apps-registry gen-token cozy --master --max-age 30d
+
+# Verifying tokens
+  # verify the editor token "XXX" for the editor "cozy"
+  $ cozy-apps-registry verify-token cozy "XXX"
+  # verify the master token "XXX" associated with the editor "cozy"
+  $ cozy-apps-registry verify-token cozy "XXX" --master
+
+# Revoking tokens
+  # revoke all editors tokens for the cozy editor
+  $ cozy-apps-registry revoke-tokens cozy
+  # revoke all master tokens associated with the cozy editor
+  $ cozy-apps-registry revoke-tokens cozy --master
+```
 
 ## Community
 
