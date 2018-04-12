@@ -27,6 +27,9 @@ func NewCouchDBVault(db *kivik.DB) Vault {
 }
 
 func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
+	if err := CheckEditorName(editorName); err != nil {
+		return nil, err
+	}
 	e, err := r.getEditor(editorName)
 	if err != nil {
 		return nil, err

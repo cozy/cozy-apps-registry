@@ -234,7 +234,7 @@ func getAppsList(c echo.Context) error {
 		},
 	}
 
-	return json(c, j)
+	return writeJSON(c, j)
 }
 
 func getApp(c echo.Context) error {
@@ -252,7 +252,7 @@ func getApp(c echo.Context) error {
 	doc.ID = ""
 	doc.Rev = ""
 
-	return json(c, doc)
+	return writeJSON(c, doc)
 }
 
 func getAppIcon(c echo.Context) error {
@@ -346,7 +346,7 @@ func getAppVersions(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	return json(c, doc)
+	return writeJSON(c, doc)
 }
 
 func getVersion(c echo.Context) error {
@@ -371,7 +371,7 @@ func getVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
-	return json(c, doc)
+	return writeJSON(c, doc)
 }
 
 func getLatestVersion(c echo.Context) error {
@@ -396,7 +396,7 @@ func getLatestVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
-	return json(c, doc)
+	return writeJSON(c, doc)
 }
 
 func getEditor(c echo.Context) error {
@@ -410,7 +410,7 @@ func getEditor(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	return json(c, editor)
+	return writeJSON(c, editor)
 }
 
 func getEditorsList(c echo.Context) error {
@@ -418,7 +418,7 @@ func getEditorsList(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return json(c, editors)
+	return writeJSON(c, editors)
 }
 
 // jsonEndPoint middleware checks that the Content-Type and Accept headers are
@@ -558,7 +558,7 @@ func stripVersion(v string) string {
 	return v
 }
 
-func json(c echo.Context, doc interface{}) error {
+func writeJSON(c echo.Context, doc interface{}) error {
 	if c.Request().Method == http.MethodHead {
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
 		return c.NoContent(http.StatusOK)

@@ -30,8 +30,6 @@ import (
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
 
-const screenshotsDir = "screenshots"
-
 var (
 	validSlugReg    = regexp.MustCompile(`^[a-z0-9\-]*$`)
 	validVersionReg = regexp.MustCompile(`^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})(-dev\.[a-f0-9]{1,40}|-beta.(0|[1-9][0-9]{0,4}))?$`)
@@ -338,14 +336,14 @@ func IsValidApp(app *AppOptions) error {
 		return ErrAppSlugInvalid
 	}
 	if app.Editor == "" {
-		fields = append(fields, "editor")
+		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
+			"the following `editor` field is empty")
 	}
 	if !stringInArray(app.Type, validAppTypes) {
-		fields = append(fields, "type")
+		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
+			"got type %q, must be one of these: %s", app.Type, strings.Join(validAppTypes, ", "))
 	}
 	if len(fields) > 0 {
-		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
-			"the following fields are missing or erroneous: %s", strings.Join(fields, ", "))
 	}
 	return nil
 }
@@ -769,7 +767,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 				if isIcon {
 					filename = "icon"
 				} else if isShot {
-					filename = fmt.Sprintf("%s/%s", screenshotsDir, path.Base(name))
+					filename = fmt.Sprintf("screenshots/%s", name)
+				} else {
+					panic("unreachable")
 				}
 				mime := magic.MIMEType(name, data)
 				body := ioutil.NopCloser(bytes.NewReader(data))

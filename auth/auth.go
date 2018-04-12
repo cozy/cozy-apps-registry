@@ -63,8 +63,8 @@ func NewEditorRegistry(vault Vault) (*EditorRegistry, error) {
 	return &EditorRegistry{vault}, nil
 }
 
-func CkeckEditorName(editorName string) error {
-	if !editorReg.MatchString(editorName) {
+func CheckEditorName(editorName string) error {
+	if editorName == "" || !editorReg.MatchString(editorName) {
 		return ErrBadEditorName
 	}
 	return nil
@@ -146,7 +146,7 @@ func generateToken(secret, msg, additionalData []byte, maxAge time.Duration) ([]
 }
 
 func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyBytes []byte) (*Editor, error) {
-	if err := CkeckEditorName(editorName); err != nil {
+	if err := CheckEditorName(editorName); err != nil {
 		return nil, err
 	}
 
@@ -170,7 +170,7 @@ func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyB
 }
 
 func (r *EditorRegistry) CreateEditorWithoutPublicKey(editorName string) (*Editor, error) {
-	if err := CkeckEditorName(editorName); err != nil {
+	if err := CheckEditorName(editorName); err != nil {
 		return nil, err
 	}
 	editor := &Editor{

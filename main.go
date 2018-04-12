@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -32,6 +33,10 @@ var cfgFileFlag string
 var tokenMaxAgeFlag string
 var tokenMasterFlag bool
 var passphraseFlag *bool
+
+var appEditorFlag string
+var appTypeFlag string
+var appSpaceFlag string
 
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
@@ -78,6 +83,7 @@ func init() {
 	rootCmd.AddCommand(addEditorCmd)
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
+	rootCmd.AddCommand(addAppCmd)
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
 
@@ -88,6 +94,12 @@ func init() {
 	genTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "generate a master token to create applications")
 	revokeTokensCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "revoke a master tokens")
 	verifyTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "verify a master tokens")
+
+	addAppCmd.Flags().StringVar(&appEditorFlag, "app-editor", "", "specify the application editor")
+	addAppCmd.Flags().StringVar(&appTypeFlag, "app-type", "", "specify the application type")
+	addAppCmd.Flags().StringVar(&appSpaceFlag, "app-space", "", "specify the application space")
+	addAppCmd.MarkFlagRequired("editor")
+	addAppCmd.MarkFlagRequired("type")
 }
 
 func useConfig(cmd *cobra.Command) (err error) {
@@ -577,6 +589,49 @@ var lsEditorsCmd = &cobra.Command{
 	},
 }
 
+var addAppCmd = &cobra.Command{
+	Use:     "add-app [slug]",
+	Aliases: []string{"create-app"},
+	Short:   `Add an editor to the registry though an interactive CLI`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 1 {
+			return cmd.Help()
+		}
+
+		editor, err := editorRegistry.GetEditor(appEditorFlag)
+		if err != nil {
+			return err
+		}
+
+		space, ok := registry.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		opts := &registry.AppOptions{
+			Slug:   args[0],
+			Editor: appEditorFlag,
+			Type:   appTypeFlag,
+		}
+		if err = registry.IsValidApp(opts); err != nil {
+			return err
+		}
+
+		app, err := registry.CreateApp(space, opts, editor)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(app, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+		return nil
+	},
+}
+
 var exportCmd = &cobra.Command{
 	Use:     "export [file]",
 	Short:   `Export the entire registry into one tarball file.`,
@@ -738,12 +793,12 @@ it to you configuration file.`, relPath)
 func getEditorName(args []string) (editorName string, rest []string, err error) {
 	if len(args) > 0 {
 		editorName, rest = args[0], args[1:]
-		err = auth.CkeckEditorName(editorName)
+		err = auth.CheckEditorName(editorName)
 		return
 	}
 	for {
 		editorName = prompt("Editor name:")
-		if err = auth.CkeckEditorName(editorName); err != nil {
+		if err = auth.CheckEditorName(editorName); err != nil {
 			fmt.Fprintf(os.Stderr, err.Error())
 			continue
 		}
