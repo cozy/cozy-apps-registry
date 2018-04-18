@@ -223,7 +223,7 @@ To be publishable, your konnector requires some informations in its `manifest.ko
   "type": "konnector",
   "language": "node",
   "icon": "icon.svg",
-  "slug": "trainline-collect",
+  "slug": "trainline",
   "source": "git://github.com/konnectors/cozy-konnector-trainline.git#build",
   "editor": "Cozy",
   "vendorLink": "www.trainline.fr",
