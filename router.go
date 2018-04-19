@@ -82,6 +82,11 @@ func createVersion(c echo.Context) (err error) {
 	}
 	opts.Version = stripVersion(opts.Version)
 
+	editor, err := checkPermissions(c, app.Editor, false /* = not master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
 	if err = validateVersionRequest(c, opts); err != nil {
 		return err
 	}
@@ -92,11 +97,6 @@ func createVersion(c echo.Context) (err error) {
 	}
 	if err != registry.ErrVersionNotFound {
 		return err
-	}
-
-	editor, err := checkPermissions(c, app.Editor, false /* = not master */)
-	if err != nil {
-		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
 
 	ver, err := registry.DownloadVersion(opts)
