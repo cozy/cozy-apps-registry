@@ -13,10 +13,11 @@ curl -s $couch_addr/_all_dbs | jq -r '.[]' | grep "registry-" | \
 
 reg1=("banks" "drive" "health" "photos" "collect")
 reg2=("drive" "homebook" "banks" "collect")
-reg3=("banks" "collect" "drive" "onboarding" "photos" "settings")
+mesinfos=("banks" "collect" "drive" "onboarding" "photos" "settings")
 
 cozy-apps-registry add-editor Cozy
-cozy-apps-registry --port 8081 --spaces __default__,reg2,reg3 serve &
+cozy-apps-registry add-editor MesInfos
+cozy-apps-registry --port 8081 --spaces __default__,reg2,mesinfos serve &
 pid=$!
 sleep 1
 
@@ -40,13 +41,13 @@ for name in "${reg2[@]}"; do
     > /dev/null
 done
 
-for name in "${reg3[@]}"; do
+for name in "${mesinfos[@]}"; do
   curl \
     --silent --fail \
-    -X POST http://localhost:8081/reg3/registry \
+    -X POST http://localhost:8081/mesinfos/registry \
     -H 'Content-Type:application/json' \
-    -H "Authorization: Token $(cozy-apps-registry gen-token --master Cozy)" \
-    -d "{\"slug\": \"${name}\", \"editor\":\"cozy\", \"type\": \"webapp\"}" \
+    -H "Authorization: Token $(cozy-apps-registry gen-token Cozy)" \
+    -d "{\"slug\": \"${name}\", \"editor\":\"MesInfos\", \"type\": \"webapp\"}" \
     > /dev/null
 done
 

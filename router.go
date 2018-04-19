@@ -94,14 +94,14 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
+	editor, err := checkPermissions(c, app.Editor, false /* = not master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
 	ver, err := registry.DownloadVersion(opts)
 	if err != nil {
 		return err
-	}
-
-	editor, err := checkPermissions(c, ver.Editor, false /* = not master */)
-	if err != nil {
-		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
 
 	if err = registry.CreateVersion(getSpace(c), ver, app, editor); err != nil {
@@ -136,9 +136,20 @@ func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Edi
 	if err != nil {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
 	}
-	ok := editor.VerifyMasterToken(sessionSecret, token)
-	if !ok && !master {
+	ok := false
+	if !master {
 		ok = editor.VerifyEditorToken(sessionSecret, token)
+	}
+	if !ok {
+		editors, err := editorRegistry.AllEditors()
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range editors {
+			if ok = e.VerifyMasterToken(sessionSecret, token); ok {
+				break
+			}
+		}
 	}
 	if !ok {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
