@@ -328,7 +328,7 @@ screenshots       | an array of paths to the screenshots of the application of t
 Official registry URL: `https://apps-registry.cozycloud.cc`
 
 In order to use our official repository, you need a token for a specific
-editor. To do so, concact us directly at the address contact@cozycloud.cc
+editor. To do so, contact us directly at the address contact@cozycloud.cc
 with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
 - `slug` of your application
 - `editor` name that you want
@@ -494,7 +494,7 @@ __The previous [`cozy-app-publish`][cozy-app-publish] command will:__
 Official registry URL: `https://apps-registry.cozycloud.cc`
 
 In order to use our official repository, you need a token for a specific
-editor. To do so, concact us directly at the address contact@cozycloud.cc
+editor. To do so, contact us directly at the address contact@cozycloud.cc
 with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
 - `slug` of your application
 - `editor` name that you want
