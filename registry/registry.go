@@ -646,13 +646,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	}
 
 	{
-		version := parsedManifest.Version
 		var match bool
-		if version == "" {
-			// nothing
-		} else if GetVersionChannel(opts.Version) != Dev {
-			match = opts.Version == version
-		} else {
+		version := parsedManifest.Version
+		if version != "" {
 			match = VersionMatch(opts.Version, version)
 		}
 		if !match {
@@ -661,15 +657,11 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 					"version", version, opts.Version))
 		}
 		if packVersion != "" {
-			if GetVersionChannel(opts.Version) != Dev {
-				match = opts.Version == packVersion
-			} else {
-				match = VersionMatch(opts.Version, packVersion)
-			}
+			match = VersionMatch(opts.Version, packVersion)
 			if !match {
 				errm = multierror.Append(errm,
-					fmt.Errorf("version from package.json (%q != %q)",
-						version, packVersion))
+					fmt.Errorf("\"version\" from package.json (%q != %q)",
+						opts.Version, packVersion))
 			}
 		}
 	}
@@ -831,9 +823,11 @@ func SplitVersion(version string) (v [3]string) {
 		version = version[:strings.Index(version, devSuffix)]
 	}
 	s := strings.SplitN(version, ".", 3)
-	v[0] = s[0]
-	v[1] = s[1]
-	v[2] = s[2]
+	if len(s) == 3 {
+		v[0] = s[0]
+		v[1] = s[1]
+		v[2] = s[2]
+	}
 	return
 }
 
