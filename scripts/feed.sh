@@ -13,7 +13,7 @@ curl -s $couch_addr/_all_dbs | jq -r '.[]' | grep "registry-" | \
 
 reg1=("banks" "drive" "health" "photos" "collect")
 reg2=("drive" "homebook" "banks" "collect")
-mesinfos=("banks" "collect" "drive" "onboarding" "photos" "settings")
+mesinfos=("banks" "digiposte" "collect" "drive" "onboarding" "photos" "settings")
 
 cozy-apps-registry add-editor Cozy
 cozy-apps-registry add-editor MesInfos
@@ -46,7 +46,7 @@ for name in "${mesinfos[@]}"; do
     --silent --fail \
     -X POST http://localhost:8081/mesinfos/registry \
     -H 'Content-Type:application/json' \
-    -H "Authorization: Token $(cozy-apps-registry gen-token Cozy)" \
+    -H "Authorization: Token $(cozy-apps-registry gen-token --master Cozy)" \
     -d "{\"slug\": \"${name}\", \"editor\":\"MesInfos\", \"type\": \"webapp\"}" \
     > /dev/null
 done

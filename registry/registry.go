@@ -476,7 +476,7 @@ func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentTy
 	e, _ := hex.DecodeString(shasum)
 	if !bytes.Equal(e, h.Sum(nil)) {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Checksum does not match the calculated one")
+			"Checksum does not match the calculated one (expecting %q, got %q)", shasum, hex.EncodeToString(h.Sum(nil)))
 		return
 	}
 
@@ -679,7 +679,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		} else {
 			iconPath = parsedManifest.Icon
 		}
-		if iconPath == "" {
+		if iconPath != "" {
 			iconPath = path.Join("/", iconPath)
 		}
 
