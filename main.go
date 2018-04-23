@@ -73,6 +73,9 @@ func init() {
 	flags.StringSlice("contexts", nil, "deprecated and renamed `--spaces`")
 	checkNoErr(viper.BindPFlag("contexts", flags.Lookup("contexts")))
 
+	flags.Bool("syslog", false, "enable syslog logging")
+	checkNoErr(viper.BindPFlag("syslog", flags.Lookup("syslog")))
+
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(genTokenCmd)
 	rootCmd.AddCommand(verifyTokenCmd)
@@ -180,6 +183,7 @@ var serveCmd = &cobra.Command{
 	Short:   `Start the registry HTTP server`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		InitLogger(LoggerOptions{Syslog: viper.GetBool("syslog")})
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)

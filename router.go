@@ -14,6 +14,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cozy/echo"
 	"github.com/cozy/echo/middleware"
@@ -520,6 +521,16 @@ func httpErrorHandler(err error, c echo.Context) {
 		respHeaders.Set("cache-control", "no-cache")
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"nspace":      "http_error",
+		"is_json":     isJSON,
+		"method":      c.Request().Method,
+		"request_uri": c.Request().RequestURI,
+		"remote_ip":   c.Request().RemoteAddr,
+		"status":      code,
+		"error_msg":   msg,
+	}).Error()
+
 	if !c.Response().Committed {
 		if isJSON {
 			if c.Request().Method == echo.HEAD {
@@ -530,6 +541,7 @@ func httpErrorHandler(err error, c echo.Context) {
 			}
 		} else {
 			if c.Request().Method == echo.HEAD {
+				c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlain)
 				c.NoContent(code)
 			} else {
 				c.String(code, msg)
@@ -596,7 +608,6 @@ func Router(addr string) *echo.Echo {
 	})
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
-	e.Use(middleware.Logger())
 	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
