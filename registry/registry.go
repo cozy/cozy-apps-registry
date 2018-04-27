@@ -62,9 +62,10 @@ const (
 )
 
 const (
-	appsDBSuffix    = "apps"
-	versDBSuffix    = "versions"
-	editorsDBSuffix = "editors"
+	appsDBSuffix        = "apps"
+	versDBSuffix        = "versions"
+	pendingVersDBSuffix = "pending"
+	editorsDBSuffix     = "editors"
 )
 
 var (
@@ -97,9 +98,10 @@ const (
 )
 
 type Space struct {
-	prefix string
-	dbApps *kivik.DB
-	dbVers *kivik.DB
+	prefix        string
+	dbApps        *kivik.DB
+	dbVers        *kivik.DB
+	dbPendingVers *kivik.DB
 }
 
 func (c *Space) AppsDB() *kivik.DB {
@@ -108,6 +110,10 @@ func (c *Space) AppsDB() *kivik.DB {
 
 func (c *Space) VersDB() *kivik.DB {
 	return c.dbVers
+}
+
+func (c *Space) PendingVersDB() *kivik.DB {
+	return c.dbPendingVers
 }
 
 func (c *Space) dbName(suffix string) (name string) {
@@ -289,7 +295,7 @@ func GetSpace(name string) (*Space, bool) {
 }
 
 func (c *Space) init() (err error) {
-	for _, suffix := range []string{appsDBSuffix, versDBSuffix} {
+	for _, suffix := range []string{appsDBSuffix, versDBSuffix, pendingVersDBSuffix} {
 		var ok bool
 		dbName := c.dbName(suffix)
 		ok, err = client.DBExists(ctx, dbName)
@@ -314,6 +320,8 @@ func (c *Space) init() (err error) {
 			c.dbApps = db
 		case versDBSuffix:
 			c.dbVers = db
+		case pendingVersDBSuffix:
+			c.dbPendingVers = db
 		default:
 			panic("unreachable")
 		}
@@ -406,24 +414,23 @@ func DownloadVersion(opts *VersionOptions) (*Version, error) {
 	return downloadVersion(opts)
 }
 
-func CreateVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
+func createVersion(c *Space, db *kivik.DB, ver *Version, app *App, editor *auth.Editor) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}
 
-	_, err = FindVersion(c, ver.Slug, ver.Version)
-	if err == nil {
-		return ErrVersionAlreadyExists
-	}
-	if err != ErrVersionNotFound {
+	version, err := FindVersion(c, ver.Slug, ver.Version)
+	if err != nil {
 		return err
+	}
+	if version != nil {
+		return ErrVersionAlreadyExists
 	}
 
 	ver.Slug = app.Slug
 	ver.Type = app.Type
 	ver.Editor = app.Editor
 
-	db := c.VersDB()
 	_, ver.Rev, err = db.CreateDoc(ctx, ver)
 	if err != nil {
 		return err
@@ -437,6 +444,14 @@ func CreateVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err e
 	}
 
 	return nil
+}
+
+func CreatePendingVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
+	return createVersion(c, c.PendingVersDB(), ver, app, editor)
+}
+
+func CreateVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
+	return createVersion(c, c.VersDB(), ver, app, editor)
 }
 
 func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {
