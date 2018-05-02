@@ -128,6 +128,36 @@ func createVersion(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, ver)
 }
 
+func getPendingVersions(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
+	opts := &registry.AppOptions{}
+	if err = c.Bind(opts); err != nil {
+		return err
+	}
+
+	_, err = checkPermissions(c, opts.Editor, true /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	versions, err := registry.GetPendingVersions(getSpace(c))
+	if err != nil {
+		return errshttp.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	for _, version := range versions {
+		// Do not show internal identifier and revision
+		version.ID = ""
+		version.Rev = ""
+		version.Attachments = nil
+	}
+
+	return c.JSON(http.StatusOK, versions)
+}
+
 func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Editor, error) {
 	token, err := extractAuthHeader(c)
 	if err != nil {
@@ -354,6 +384,20 @@ func getVersionAttachment(c echo.Context, filename string) error {
 }
 
 func getAppVersions(c echo.Context) error {
+	appSlug := c.Param("app")
+	doc, err := registry.FindAppVersions(getSpace(c), appSlug)
+	if err != nil {
+		return err
+	}
+
+	if cacheControl(c, "", oneMinute) {
+		return c.NoContent(http.StatusNotModified)
+	}
+
+	return writeJSON(c, doc)
+}
+
+func getPendingVersions(c echo.Context) error {
 	appSlug := c.Param("app")
 	doc, err := registry.FindAppVersions(getSpace(c), appSlug)
 	if err != nil {
@@ -624,6 +668,8 @@ func Router(addr string) *echo.Echo {
 		g.POST("/:app", createVersion, jsonEndpoint)
 
 		g.GET("", getAppsList, jsonEndpoint)
+		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
+		g.GET("/pending", getPendingVersions, jsonEndpoint)
 		g.HEAD("/:app", getApp, jsonEndpoint)
 		g.GET("/:app", getApp, jsonEndpoint)
 		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
