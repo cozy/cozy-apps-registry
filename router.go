@@ -375,7 +375,7 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
-	doc, err := registry.FindVersion(getSpace(c), appSlug, version)
+	doc, err := registry.FindPublishedVersion(getSpace(c), appSlug, version)
 	if err != nil {
 		return err
 	}
