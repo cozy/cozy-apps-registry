@@ -66,6 +66,17 @@ func createApp(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, app)
 }
 
+func checkAuthorized(c echo.Context) error {
+	token, err := extractAuthHeader(c)
+	if err != nil {
+		return err
+	}
+	if !auth.VerifyTokenAuthentication(sessionSecret, token) {
+		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
+	}
+	return nil
+}
+
 func createVersion(c echo.Context) (err error) {
 	if err = checkAuthorized(c); err != nil {
 		return err
@@ -92,12 +103,12 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	_, err = registry.FindVersion(getSpace(c), appSlug, opts.Version)
-	if err == nil {
-		return registry.ErrVersionAlreadyExists
-	}
-	if err != registry.ErrVersionNotFound {
+	version, err := registry.FindVersion(getSpace(c), appSlug, opts.Version)
+	if err != nil {
 		return err
+	}
+	if version != nil {
+		return registry.ErrVersionAlreadyExists
 	}
 
 	ver, err := registry.DownloadVersion(opts)
@@ -105,7 +116,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreateVersion(getSpace(c), ver, app, editor); err != nil {
+	if err = registry.CreatePendingVersion(getSpace(c), ver, app, editor); err != nil {
 		return err
 	}
 
@@ -115,17 +126,6 @@ func createVersion(c echo.Context) (err error) {
 	ver.Attachments = nil
 
 	return c.JSON(http.StatusCreated, ver)
-}
-
-func checkAuthorized(c echo.Context) error {
-	token, err := extractAuthHeader(c)
-	if err != nil {
-		return err
-	}
-	if !auth.VerifyTokenAuthentication(sessionSecret, token) {
-		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
-	}
-	return nil
 }
 
 func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Editor, error) {
@@ -375,7 +375,7 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
-	doc, err := registry.FindVersion(getSpace(c), appSlug, version)
+	doc, err := registry.FindPublishedVersion(getSpace(c), appSlug, version)
 	if err != nil {
 		return err
 	}

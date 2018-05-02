@@ -736,16 +736,14 @@ func loadSessionSecret(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing path to session secret file")
 	}
 
-	wd, _ := os.Getwd()
-	absPath := registry.AbsPath(sessionSecretPath)
-	relPath, _ := filepath.Rel(wd, absPath)
+	sessionSecretPath = registry.AbsPath(sessionSecretPath)
 
-	f, err := os.Open(absPath)
+	f, err := os.Open(sessionSecretPath)
 	if os.IsNotExist(err) {
 		printAndExit(`Could not find session secret file: %q.
 
 Consider using the "gen-session-secret" command to generate the file and adding
-it to you configuration file.`, relPath)
+it to you configuration file.`, sessionSecretPath)
 	}
 	if err != nil {
 		return err
@@ -764,7 +762,7 @@ it to you configuration file.`, relPath)
 	data, err = base64.StdEncoding.DecodeString(string(data))
 	if err != nil {
 		return fmt.Errorf("Session secret is not properly base64 encoded in %q: %s",
-			relPath, err)
+			sessionSecretPath, err)
 	}
 
 	if auth.IsSecretClear(data) {

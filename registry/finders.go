@@ -88,7 +88,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*kivik.
 	return att, nil
 }
 
-func FindVersion(c *Space, appSlug, version string) (*Version, error) {
+func findVersion(c *Space, appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -96,17 +96,33 @@ func FindVersion(c *Space, appSlug, version string) (*Version, error) {
 		return nil, ErrVersionInvalid
 	}
 
-	db := c.VersDB()
-	row := db.Get(ctx, getVersionID(appSlug, version))
+	for _, db := range dbs {
+		row := db.Get(ctx, getVersionID(appSlug, version))
 
-	var doc *Version
-	if err := row.ScanDoc(&doc); err != nil {
-		if kivik.StatusCode(err) == http.StatusNotFound {
-			return nil, ErrVersionNotFound
+		var doc *Version
+		err := row.ScanDoc(&doc)
+		if err != nil {
+			// We got error
+			if kivik.StatusCode(err) != http.StatusNotFound {
+				// And this is a real error
+				return nil, err
+			}
+		} else {
+			// We have a doc
+			return doc, nil
 		}
-		return nil, err
 	}
-	return doc, nil
+	return nil, nil
+}
+
+func FindVersion(c *Space, appSlug, version string) (*Version, error) {
+	// Test for pending and released version
+	return findVersion(c, appSlug, version, c.dbVers, c.dbPendingVers)
+}
+
+func FindPublishedVersion(c *Space, appSlug, version string) (*Version, error) {
+	// Test for released version only
+	return findVersion(c, appSlug, version, c.dbVers)
 }
 
 func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
