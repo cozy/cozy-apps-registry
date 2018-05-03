@@ -111,12 +111,12 @@ func createVersion(c echo.Context) (err error) {
 		return registry.ErrVersionAlreadyExists
 	}
 
-	ver, err := registry.DownloadVersion(opts)
+	ver, attachments, err := registry.DownloadVersion(opts)
 	if err != nil {
 		return err
 	}
 
-	if err = registry.CreatePendingVersion(getSpace(c), ver, app, editor); err != nil {
+	if err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app, editor); err != nil {
 		return err
 	}
 

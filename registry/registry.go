@@ -191,8 +191,6 @@ type Version struct {
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
 	TarPrefix string          `json:"tar_prefix"`
-
-	attachments []*kivik.Attachment
 }
 
 // Manifest type contains a subset of the attributes contained in the manifest
@@ -410,11 +408,11 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	return app, nil
 }
 
-func DownloadVersion(opts *VersionOptions) (*Version, error) {
+func DownloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error) {
 	return downloadVersion(opts)
 }
 
-func createVersion(c *Space, db *kivik.DB, ver *Version, app *App, editor *auth.Editor) (err error) {
+func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}
@@ -436,7 +434,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, app *App, editor *auth.
 		return err
 	}
 
-	for _, att := range ver.attachments {
+	for _, att := range attachments {
 		ver.Rev, err = db.PutAttachment(ctx, ver.ID, ver.Rev, att)
 		if err != nil {
 			return err
@@ -446,12 +444,12 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, app *App, editor *auth.
 	return nil
 }
 
-func CreatePendingVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
-	return createVersion(c, c.PendingVersDB(), ver, app, editor)
+func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
+	return createVersion(c, c.PendingVersDB(), ver, attachments, app, editor)
 }
 
-func CreateVersion(c *Space, ver *Version, app *App, editor *auth.Editor) (err error) {
-	return createVersion(c, c.VersDB(), ver, app, editor)
+func CreateVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
+	return createVersion(c, c.VersDB(), ver, attachments, app, editor)
 }
 
 func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {
@@ -520,7 +518,7 @@ func tarReader(reader io.Reader, contentType string) (*tar.Reader, error) {
 	return tar.NewReader(reader), nil
 }
 
-func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
+func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.Attachment, err error) {
 	url := opts.URL
 
 	var buf *bytes.Reader
@@ -534,7 +532,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		} else if tryCount <= 3 {
 			continue
 		} else {
-			return nil, err
+			return
 		}
 	}
 
@@ -686,7 +684,6 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 		return
 	}
 
-	var attachments []*kivik.Attachment
 	{
 		var iconPath string
 		if opts.Icon != "" {
@@ -810,7 +807,6 @@ func downloadVersion(opts *VersionOptions) (ver *Version, err error) {
 	ver.Size = counter.Written()
 	ver.TarPrefix = tarPrefix
 	ver.CreatedAt = time.Now().UTC()
-	ver.attachments = attachments
 	return
 }
 
