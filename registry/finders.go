@@ -88,7 +88,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*kivik.
 	return att, nil
 }
 
-func findVersion(c *Space, appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
+func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -117,12 +117,12 @@ func findVersion(c *Space, appSlug, version string, dbs ...*kivik.DB) (*Version,
 
 func FindVersion(c *Space, appSlug, version string) (*Version, error) {
 	// Test for pending and released version
-	return findVersion(c, appSlug, version, c.dbVers, c.dbPendingVers)
+	return findVersion(appSlug, version, c.dbVers, c.dbPendingVers)
 }
 
 func FindPublishedVersion(c *Space, appSlug, version string) (*Version, error) {
 	// Test for released version only
-	return findVersion(c, appSlug, version, c.dbVers)
+	return findVersion(appSlug, version, c.dbVers)
 }
 
 func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
@@ -215,6 +215,26 @@ type AppsListOptions struct {
 	Cursor  int
 	Sort    string
 	Filters map[string]string
+}
+
+func GetPendingVersions(c *Space) ([]*Version, error) {
+	db := c.dbPendingVers
+	rows, err := db.AllDocs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	versions := make([]*Version, 0)
+	for rows.Next() {
+		var version *Version
+		if err := rows.ScanDoc(&version); err != nil {
+			return nil, err
+		}
+		versions = append(versions, version)
+	}
+
+	return versions, nil
 }
 
 func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
