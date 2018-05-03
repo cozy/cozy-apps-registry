@@ -133,12 +133,8 @@ func getPendingVersions(c echo.Context) (err error) {
 		return err
 	}
 
-	opts := &registry.AppOptions{}
-	if err = c.Bind(opts); err != nil {
-		return err
-	}
-
-	_, err = checkPermissions(c, opts.Editor, true /* = master */)
+	editor := c.QueryParam("editor")
+	_, err = checkPermissions(c, editor, true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
