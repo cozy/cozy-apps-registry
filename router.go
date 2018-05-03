@@ -393,20 +393,6 @@ func getAppVersions(c echo.Context) error {
 	return writeJSON(c, doc)
 }
 
-func getPendingVersions(c echo.Context) error {
-	appSlug := c.Param("app")
-	doc, err := registry.FindAppVersions(getSpace(c), appSlug)
-	if err != nil {
-		return err
-	}
-
-	if cacheControl(c, "", oneMinute) {
-		return c.NoContent(http.StatusNotModified)
-	}
-
-	return writeJSON(c, doc)
-}
-
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	version := stripVersion(c.Param("version"))
