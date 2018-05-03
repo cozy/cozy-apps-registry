@@ -97,7 +97,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 	opts.Version = stripVersion(opts.Version)
 
-	editor, err := checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
+	_, err = checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -119,12 +119,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if editor.AutoPublication() {
-		err = registry.CreateVersion(getSpace(c), ver, attachments, app, editor)
-	} else {
-		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app, editor)
-	}
-	if err != nil {
+	if err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app); err != nil {
 		return err
 	}
 
@@ -673,6 +668,8 @@ func Router(addr string) *echo.Echo {
 		g.GET("", getAppsList, jsonEndpoint)
 		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
 		g.GET("/pending", getPendingVersions, jsonEndpoint)
+		g.HEAD("/pending/:app/:version/approval", getPendingVersions, jsonEndpoint)
+		g.GET("/pending/:app/:version/approval", getPendingVersions, jsonEndpoint)
 		g.HEAD("/:app", getApp, jsonEndpoint)
 		g.GET("/:app", getApp, jsonEndpoint)
 		g.GET("/:app/versions", getAppVersions, jsonEndpoint)

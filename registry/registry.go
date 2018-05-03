@@ -412,7 +412,7 @@ func DownloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error
 	return downloadVersion(opts)
 }
 
-func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
+func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}
@@ -444,12 +444,12 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	return nil
 }
 
-func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
-	return createVersion(c, c.PendingVersDB(), ver, attachments, app, editor)
+func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
+	return createVersion(c, c.PendingVersDB(), ver, attachments, app)
 }
 
-func CreateVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App, editor *auth.Editor) (err error) {
-	return createVersion(c, c.VersDB(), ver, attachments, app, editor)
+func CreateVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
+	return createVersion(c, c.VersDB(), ver, attachments, app)
 }
 
 func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {
