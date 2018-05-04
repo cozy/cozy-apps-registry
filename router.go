@@ -116,6 +116,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
+	// TODO: use registry.CreatePendingVersion instead
 	if err = registry.CreateVersion(getSpace(c), ver, attachments, app, editor); err != nil {
 		return err
 	}
