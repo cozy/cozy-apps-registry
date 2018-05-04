@@ -412,17 +412,19 @@ func DownloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error
 	return downloadVersion(opts)
 }
 
-func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
+func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.Attachment, app *App, ensureVersion bool) (err error) {
 	if ver.Slug != app.Slug {
 		return ErrVersionSlugMismatch
 	}
 
-	version, err := FindVersion(c, ver.Slug, ver.Version)
-	if err != nil {
-		return err
-	}
-	if version != nil {
-		return ErrVersionAlreadyExists
+	if ensureVersion {
+		version, err := FindVersion(c, ver.Slug, ver.Version)
+		if err != nil {
+			return err
+		}
+		if version != nil {
+			return ErrVersionAlreadyExists
+		}
 	}
 
 	ver.Slug = app.Slug
@@ -444,12 +446,50 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	return nil
 }
 
-func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
-	return createVersion(c, c.PendingVersDB(), ver, attachments, app)
+func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) error {
+	return createVersion(c, c.PendingVersDB(), ver, attachments, app, true)
 }
 
-func CreateVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) (err error) {
-	return createVersion(c, c.VersDB(), ver, attachments, app)
+func createReleaseVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) error {
+	// We need to skip version check, because we don't drop pending
+	// version until the end to avoid data loss in case of error
+	return createVersion(c, c.VersDB(), ver, attachments, app, false)
+}
+
+func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, error) {
+	db := c.PendingVersDB()
+
+	release := new(Version)
+	release.Slug = pending.Slug
+	release.Editor = pending.Editor
+	release.Type = pending.Type
+	release.Version = pending.Version
+	release.Manifest = pending.Manifest
+	release.CreatedAt = pending.CreatedAt
+	release.URL = pending.URL
+	release.Size = pending.Size
+	release.Sha256 = pending.Sha256
+	release.TarPrefix = pending.TarPrefix
+	var attachments []*kivik.Attachment
+	for filename := range release.Attachments {
+		attachment, err := db.GetAttachment(ctx, pending.ID, pending.Rev, filename)
+		if err != nil {
+			return nil, err
+		}
+		attachments = append(attachments, attachment)
+	}
+
+	err := createReleaseVersion(c, release, attachments, app)
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete only at the end, to avoid data loss in case of error
+	if _, err := db.Delete(ctx, pending.ID, pending.Rev); err != nil {
+		return nil, err
+	}
+
+	return release, nil
 }
 
 func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {

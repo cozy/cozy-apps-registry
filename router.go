@@ -69,6 +69,13 @@ func createApp(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, app)
 }
 
+// Do not show internal identifier and revision
+func cleanVersion(version *registry.Version) {
+	version.ID = ""
+	version.Rev = ""
+	version.Attachments = nil
+}
+
 func checkAuthorized(c echo.Context) error {
 	token, err := extractAuthHeader(c)
 	if err != nil {
@@ -123,10 +130,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	// Do not show internal identifier and revision
-	ver.ID = ""
-	ver.Rev = ""
-	ver.Attachments = nil
+	cleanVersion(ver)
 
 	return c.JSON(http.StatusCreated, ver)
 }
@@ -148,16 +152,39 @@ func getPendingVersions(c echo.Context) (err error) {
 	}
 
 	for _, version := range versions {
-		// Do not show internal identifier and revision
-		version.ID = ""
-		version.Rev = ""
-		version.Attachments = nil
+		cleanVersion(version)
 	}
 
 	return c.JSON(http.StatusOK, versions)
 }
 
-func checkPermissions(c echo.Context, editorName, appName string, master bool) (*auth.Editor, error) {
+func approvePendingVersion(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
+	appSlug := c.Param("app")
+	app, err := registry.FindApp(getSpace(c), appSlug)
+	if err != nil {
+		return err
+	}
+
+	ver := stripVersion(c.Param("version"))
+	version, err := registry.FindPendingVersion(getSpace(c), appSlug, ver)
+	if err != nil {
+		return err
+	}
+
+	if version, err = registry.ApprovePendingVersion(getSpace(c), version, app); err != nil {
+		return err
+	}
+
+	cleanVersion(version)
+
+	return c.JSON(http.StatusCreated, version)
+}
+
+func checkPermissions(c echo.Context, editorName string, appName string, master bool) (*auth.Editor, error) {
 	token, err := extractAuthHeader(c)
 	if err != nil {
 		return nil, err
@@ -668,8 +695,8 @@ func Router(addr string) *echo.Echo {
 		g.GET("", getAppsList, jsonEndpoint)
 		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
 		g.GET("/pending", getPendingVersions, jsonEndpoint)
-		g.HEAD("/pending/:app/:version/approval", getPendingVersions, jsonEndpoint)
-		g.GET("/pending/:app/:version/approval", getPendingVersions, jsonEndpoint)
+		g.HEAD("/pending/:app/:version/approval", approvePendingVersion, jsonEndpoint)
+		g.GET("/pending/:app/:version/approval", approvePendingVersion, jsonEndpoint)
 		g.HEAD("/:app", getApp, jsonEndpoint)
 		g.GET("/:app", getApp, jsonEndpoint)
 		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
