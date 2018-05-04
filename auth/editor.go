@@ -40,6 +40,10 @@ func (e *Editor) Name() string {
 	return e.name
 }
 
+func (e *Editor) AutoPublication() bool {
+	return e.autoPublication
+}
+
 func (e *Editor) IsComplete() bool {
 	return len(e.name) > 0 && len(e.editorSalt) == saltsLen
 }
