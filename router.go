@@ -116,7 +116,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app, editor); err != nil {
+	if err = registry.CreateVersion(getSpace(c), ver, attachments, app, editor); err != nil {
 		return err
 	}
 
@@ -298,7 +298,14 @@ func getAppIcon(c echo.Context) error {
 }
 
 func getAppScreenshot(c echo.Context) error {
-	return getAppAttachment(c, path.Join("screenshots", c.Param("filename")))
+	filename := path.Join("screenshots", c.Param("*"))
+	err := getAppAttachment(c, filename)
+	if err != nil {
+		if errh, ok := err.(*echo.HTTPError); ok && errh.Code == http.StatusNotFound {
+			err = getAppAttachment(c, path.Join("screenshots", filename))
+		}
+	}
+	return err
 }
 
 func getAppAttachment(c echo.Context, filename string) error {
@@ -350,10 +357,11 @@ func getVersionIcon(c echo.Context) error {
 }
 
 func getVersionScreenshot(c echo.Context) error {
-	err := getVersionAttachment(c, path.Join("screenshots", c.Param("*")))
+	filename := path.Join("screenshots", c.Param("*"))
+	err := getVersionAttachment(c, filename)
 	if err != nil {
 		if errh, ok := err.(*echo.HTTPError); ok && errh.Code == http.StatusNotFound {
-			err = getVersionAttachment(c, path.Join("screenshots", path.Base(c.Param("*"))))
+			err = getVersionAttachment(c, path.Join("screenshots", filename))
 		}
 	}
 	return err
@@ -662,10 +670,12 @@ func Router(addr string) *echo.Echo {
 
 		g.GET("/:app/icon", getAppIcon)
 		g.HEAD("/:app/icon", getAppIcon)
-		g.GET("/:app/screenshots/:filename", getAppScreenshot)
-		g.HEAD("/:app/screenshots/:filename", getAppScreenshot)
+		g.GET("/:app/screenshots/*", getAppScreenshot)
+		g.HEAD("/:app/screenshots/*", getAppScreenshot)
 		g.GET("/:app/:channel/latest/icon", getAppIcon)
 		g.HEAD("/:app/:channel/latest/icon", getAppIcon)
+		g.HEAD("/:app/:channel/latest/screenshots/*", getAppScreenshot)
+		g.GET("/:app/:channel/latest/screenshots/*", getAppScreenshot)
 		g.HEAD("/:app/:version/icon", getVersionIcon)
 		g.GET("/:app/:version/icon", getVersionIcon)
 		g.HEAD("/:app/:version/screenshots/*", getVersionScreenshot)
