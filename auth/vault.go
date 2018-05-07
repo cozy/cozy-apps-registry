@@ -13,12 +13,13 @@ type couchdbVault struct {
 }
 
 type editorForCouchdb struct {
-	ID             string `json:"_id,omitempty"`
-	Rev            string `json:"_rev,omitempty"`
-	Name           string `json:"name"`
-	EditorSalt     []byte `json:"session_secret_salt"`
-	MasterSalt     []byte `json:"master_secret_salt"`
-	PublicKeyBytes []byte `json:"public_key"`
+	ID              string `json:"_id,omitempty"`
+	Rev             string `json:"_rev,omitempty"`
+	Name            string `json:"name"`
+	EditorSalt      []byte `json:"session_secret_salt"`
+	MasterSalt      []byte `json:"master_secret_salt"`
+	PublicKeyBytes  []byte `json:"public_key"`
+	AutoPublication bool   `json:"auto_publication"`
 }
 
 func NewCouchDBVault(db *kivik.DB) Vault {
@@ -35,10 +36,11 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 		return nil, err
 	}
 	editor := &Editor{
-		name:           e.Name,
-		editorSalt:     e.EditorSalt,
-		masterSalt:     e.MasterSalt,
-		publicKeyBytes: e.PublicKeyBytes,
+		name:            e.Name,
+		editorSalt:      e.EditorSalt,
+		masterSalt:      e.MasterSalt,
+		publicKeyBytes:  e.PublicKeyBytes,
+		autoPublication: e.AutoPublication,
 	}
 	var needUpdate bool
 	if len(editor.masterSalt) == 0 {
@@ -66,11 +68,12 @@ func (r *couchdbVault) CreateEditor(editor *Editor) error {
 		return err
 	}
 	_, _, err = r.db.CreateDoc(r.ctx, &editorForCouchdb{
-		ID:             strings.ToLower(editor.name),
-		Name:           editor.name,
-		EditorSalt:     editor.editorSalt,
-		MasterSalt:     editor.masterSalt,
-		PublicKeyBytes: editor.publicKeyBytes,
+		ID:              strings.ToLower(editor.name),
+		Name:            editor.name,
+		EditorSalt:      editor.editorSalt,
+		MasterSalt:      editor.masterSalt,
+		PublicKeyBytes:  editor.publicKeyBytes,
+		AutoPublication: editor.autoPublication,
 	})
 	return err
 }
@@ -81,12 +84,13 @@ func (r *couchdbVault) UpdateEditor(editor *Editor) error {
 		return err
 	}
 	_, err = r.db.Put(r.ctx, e.ID, &editorForCouchdb{
-		ID:             e.ID,
-		Rev:            e.Rev,
-		Name:           editor.name,
-		EditorSalt:     editor.editorSalt,
-		MasterSalt:     editor.masterSalt,
-		PublicKeyBytes: editor.publicKeyBytes,
+		ID:              e.ID,
+		Rev:             e.Rev,
+		Name:            editor.name,
+		EditorSalt:      editor.editorSalt,
+		MasterSalt:      editor.masterSalt,
+		PublicKeyBytes:  editor.publicKeyBytes,
+		AutoPublication: editor.autoPublication,
 	})
 	return err
 }
@@ -118,10 +122,11 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 			return nil, err
 		}
 		editors = append(editors, &Editor{
-			name:           e.Name,
-			editorSalt:     e.EditorSalt,
-			masterSalt:     e.MasterSalt,
-			publicKeyBytes: e.PublicKeyBytes,
+			name:            e.Name,
+			editorSalt:      e.EditorSalt,
+			masterSalt:      e.MasterSalt,
+			publicKeyBytes:  e.PublicKeyBytes,
+			autoPublication: e.AutoPublication,
 		})
 	}
 	return editors, nil

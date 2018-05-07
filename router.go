@@ -116,8 +116,12 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	// TODO: use registry.CreatePendingVersion instead
-	if err = registry.CreateVersion(getSpace(c), ver, attachments, app, editor); err != nil {
+	if editor.AutoPublication() {
+		err = registry.CreateVersion(getSpace(c), ver, attachments, app, editor)
+	} else {
+		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app, editor)
+	}
+	if err != nil {
 		return err
 	}
 
