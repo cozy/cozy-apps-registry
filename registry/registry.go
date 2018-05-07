@@ -456,20 +456,25 @@ func createReleaseVersion(c *Space, ver *Version, attachments []*kivik.Attachmen
 	return createVersion(c, c.VersDB(), ver, attachments, app, false)
 }
 
+func (version *Version) Clone() *Version {
+	clone := new(Version)
+	clone.Slug = version.Slug
+	clone.Editor = version.Editor
+	clone.Type = version.Type
+	clone.Version = version.Version
+	clone.Manifest = version.Manifest
+	clone.CreatedAt = version.CreatedAt
+	clone.URL = version.URL
+	clone.Size = version.Size
+	clone.Sha256 = version.Sha256
+	clone.TarPrefix = version.TarPrefix
+	return clone
+}
+
 func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, error) {
 	db := c.PendingVersDB()
+	release := pending.Clone()
 
-	release := new(Version)
-	release.Slug = pending.Slug
-	release.Editor = pending.Editor
-	release.Type = pending.Type
-	release.Version = pending.Version
-	release.Manifest = pending.Manifest
-	release.CreatedAt = pending.CreatedAt
-	release.URL = pending.URL
-	release.Size = pending.Size
-	release.Sha256 = pending.Sha256
-	release.TarPrefix = pending.TarPrefix
 	var attachments []*kivik.Attachment
 	for filename := range release.Attachments {
 		attachment, err := db.GetAttachment(ctx, pending.ID, pending.Rev, filename)
