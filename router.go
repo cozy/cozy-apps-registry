@@ -45,7 +45,7 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	editor, err := checkPermissions(c, opts.Editor, true /* = master */)
+	editor, err := checkPermissions(c, opts.Editor, "", true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -94,7 +94,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 	opts.Version = stripVersion(opts.Version)
 
-	editor, err := checkPermissions(c, app.Editor, false /* = not master */)
+	editor, err := checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -139,7 +139,7 @@ func getPendingVersions(c echo.Context) (err error) {
 	}
 
 	editor := c.QueryParam("editor")
-	_, err = checkPermissions(c, editor, true /* = master */)
+	_, err = checkPermissions(c, editor, "", true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -159,7 +159,7 @@ func getPendingVersions(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, versions)
 }
 
-func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Editor, error) {
+func checkPermissions(c echo.Context, editorName, appName string, master bool) (*auth.Editor, error) {
 	token, err := extractAuthHeader(c)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func checkPermissions(c echo.Context, editorName string, master bool) (*auth.Edi
 	}
 	ok := false
 	if !master {
-		ok = editor.VerifyEditorToken(sessionSecret, token)
+		ok = editor.VerifyEditorToken(sessionSecret, token, appName)
 	}
 	if !ok {
 		editors, err := editorRegistry.AllEditors()

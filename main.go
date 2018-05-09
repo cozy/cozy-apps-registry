@@ -37,6 +37,7 @@ var passphraseFlag *bool
 var appEditorFlag string
 var appTypeFlag string
 var appSpaceFlag string
+var appNamesFlag []string
 
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
@@ -95,6 +96,7 @@ func init() {
 	genTokenCmd.Flags().StringVar(&tokenMaxAgeFlag, "max-age", "", "validity duration of the token")
 
 	genTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "generate a master token to create applications")
+	genTokenCmd.Flags().StringSliceVar(&appNamesFlag, "apps", nil, "list of applications names allowed for the generated token")
 	revokeTokensCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "revoke a master tokens")
 	verifyTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "verify a master tokens")
 
@@ -289,7 +291,7 @@ var genTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
 		} else {
-			token, err = editor.GenerateEditorToken(sessionSecret, maxAge)
+			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, appNamesFlag...)
 		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
@@ -368,7 +370,7 @@ var verifyTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			ok = editor.VerifyMasterToken(sessionSecret, token)
 		} else {
-			ok = editor.VerifyEditorToken(sessionSecret, token)
+			ok = editor.VerifyEditorToken(sessionSecret, token, "")
 		}
 		if !ok {
 			return fmt.Errorf("token is **not** valid")

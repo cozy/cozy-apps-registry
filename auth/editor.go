@@ -14,6 +14,10 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+type tokenData struct {
+	Apps []string `json:"apps"`
+}
+
 func (e *Editor) MarshalJSON() ([]byte, error) {
 	v := struct {
 		Name      string `json:"name"`
@@ -87,19 +91,26 @@ func (e *Editor) VerifyMasterToken(masterSecret, token []byte) bool {
 	return ok
 }
 
-func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration) ([]byte, error) {
+func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration, apps ...string) ([]byte, error) {
 	sessionSecret, err := e.derivateSecret(masterSecret, e.editorSalt)
 	if err != nil {
 		return nil, err
 	}
-	token, err := generateToken(sessionSecret, nil, []byte(strings.ToLower(e.name)), 0)
+	var data []byte
+	if len(apps) > 0 {
+		data, err = json.Marshal(tokenData{Apps: apps})
+		if err != nil {
+			return nil, err
+		}
+	}
+	token, err := generateToken(sessionSecret, data, []byte(strings.ToLower(e.name)), 0)
 	if err != nil {
 		return nil, err
 	}
 	return generateToken(masterSecret, token, nil, maxAge)
 }
 
-func (e *Editor) VerifyEditorToken(masterSecret, token []byte) bool {
+func (e *Editor) VerifyEditorToken(masterSecret, token []byte, app string) bool {
 	value, ok := verifyToken(masterSecret, token, nil)
 	if !ok {
 		return false
@@ -108,8 +119,26 @@ func (e *Editor) VerifyEditorToken(masterSecret, token []byte) bool {
 	if err != nil {
 		return false
 	}
-	_, ok = verifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
-	return ok
+	var data []byte
+	data, ok = verifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
+	if !ok {
+		return false
+	}
+	var v tokenData
+	if len(data) > 0 {
+		if err = json.Unmarshal(data, &v); err != nil {
+			return false
+		}
+	}
+	if app == "" || len(v.Apps) == 0 {
+		return true
+	}
+	for _, s := range v.Apps {
+		if s == app {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Editor) derivateSecret(masterSecret, salt []byte) ([]byte, error) {
