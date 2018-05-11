@@ -518,14 +518,20 @@ different tokens:
     applications on the registry, and associate them with an existing editor
     name. They also have the same accesses as the editor tokens.
 
-In order to create tokens, the binary offers a `gen-token` command-line. Here are some examples to illustrates some usages:
+Editor tokens can be specific to one or more applications names that they are
+allowed to publish.
+
+In order to create tokens, the binary offers a `gen-token` command-line. Here
+are some examples to illustrates some usages:
 
 ```sh
 # Generating tokens
-  # generate an editor token for the editor "cozy"
+  # generate an editor token for the editor "cozy", for any application
   $ cozy-apps-registry gen-token cozy
   # generate an editor token for the editor "cozy" expiring after 30 days
   $ cozy-apps-registry gen-token cozy --max-age 30d
+  # generate an editor token for the editor "cozy" for application "collect" and "drive"
+  $ cozy-apps-registry gen-token cozy --apps collect,drive
   # generate a master token associated with the editor "cozy" expiring after 30 days
   $ cozy-apps-registry gen-token cozy --master --max-age 30d
 
