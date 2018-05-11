@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -635,6 +638,11 @@ func writeJSON(c echo.Context, doc interface{}) error {
 }
 
 func Router(addr string) *echo.Echo {
+	err := initAssets()
+	if err != nil {
+		panic(err)
+	}
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HTTPErrorHandler = httpErrorHandler
@@ -691,5 +699,37 @@ func Router(addr string) *echo.Echo {
 	e.HEAD("/editors/:editor", getEditor, jsonEndpoint)
 	e.GET("/editors/:editor", getEditor, jsonEndpoint)
 
+	e.GET("/favicon.ico", func(c echo.Context) error {
+		return c.Blob(http.StatusOK, "image/png", faviconBytes)
+	})
+	e.GET("/robots.txt", func(c echo.Context) error {
+		return c.String(http.StatusOK, "User-agent: *\n"+
+			"Disallow: /")
+	})
+
 	return e
+}
+
+// ASSETS
+
+var faviconBytes []byte
+
+const favicon = `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`
+
+func initAssets() error {
+	var err error
+	faviconBytes, err = assetDecompress(favicon)
+	return err
+}
+
+func assetDecompress(asset string) (b []byte, err error) {
+	b, err = base64.StdEncoding.DecodeString(favicon)
+	if err != nil {
+		return
+	}
+	gr, err := gzip.NewReader(bytes.NewReader(b))
+	if err != nil {
+		return
+	}
+	return ioutil.ReadAll(gr)
 }
