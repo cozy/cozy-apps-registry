@@ -450,10 +450,8 @@ func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachmen
 	return createVersion(c, c.PendingVersDB(), ver, attachments, app, true)
 }
 
-func createReleaseVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) error {
-	// We need to skip version check, because we don't drop pending
-	// version until the end to avoid data loss in case of error
-	return createVersion(c, c.VersDB(), ver, attachments, app, false)
+func CreateReleaseVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App, ensureVersion bool) error {
+	return createVersion(c, c.VersDB(), ver, attachments, app, ensureVersion)
 }
 
 func (version *Version) Clone() *Version {
@@ -484,7 +482,9 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 		attachments = append(attachments, attachment)
 	}
 
-	err := createReleaseVersion(c, release, attachments, app)
+	// We need to skip version check, because we don't drop pending
+	// version until the end to avoid data loss in case of error
+	err := CreateReleaseVersion(c, release, attachments, app, false)
 	if err != nil {
 		return nil, err
 	}

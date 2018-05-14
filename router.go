@@ -104,7 +104,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 	opts.Version = stripVersion(opts.Version)
 
-	_, err = checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
+	editor, err := checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -126,10 +126,11 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app); err != nil {
-		return err
+	if editor.AutoPublication() {
+		err = registry.CreateReleaseVersion(getSpace(c), ver, attachments, app, true)
+	} else {
+		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
-
 	cleanVersion(ver)
 
 	return c.JSON(http.StatusCreated, ver)
