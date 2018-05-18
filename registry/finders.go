@@ -115,14 +115,19 @@ func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 	return nil, nil
 }
 
-func FindVersion(c *Space, appSlug, version string) (*Version, error) {
-	// Test for pending and released version
-	return findVersion(appSlug, version, c.dbVers, c.dbPendingVers)
+func FindPendingVersion(c *Space, appSlug, version string) (*Version, error) {
+	// Test for pending version
+	return findVersion(appSlug, version, c.dbPendingVers)
 }
 
 func FindPublishedVersion(c *Space, appSlug, version string) (*Version, error) {
 	// Test for released version only
 	return findVersion(appSlug, version, c.dbVers)
+}
+
+func FindVersion(c *Space, appSlug, version string) (*Version, error) {
+	// Test for pending and released version
+	return findVersion(appSlug, version, c.dbVers, c.dbPendingVers)
 }
 
 func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
