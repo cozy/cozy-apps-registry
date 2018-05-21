@@ -459,7 +459,7 @@ You first need to add the token to your travis configuration file
 `.travis.yml`. To do so, you need the [`travis` utility](https://github.com/travis-ci/travis.rb#installation) to encrypt its value.
 
 ```sh
-$ travis encrypt REGISTRY_TOKEN={{EDITOR_TOKEN}} --add -r myname/cozy-example
+$ travis encrypt REGISTRY_TOKEN={{EDITOR_TOKEN}} -r myname/cozy-example --org
 Please add the following to your .travis.yml file:
 
   secure: "jUAjk..LOOOOONG_ENCRYPTED_STRING.....jdk89="
@@ -469,25 +469,41 @@ Like said, you need to add this block of ciphered data in the `.travis.yml` (if 
 This will allow you to use the `REGISTRY_TOKEN` variable in your deployment
 script.
 
+Then, you can add the publish script in your `package.json` in order to be used by Travis:
+```json
+...
+"publish:cozy": "git fetch origin ${DEPLOY_BRANCH:-build}:${DEPLOY_BRANCH:-build} && cozy-app-publish --token $REGISTRY_TOKEN --build-commit $(git rev-parse ${DEPLOY_BRANCH:-build})"
+...
+```
+
+> This script will fetch your last commit from the `build` branch to publish to the registry. If you push a tag, be sure to wait the last `build` branch Travis build finished in order to have the real last commit to publish. 
+
 Then you can add a script as your [`after_deploy`, `after_success` or `script`](https://docs.travis-ci.com/user/customizing-the-build#The-Build-Lifecycle) property to publish your app using our publishing tool [`cozy-app-publish`][cozy-app-publish]:
 
 ```yml
 ...
-after_success:
+before_deploy:
 - yarn add cozy-app-publish
-- yarn cozy-app-publish --travis --editor {{EDITOR_TOKEN}} --token $REGISTRY_TOKEN --build-dir '.' --on-branch build
+deploy:
+  - provider: script
+    repo: cozy/cozy-collect
+    skip-cleanup: true
+    script: export DEPLOY_BRANCH=build && yarn deploy && yarn publish:cozy
+    on:
+      branch: master
+  - provider: script
+    repo: cozy/cozy-collect
+    skip-cleanup: true
+    script: export DEPLOY_BRANCH=build && yarn publish:cozy
+    on:
+      tags: true
 ...
 ```
 
 > __Important notices:__
-> - The `.travis.yml` which will run this command must be in your build target directory if your want that Travis runs it only on CI from the build branch update.
+> A commit push to the branch master will publish your application in the `dev` channel of the registry.
+> A tag push (Github release) will publish a stable version (ex: `1.0.0`) or a beta version (ex: `1.0.1-beta2`) to the registry (automatically handled by the registry).
 > - [`cozy-app-publish`][cozy-app-publish] will use the github archive URL computing to get the application tarball. If your applicaiton is not on Github, you may need to use the manual mode of the command.
-
-__The previous [`cozy-app-publish`][cozy-app-publish] command will:__
-  - Publish a new stable version when git tag (ex: `1.0.0`).
-  - Publish a new beta version when git tag with `-beta` inside (ex: `1.0.1-beta2`). (The registry will automatically detect a beta release if there is the term `beta` in the version)
-  - Publish a new dev version at each new CI build on the `build` branch as specified by the `--on-branch` option here.
-  - Suppose that all the build files are in the root folder (`build` branch here) as specified by the `--build-dir` option here.
 
 ### Access to our official apps registry
 
