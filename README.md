@@ -486,13 +486,13 @@ before_deploy:
 - yarn add cozy-app-publish
 deploy:
   - provider: script
-    repo: cozy/cozy-collect
+    repo: myname/cozy-example
     skip-cleanup: true
     script: export DEPLOY_BRANCH=build && yarn deploy && yarn publish:cozy
     on:
       branch: master
   - provider: script
-    repo: cozy/cozy-collect
+    repo: myname/cozy-example
     skip-cleanup: true
     script: export DEPLOY_BRANCH=build && yarn publish:cozy
     on:
