@@ -501,8 +501,8 @@ deploy:
 ```
 
 > __Important notices:__
-> A commit push to the branch master will publish your application in the `dev` channel of the registry.
-> A tag push (Github release) will publish a stable version (ex: `1.0.0`) or a beta version (ex: `1.0.1-beta2`) to the registry (automatically handled by the registry).
+> - A commit push to the branch master will publish your application in the `dev` channel of the registry.
+> - A tag push (Github release) will publish a stable version (ex: `1.0.0`) or a beta version (ex: `1.0.1-beta2`) to the registry (automatically handled by the registry).
 > - [`cozy-app-publish`][cozy-app-publish] will use the github archive URL computing to get the application tarball. If your applicaiton is not on Github, you may need to use the manual mode of the command.
 
 ### Access to our official apps registry
