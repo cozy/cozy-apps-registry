@@ -478,7 +478,7 @@ Then, you can add the publish script in your `package.json` in order to be used 
 
 > This script will fetch your last commit from the `build` branch to publish to the registry. If you push a tag, be sure to wait the last `build` branch Travis build finished in order to have the real last commit to publish. 
 
-Then you can add a script as your [`before_deploy`](https://docs.travis-ci.com/user/customizing-the-build#The-Build-Lifecycle) property to publish your app using our publishing tool [`cozy-app-publish`][cozy-app-publish] during the `deploy` process:
+Finally, you can add this script to your `.travis.yml` to publish your app using our publishing tool [`cozy-app-publish`][cozy-app-publish] during the `deploy` process:
 
 ```yml
 ...
