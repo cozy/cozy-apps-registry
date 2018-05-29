@@ -586,7 +586,7 @@ func httpErrorHandler(err error, c echo.Context) {
 		respHeaders.Set("cache-control", "no-cache")
 	}
 
-	logrus.WithFields(logrus.Fields{
+	log := logrus.WithFields(logrus.Fields{
 		"nspace":      "http_error",
 		"is_json":     isJSON,
 		"method":      c.Request().Method,
@@ -594,7 +594,12 @@ func httpErrorHandler(err error, c echo.Context) {
 		"remote_ip":   c.Request().RemoteAddr,
 		"status":      code,
 		"error_msg":   msg,
-	}).Error()
+	})
+	if code >= 500 {
+		log.Error()
+	} else {
+		log.Info()
+	}
 
 	if !c.Response().Committed {
 		if isJSON {
