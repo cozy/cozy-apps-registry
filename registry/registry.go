@@ -333,6 +333,14 @@ func (c *Space) init() (err error) {
 	}
 
 	err = c.VersDB().CreateIndex(ctx, "versions-index", "versions-index", versIndex)
+	if err != nil {
+		return
+	}
+	err = c.PendingVersDB().CreateIndex(ctx, "versions-index", "versions-index", versIndex)
+	if err != nil {
+		return
+	}
+
 	return
 }
 

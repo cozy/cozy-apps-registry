@@ -148,7 +148,7 @@ func useConfig(cmd *cobra.Command) (err error) {
 }
 
 func findConfigFile(name string) (string, bool) {
-	for _, cp := range []string{"/etc/cozy"} {
+	for _, cp := range []string{"/etc/cozy", ""} {
 		for _, ext := range viper.SupportedExts {
 			filename := filepath.Join(utils.AbsPath(cp), fmt.Sprintf("%s.%s", name, ext))
 			_, err := os.Stat(filename)
@@ -723,6 +723,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("Error while loading editor registry: %s", err)
 	}
+
 	return nil
 }
 
@@ -739,6 +740,7 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	}
+
 	return registry.RegisterSpace("__default__")
 }
 

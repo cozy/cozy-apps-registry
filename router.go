@@ -175,6 +175,9 @@ func approvePendingVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	if version == nil {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
 
 	if version, err = registry.ApprovePendingVersion(getSpace(c), version, app); err != nil {
 		return err
