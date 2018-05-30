@@ -224,7 +224,9 @@ type AppsListOptions struct {
 
 func GetPendingVersions(c *Space) ([]*Version, error) {
 	db := c.dbPendingVers
-	rows, err := db.AllDocs(ctx)
+	rows, err := db.AllDocs(ctx, map[string]interface{}{
+		"include_docs": true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +234,10 @@ func GetPendingVersions(c *Space) ([]*Version, error) {
 
 	versions := make([]*Version, 0)
 	for rows.Next() {
+		if strings.HasPrefix(rows.ID(), "_design") {
+			continue
+		}
+
 		var version *Version
 		if err := rows.ScanDoc(&version); err != nil {
 			return nil, err
