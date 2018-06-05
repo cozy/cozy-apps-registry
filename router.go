@@ -131,8 +131,11 @@ func createVersion(c echo.Context) (err error) {
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
-	cleanVersion(ver)
+	if err != nil {
+		return err
+	}
 
+	cleanVersion(ver)
 	return c.JSON(http.StatusCreated, ver)
 }
 
