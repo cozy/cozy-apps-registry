@@ -216,10 +216,11 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 }
 
 type AppsListOptions struct {
-	Limit   int
-	Cursor  int
-	Sort    string
-	Filters map[string]string
+	Limit                int
+	Cursor               int
+	Sort                 string
+	Filters              map[string]string
+	LatestVersionChannel Channel
 }
 
 func GetPendingVersions(c *Space) ([]*Version, error) {
@@ -332,6 +333,10 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	for _, app := range res {
 		app.Versions, err = FindAppVersions(c, app.Slug)
 		if err != nil {
+			return 0, nil, err
+		}
+		app.LatestVersion, err = FindLatestVersion(c, app.Slug, opts.LatestVersionChannel)
+		if err != nil && err != ErrVersionNotFound {
 			return 0, nil, err
 		}
 	}

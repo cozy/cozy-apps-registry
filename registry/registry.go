@@ -92,7 +92,7 @@ var (
 type Channel int
 
 const (
-	Stable Channel = iota
+	Stable Channel = iota + 1
 	Beta
 	Dev
 )
@@ -147,6 +147,8 @@ type App struct {
 	Editor    string       `json:"editor"`
 	CreatedAt time.Time    `json:"created_at"`
 	Versions  *AppVersions `json:"versions,omitempty"`
+
+	LatestVersion *Version `json:"latest_version,omitempty"`
 }
 
 type Locales map[string]interface{}

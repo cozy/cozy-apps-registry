@@ -239,6 +239,7 @@ func getAppsList(c echo.Context) error {
 	var limit, cursor int
 	var sort string
 	var err error
+	latestVersionChannel := registry.Stable
 	for name, vals := range c.QueryParams() {
 		val := vals[0]
 		switch name {
@@ -256,6 +257,12 @@ func getAppsList(c echo.Context) error {
 			}
 		case "sort":
 			sort = val
+		case "latestChannelVersion":
+			latestVersionChannel, err = registry.StrToChannel(val)
+			if err != nil {
+				return errshttp.NewError(http.StatusBadRequest,
+					`Query param "latestChannelVersion" is invalid: %s`, err)
+			}
 		default:
 			if queryFilterReg.MatchString(name) {
 				subs := queryFilterReg.FindStringSubmatch(name)
@@ -270,10 +277,11 @@ func getAppsList(c echo.Context) error {
 	}
 
 	next, docs, err := registry.GetAppsList(getSpace(c), &registry.AppsListOptions{
-		Filters: filter,
-		Limit:   limit,
-		Cursor:  cursor,
-		Sort:    sort,
+		Filters:              filter,
+		Limit:                limit,
+		Cursor:               cursor,
+		Sort:                 sort,
+		LatestVersionChannel: latestVersionChannel,
 	})
 	if err != nil {
 		return err
@@ -283,6 +291,9 @@ func getAppsList(c echo.Context) error {
 		// Do not show internal identifier and revision
 		doc.ID = ""
 		doc.Rev = ""
+		if doc.LatestVersion != nil {
+			cleanVersion(doc.LatestVersion)
+		}
 	}
 
 	type pageInfo struct {
