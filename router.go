@@ -718,7 +718,7 @@ func Router(addr string) *echo.Echo {
 		g.GET("", getAppsList, jsonEndpoint)
 		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
 		g.GET("/pending", getPendingVersions, jsonEndpoint)
-		g.PUT("/pending/:app/:version/approval", approvePendingVersion, jsonEndpoint)
+		g.PUT("/pending/:app/:version/approval", approvePendingVersion)
 		g.HEAD("/:app", getApp, jsonEndpoint)
 		g.GET("/:app", getApp, jsonEndpoint)
 		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
