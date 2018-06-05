@@ -142,7 +142,6 @@ type App struct {
 	Rev string `json:"_rev,omitempty"`
 
 	Slug      string       `json:"slug"`
-	Name      string       `json:"name"`
 	Type      string       `json:"type"`
 	Editor    string       `json:"editor"`
 	CreatedAt time.Time    `json:"created_at"`
