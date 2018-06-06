@@ -461,6 +461,9 @@ func getVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if doc == nil {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
 
 	if cacheControl(c, doc.Rev, oneYear) {
 		return c.NoContent(http.StatusNotModified)
