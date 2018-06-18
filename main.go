@@ -608,7 +608,7 @@ var lsEditorsCmd = &cobra.Command{
 var addAppCmd = &cobra.Command{
 	Use:     "add-app [slug]",
 	Aliases: []string{"create-app"},
-	Short:   `Add an editor to the registry though an interactive CLI`,
+	Short:   `Add an application to the registry though an interactive CLI`,
 	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) != 1 {
