@@ -113,12 +113,12 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	version, err := registry.FindVersion(getSpace(c), appSlug, opts.Version)
-	if err != nil {
-		return err
-	}
-	if version != nil {
+	_, err = registry.FindVersion(getSpace(c), appSlug, opts.Version)
+	if err == nil {
 		return registry.ErrVersionAlreadyExists
+	}
+	if err != registry.ErrVersionNotFound {
+		return err
 	}
 
 	ver, attachments, err := registry.DownloadVersion(opts)
@@ -177,9 +177,6 @@ func approvePendingVersion(c echo.Context) (err error) {
 	version, err := registry.FindPendingVersion(getSpace(c), appSlug, ver)
 	if err != nil {
 		return err
-	}
-	if version == nil {
-		return echo.NewHTTPError(http.StatusNotFound)
 	}
 
 	if version, err = registry.ApprovePendingVersion(getSpace(c), version, app); err != nil {
@@ -460,9 +457,6 @@ func getVersion(c echo.Context) error {
 	doc, err := registry.FindPublishedVersion(getSpace(c), appSlug, version)
 	if err != nil {
 		return err
-	}
-	if doc == nil {
-		return echo.NewHTTPError(http.StatusNotFound)
 	}
 
 	if cacheControl(c, doc.Rev, oneYear) {

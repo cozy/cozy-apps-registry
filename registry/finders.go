@@ -112,7 +112,8 @@ func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 			return doc, nil
 		}
 	}
-	return nil, nil
+
+	return nil, ErrVersionNotFound
 }
 
 func FindPendingVersion(c *Space, appSlug, version string) (*Version, error) {

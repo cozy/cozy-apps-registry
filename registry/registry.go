@@ -427,12 +427,12 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	}
 
 	if ensureVersion {
-		version, err := FindVersion(c, ver.Slug, ver.Version)
-		if err != nil {
-			return err
-		}
-		if version != nil {
+		_, err := FindVersion(c, ver.Slug, ver.Version)
+		if err == nil {
 			return ErrVersionAlreadyExists
+		}
+		if err != ErrVersionNotFound {
+			return err
 		}
 	}
 
