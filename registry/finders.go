@@ -112,7 +112,8 @@ func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 			return doc, nil
 		}
 	}
-	return nil, nil
+
+	return nil, ErrVersionNotFound
 }
 
 func FindPendingVersion(c *Space, appSlug, version string) (*Version, error) {
@@ -308,12 +309,12 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 
 	res := make([]*App, 0)
 	for rows.Next() {
+		if strings.HasPrefix(rows.ID(), "_design") {
+			continue
+		}
 		var doc *App
 		if err = rows.ScanDoc(&doc); err != nil {
 			return 0, nil, err
-		}
-		if strings.HasPrefix(doc.ID, "_design") {
-			continue
 		}
 		res = append(res, doc)
 	}
@@ -342,4 +343,31 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	}
 
 	return cursor, res, nil
+}
+
+func GetMaintainanceApps(c *Space) ([]*App, error) {
+	req := `{
+  "use_index": "apps-index-by-maintenance",
+  "selector": {"maintenance_activated": true},
+  "limit": 1000
+}`
+	rows, err := c.dbApps.Find(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	apps := make([]*App, 0)
+	for rows.Next() {
+		var app App
+		if strings.HasPrefix(rows.ID(), "_design") {
+			continue
+		}
+		if err = rows.ScanDoc(&app); err != nil {
+			return nil, err
+		}
+		apps = append(apps, &app)
+	}
+
+	return apps, nil
 }

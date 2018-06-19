@@ -79,11 +79,12 @@ var (
 	ctx = context.Background()
 
 	appsIndexes = map[string]echo.Map{
-		"by-slug":       {"fields": []string{"slug"}},
-		"by-type":       {"fields": []string{"type", "slug", "category"}},
-		"by-editor":     {"fields": []string{"editor", "slug", "category"}},
-		"by-category":   {"fields": []string{"category", "slug", "editor"}},
-		"by-created_at": {"fields": []string{"created_at", "slug", "category", "editor"}},
+		"by-slug":        {"fields": []string{"slug"}},
+		"by-type":        {"fields": []string{"type", "slug", "category"}},
+		"by-editor":      {"fields": []string{"editor", "slug", "category"}},
+		"by-category":    {"fields": []string{"category", "slug", "editor"}},
+		"by-created_at":  {"fields": []string{"created_at", "slug", "category", "editor"}},
+		"by-maintenance": {"fields": []string{"maintenance_activated"}},
 	}
 
 	versIndex = echo.Map{"fields": []string{"version", "slug", "type"}}
@@ -147,10 +148,25 @@ type App struct {
 	CreatedAt time.Time    `json:"created_at"`
 	Versions  *AppVersions `json:"versions,omitempty"`
 
+	MaintenanceActivated bool                `json:"maintenance_activated,omitempty"`
+	MaintenanceOptions   *MaintenanceOptions `json:"maintenance_options,omitempty"`
+
 	LatestVersion *Version `json:"latest_version,omitempty"`
 }
 
 type Locales map[string]interface{}
+
+type MaintenanceOptions struct {
+	FlagInfraMaintenance   bool                          `json:"flag_infra_maintenance"`
+	FlagShortMaintenance   bool                          `json:"flag_short_maintenance"`
+	FlagDisallowManualExec bool                          `json:"flag_disallow_manual_exec"`
+	Messages               map[string]MaintenanceMessage `json:"messages"`
+}
+
+type MaintenanceMessage struct {
+	LongMessage  string `json:"long_message"`
+	ShortMessage string `json:"short_message"`
+}
 
 type AppVersions struct {
 	Stable []string `json:"stable"`
@@ -346,7 +362,6 @@ func (c *Space) init() (err error) {
 }
 
 func IsValidApp(app *AppOptions) error {
-	var fields []string
 	if app.Slug == "" || !validSlugReg.MatchString(app.Slug) {
 		return ErrAppSlugInvalid
 	}
@@ -357,8 +372,6 @@ func IsValidApp(app *AppOptions) error {
 	if !stringInArray(app.Type, validAppTypes) {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
 			"got type %q, must be one of these: %s", app.Type, strings.Join(validAppTypes, ", "))
-	}
-	if len(fields) > 0 {
 	}
 	return nil
 }
@@ -417,6 +430,31 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	return app, nil
 }
 
+func ActivateMaintenanceApp(c *Space, appSlug string, opts MaintenanceOptions) error {
+	app, err := FindApp(c, appSlug)
+	if err != nil {
+		return err
+	}
+	if opts.Messages == nil {
+		opts.Messages = make(map[string]MaintenanceMessage)
+	}
+	app.MaintenanceActivated = true
+	app.MaintenanceOptions = &opts
+	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	return err
+}
+
+func DeactivateMaintenanceApp(c *Space, appSlug string) error {
+	app, err := FindApp(c, appSlug)
+	if err != nil {
+		return err
+	}
+	app.MaintenanceActivated = false
+	app.MaintenanceOptions = nil
+	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	return err
+}
+
 func DownloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error) {
 	return downloadVersion(opts)
 }
@@ -427,12 +465,12 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	}
 
 	if ensureVersion {
-		version, err := FindVersion(c, ver.Slug, ver.Version)
-		if err != nil {
-			return err
-		}
-		if version != nil {
+		_, err := FindVersion(c, ver.Slug, ver.Version)
+		if err == nil {
 			return ErrVersionAlreadyExists
+		}
+		if err != ErrVersionNotFound {
+			return err
 		}
 	}
 

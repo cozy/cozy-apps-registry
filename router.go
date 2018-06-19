@@ -113,12 +113,12 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	version, err := registry.FindVersion(getSpace(c), appSlug, opts.Version)
-	if err != nil {
-		return err
-	}
-	if version != nil {
+	_, err = registry.FindVersion(getSpace(c), appSlug, opts.Version)
+	if err == nil {
 		return registry.ErrVersionAlreadyExists
+	}
+	if err != registry.ErrVersionNotFound {
+		return err
 	}
 
 	ver, attachments, err := registry.DownloadVersion(opts)
@@ -178,9 +178,6 @@ func approvePendingVersion(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if version == nil {
-		return echo.NewHTTPError(http.StatusNotFound)
-	}
 
 	if version, err = registry.ApprovePendingVersion(getSpace(c), version, app); err != nil {
 		return err
@@ -189,6 +186,67 @@ func approvePendingVersion(c echo.Context) (err error) {
 	cleanVersion(version)
 
 	return c.JSON(http.StatusCreated, version)
+}
+
+func getMaintenanceApps(c echo.Context) error {
+	apps, err := registry.GetMaintainanceApps(getSpace(c))
+	if err != nil {
+		return err
+	}
+	return writeJSON(c, apps)
+}
+
+func activateMaintenanceApp(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return
+	}
+
+	appSlug := c.Param("app")
+	app, err := registry.FindApp(getSpace(c), appSlug)
+	if err != nil {
+		return
+	}
+
+	_, err = checkPermissions(c, app.Editor, appSlug, false /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	var opts registry.MaintenanceOptions
+	if err = c.Bind(&opts); err != nil {
+		return
+	}
+
+	err = registry.ActivateMaintenanceApp(getSpace(c), appSlug, opts)
+	if err != nil {
+		return
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+}
+
+func deactivateMaintenanceApp(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return
+	}
+
+	appSlug := c.Param("app")
+	app, err := registry.FindApp(getSpace(c), appSlug)
+	if err != nil {
+		return
+	}
+
+	_, err = checkPermissions(c, app.Editor, appSlug, false /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	err = registry.DeactivateMaintenanceApp(getSpace(c), appSlug)
+	if err != nil {
+		return
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"ok": true})
 }
 
 func checkPermissions(c echo.Context, editorName string, appName string, master bool) (*auth.Editor, error) {
@@ -461,9 +519,6 @@ func getVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if doc == nil {
-		return echo.NewHTTPError(http.StatusNotFound)
-	}
 
 	if cacheControl(c, doc.Rev, oneYear) {
 		return c.NoContent(http.StatusNotModified)
@@ -719,9 +774,15 @@ func Router(addr string) *echo.Echo {
 		g.POST("/:app", createVersion, jsonEndpoint)
 
 		g.GET("", getAppsList, jsonEndpoint)
+
 		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
 		g.GET("/pending", getPendingVersions, jsonEndpoint)
 		g.PUT("/pending/:app/:version/approval", approvePendingVersion)
+
+		g.GET("/maintenance", getMaintenanceApps)
+		g.PUT("/maintenance/:app/activate", activateMaintenanceApp, jsonEndpoint)
+		g.PUT("/maintenance/:app/deactivate", deactivateMaintenanceApp)
+
 		g.HEAD("/:app", getApp, jsonEndpoint)
 		g.GET("/:app", getApp, jsonEndpoint)
 		g.GET("/:app/versions", getAppVersions, jsonEndpoint)

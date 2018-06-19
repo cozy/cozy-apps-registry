@@ -39,6 +39,10 @@ var appTypeFlag string
 var appSpaceFlag string
 var appNamesFlag []string
 
+var flagInfraMaintenance bool
+var flagShortMaintenance bool
+var flagDisallowManualExec bool
+
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
 
@@ -88,6 +92,9 @@ func init() {
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
 	rootCmd.AddCommand(addAppCmd)
+	rootCmd.AddCommand(maintenanceCmd)
+	maintenanceCmd.AddCommand(maintenanceActivateAppCmd)
+	maintenanceCmd.AddCommand(maintenanceDeactivateAppCmd)
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
 
@@ -106,6 +113,13 @@ func init() {
 	addAppCmd.Flags().StringVar(&appSpaceFlag, "app-space", "", "specify the application space")
 	addAppCmd.MarkFlagRequired("editor")
 	addAppCmd.MarkFlagRequired("type")
+
+	maintenanceActivateAppCmd.Flags().BoolVar(&flagInfraMaintenance, "infra", false, "specify a maintenance specific to our infra")
+	maintenanceActivateAppCmd.Flags().BoolVar(&flagShortMaintenance, "short", false, "specify a short maintenance")
+	maintenanceActivateAppCmd.Flags().BoolVar(&flagDisallowManualExec, "no-manual-exec", false, "specify a maintenance disallowing manual execution")
+	maintenanceActivateAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+
+	maintenanceDeactivateAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 }
 
 func useConfig(cmd *cobra.Command) (err error) {
@@ -608,7 +622,7 @@ var lsEditorsCmd = &cobra.Command{
 var addAppCmd = &cobra.Command{
 	Use:     "add-app [slug]",
 	Aliases: []string{"create-app"},
-	Short:   `Add an editor to the registry though an interactive CLI`,
+	Short:   `Add an application to the registry though an interactive CLI`,
 	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) != 1 {
@@ -645,6 +659,64 @@ var addAppCmd = &cobra.Command{
 		}
 		fmt.Println(string(b))
 		return nil
+	},
+}
+
+var maintenanceCmd = &cobra.Command{
+	Use: "maintenance <cmd>",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
+	},
+}
+
+var maintenanceActivateAppCmd = &cobra.Command{
+	Use:     "activate [slug]",
+	Short:   `Activate the maintenance for the given application slug`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 1 {
+			return cmd.Help()
+		}
+		space, ok := registry.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+		messages := make(map[string]registry.MaintenanceMessage)
+		for {
+			locale := prompt("Locale (empty to abort):")
+			if locale == "" {
+				break
+			}
+			shortMessage := prompt("Short message:")
+			longMessage := prompt("Long message:")
+			messages[locale] = registry.MaintenanceMessage{
+				ShortMessage: shortMessage,
+				LongMessage:  longMessage,
+			}
+		}
+		opts := registry.MaintenanceOptions{
+			FlagInfraMaintenance:   flagInfraMaintenance,
+			FlagShortMaintenance:   flagShortMaintenance,
+			FlagDisallowManualExec: flagDisallowManualExec,
+			Messages:               messages,
+		}
+		return registry.ActivateMaintenanceApp(space, args[0], opts)
+	},
+}
+
+var maintenanceDeactivateAppCmd = &cobra.Command{
+	Use:     "deactivate [slug]",
+	Short:   `Deactivate maintenance for the given application slug`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 1 {
+			return cmd.Help()
+		}
+		space, ok := registry.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+		return registry.DeactivateMaintenanceApp(space, args[0])
 	},
 }
 
