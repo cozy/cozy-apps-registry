@@ -207,7 +207,7 @@ func activateMaintenanceApp(c echo.Context) (err error) {
 		return
 	}
 
-	_, err = checkPermissions(c, app.Editor, appSlug, false /* = master */)
+	_, err = checkPermissions(c, app.Editor, app.Slug, true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -236,7 +236,7 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 		return
 	}
 
-	_, err = checkPermissions(c, app.Editor, appSlug, false /* = master */)
+	_, err = checkPermissions(c, app.Editor, app.Slug, true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}

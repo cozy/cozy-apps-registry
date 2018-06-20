@@ -384,6 +384,8 @@ var verifyTokenCmd = &cobra.Command{
 		var ok bool
 		if tokenMasterFlag {
 			ok = editor.VerifyMasterToken(sessionSecret, token)
+		} else if appNameFlag == "" {
+			return fmt.Errorf("missing --app flag")
 		} else {
 			ok = editor.VerifyEditorToken(sessionSecret, token, appNameFlag)
 		}

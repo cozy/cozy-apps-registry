@@ -129,6 +129,9 @@ func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration, 
 }
 
 func (e *Editor) VerifyEditorToken(masterSecret, token []byte, appName string) bool {
+	if appName == "" {
+		panic(errors.New("Could not verify token: empty application name"))
+	}
 	value, ok := verifyToken(masterSecret, token, nil)
 	if !ok {
 		return false
@@ -148,7 +151,7 @@ func (e *Editor) VerifyEditorToken(masterSecret, token []byte, appName string) b
 			return false
 		}
 	}
-	if appName == "" || v.App == "" {
+	if v.App == "" {
 		return true
 	}
 	return appName == v.App
