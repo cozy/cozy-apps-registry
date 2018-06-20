@@ -37,7 +37,7 @@ var passphraseFlag *bool
 var appEditorFlag string
 var appTypeFlag string
 var appSpaceFlag string
-var appNamesFlag []string
+var appNameFlag string
 
 var flagInfraMaintenance bool
 var flagShortMaintenance bool
@@ -103,10 +103,10 @@ func init() {
 	genTokenCmd.Flags().StringVar(&tokenMaxAgeFlag, "max-age", "", "validity duration of the token")
 
 	genTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "generate a master token to create applications")
-	genTokenCmd.Flags().StringSliceVar(&appNamesFlag, "apps", nil, "list of applications names allowed for the generated token")
+	genTokenCmd.Flags().StringVar(&appNameFlag, "app", "", "application name allowed for the generated token")
 	revokeTokensCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "revoke a master tokens")
 	verifyTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "verify a master tokens")
-	verifyTokenCmd.Flags().StringSliceVar(&appNamesFlag, "apps", nil, "list of applications names allowed for the generated token")
+	verifyTokenCmd.Flags().StringVar(&appNameFlag, "app", "", "application name allowed for the generated token")
 
 	addAppCmd.Flags().StringVar(&appEditorFlag, "app-editor", "", "specify the application editor")
 	addAppCmd.Flags().StringVar(&appTypeFlag, "app-type", "", "specify the application type")
@@ -306,7 +306,7 @@ var genTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
 		} else {
-			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, appNamesFlag...)
+			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, appNameFlag)
 		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
@@ -385,16 +385,7 @@ var verifyTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			ok = editor.VerifyMasterToken(sessionSecret, token)
 		} else {
-			if len(appNamesFlag) > 0 {
-				for _, app := range appNamesFlag {
-					ok = editor.VerifyEditorToken(sessionSecret, token, app)
-					if ok {
-						break
-					}
-				}
-			} else {
-				ok = editor.VerifyEditorToken(sessionSecret, token, "")
-			}
+			ok = editor.VerifyEditorToken(sessionSecret, token, appNameFlag)
 		}
 		if !ok {
 			return fmt.Errorf("token is **not** valid")

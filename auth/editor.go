@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -15,7 +16,23 @@ import (
 )
 
 type tokenData struct {
-	Apps []string `json:"apps"`
+	App string `json:"app"`
+}
+
+func (t *tokenData) UnmarshalJSON(data []byte) error {
+	var v struct {
+		Apps []string `json:"apps"` // retro-compat
+		App  string   `json:"app"`
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	if len(v.Apps) > 0 {
+		t.App = v.Apps[0]
+	} else {
+		t.App = v.App
+	}
+	return nil
 }
 
 func (e *Editor) MarshalJSON() ([]byte, error) {
@@ -91,26 +108,27 @@ func (e *Editor) VerifyMasterToken(masterSecret, token []byte) bool {
 	return ok
 }
 
-func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration, apps ...string) ([]byte, error) {
+func (e *Editor) GenerateEditorToken(masterSecret []byte, maxAge time.Duration, appName string) ([]byte, error) {
+	if appName == "" {
+		return nil, fmt.Errorf("Could not generate editor token without application name")
+	}
 	sessionSecret, err := e.derivateSecret(masterSecret, e.editorSalt)
 	if err != nil {
 		return nil, err
 	}
 	var data []byte
-	if len(apps) > 0 {
-		data, err = json.Marshal(tokenData{Apps: apps})
-		if err != nil {
-			return nil, err
-		}
+	data, err = json.Marshal(tokenData{App: appName})
+	if err != nil {
+		return nil, err
 	}
-	token, err := generateToken(sessionSecret, data, []byte(strings.ToLower(e.name)), 0)
+	token, err := generateToken(sessionSecret, data, e.additionalData(appName), 0)
 	if err != nil {
 		return nil, err
 	}
 	return generateToken(masterSecret, token, nil, maxAge)
 }
 
-func (e *Editor) VerifyEditorToken(masterSecret, token []byte, app string) bool {
+func (e *Editor) VerifyEditorToken(masterSecret, token []byte, appName string) bool {
 	value, ok := verifyToken(masterSecret, token, nil)
 	if !ok {
 		return false
@@ -120,7 +138,7 @@ func (e *Editor) VerifyEditorToken(masterSecret, token []byte, app string) bool 
 		return false
 	}
 	var data []byte
-	data, ok = verifyToken(sessionSecret, value, []byte(strings.ToLower(e.name)))
+	data, ok = verifyToken(sessionSecret, value, e.additionalData(appName))
 	if !ok {
 		return false
 	}
@@ -130,15 +148,18 @@ func (e *Editor) VerifyEditorToken(masterSecret, token []byte, app string) bool 
 			return false
 		}
 	}
-	if app == "" || len(v.Apps) == 0 {
+	if appName == "" || v.App == "" {
 		return true
 	}
-	for _, s := range v.Apps {
-		if s == app {
-			return true
-		}
+	return appName == v.App
+}
+
+func (e *Editor) additionalData(appName string) []byte {
+	editorName := strings.ToLower(e.name)
+	if counter, ok := e.revocationCounters[appName]; ok && counter > 0 {
+		editorName += fmt.Sprintf(";counter=%d", counter)
 	}
-	return false
+	return []byte(editorName)
 }
 
 func (e *Editor) derivateSecret(masterSecret, salt []byte) ([]byte, error) {

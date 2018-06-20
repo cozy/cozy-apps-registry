@@ -51,12 +51,13 @@ type (
 	}
 
 	Editor struct {
-		name            string
-		editorSalt      []byte
-		masterSalt      []byte
-		publicKeyBytes  []byte
-		publicKey       *rsa.PublicKey
-		autoPublication bool
+		name               string
+		editorSalt         []byte
+		masterSalt         []byte
+		publicKeyBytes     []byte
+		publicKey          *rsa.PublicKey
+		autoPublication    bool
+		revocationCounters map[string]int
 	}
 )
 
