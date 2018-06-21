@@ -104,9 +104,11 @@ func init() {
 
 	genTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "generate a master token to create applications")
 	genTokenCmd.Flags().StringVar(&appNameFlag, "app", "", "application name allowed for the generated token")
+	genTokenCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	revokeTokensCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "revoke a master tokens")
 	verifyTokenCmd.Flags().BoolVar(&tokenMasterFlag, "master", false, "verify a master tokens")
 	verifyTokenCmd.Flags().StringVar(&appNameFlag, "app", "", "application name allowed for the generated token")
+	verifyTokenCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	addAppCmd.Flags().StringVar(&appEditorFlag, "app-editor", "", "specify the application editor")
 	addAppCmd.Flags().StringVar(&appTypeFlag, "app-type", "", "specify the application type")
@@ -306,7 +308,15 @@ var genTokenCmd = &cobra.Command{
 		if tokenMasterFlag {
 			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
 		} else {
-			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, appNameFlag)
+			space, ok := registry.GetSpace(appSpaceFlag)
+			if !ok {
+				return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+			}
+			app, err := registry.FindApp(space, appNameFlag)
+			if err != nil {
+				return err
+			}
+			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, app.Slug)
 		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
@@ -387,7 +397,15 @@ var verifyTokenCmd = &cobra.Command{
 		} else if appNameFlag == "" {
 			return fmt.Errorf("missing --app flag")
 		} else {
-			ok = editor.VerifyEditorToken(sessionSecret, token, appNameFlag)
+			space, ok := registry.GetSpace(appSpaceFlag)
+			if !ok {
+				return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+			}
+			app, err := registry.FindApp(space, appNameFlag)
+			if err != nil {
+				return err
+			}
+			ok = editor.VerifyEditorToken(sessionSecret, token, app.Slug)
 		}
 		if !ok {
 			return fmt.Errorf("token is **not** valid")

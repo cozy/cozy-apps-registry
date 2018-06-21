@@ -748,6 +748,7 @@ func Router(addr string) *echo.Echo {
 
 	e := echo.New()
 	e.HideBanner = true
+	e.HidePort = true
 	e.HTTPErrorHandler = httpErrorHandler
 
 	e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
