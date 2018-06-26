@@ -451,11 +451,17 @@ func getAppAttachment(c echo.Context, filename string) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
+	contentType := att.ContentType
+	// force image/svg content-type for svg assets that start with <?xml
+	if filename == "icon" && contentType == "text/xml" {
+		contentType = "image/svg+xml"
+	}
+
 	if c.Request().Method == http.MethodHead {
-		c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
+		c.Response().Header().Set(echo.HeaderContentType, contentType)
 		return c.NoContent(http.StatusOK)
 	}
-	return c.Stream(http.StatusOK, att.ContentType, att.Content)
+	return c.Stream(http.StatusOK, contentType, att.Content)
 }
 
 func getVersionIcon(c echo.Context) error {
