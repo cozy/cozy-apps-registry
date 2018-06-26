@@ -488,7 +488,13 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	}
 	defer att.Content.Close()
 
-	c.Response().Header().Set(echo.HeaderContentType, att.ContentType)
+	contentType := att.ContentType
+	// force image/svg content-type for svg assets that start with <?xml
+	if filename == "icon" && contentType == "text/xml" {
+		contentType = "image/svg+xml"
+	}
+
+	c.Response().Header().Set(echo.HeaderContentType, contentType)
 	if cacheControl(c, att.Digest, oneHour) {
 		return c.NoContent(http.StatusNotModified)
 	}
@@ -496,7 +502,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
-	return c.Stream(http.StatusOK, att.ContentType, att.Content)
+	return c.Stream(http.StatusOK, contentType, att.Content)
 }
 
 func getAppVersions(c echo.Context) error {
