@@ -140,8 +140,11 @@ func createVersionsViews(c *Space, appSlug string) error {
 		Language: "javascript",
 	})
 
-	_, err = chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
+	resp, err := chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
 		Body: ioutil.NopCloser(bytes.NewReader(body)),
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return resp.Body.Close()
 }
