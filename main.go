@@ -292,7 +292,7 @@ var genTokenCmd = &cobra.Command{
 	Use:     "gen-editor-token [editor]",
 	Aliases: []string{"gen-token"},
 	Short:   `Generate a token for the specified editor`,
-	PreRunE: compose(loadSessionSecret, prepareRegistry),
+	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		editor, _, err := fetchEditor(args)
 		if err != nil {
@@ -367,7 +367,7 @@ func extractMagAge() (maxAge time.Duration, err error) {
 var verifyTokenCmd = &cobra.Command{
 	Use:     "verify-token [editor] [token]",
 	Short:   `Verify a token given via stdin for the specified editor`,
-	PreRunE: compose(loadSessionSecret, prepareRegistry),
+	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		editor, rest, err := fetchEditor(args)
 		if err != nil {
