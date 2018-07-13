@@ -547,6 +547,10 @@ func getVersion(c echo.Context) error {
 func getLatestVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
+	_, err := registry.FindApp(getSpace(c), appSlug)
+	if err != nil {
+		return err
+	}
 
 	ch, err := registry.StrToChannel(channel)
 	if err != nil {
