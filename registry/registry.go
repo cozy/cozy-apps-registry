@@ -980,19 +980,18 @@ func SplitVersion(version string) (v [3]string) {
 func calculateAppLabel(app *App, ver *Version) Label {
 	hasRemoteDoctypes := false
 	if ver != nil {
-		type permissions struct {
-			Remote bool `json:"remote"`
+		var man struct {
+			Permissions map[string]struct {
+				Remote bool `json:"remote"`
+			} `json:"permissions"`
 		}
-		var permissionsMap map[string]permissions
-		err := json.Unmarshal(ver.Manifest, &permissionsMap)
-		if err != nil {
-			panic(err)
-		}
-
-		for _, p := range permissionsMap {
-			if p.Remote {
-				hasRemoteDoctypes = true
-				break
+		err := json.Unmarshal(ver.Manifest, &man)
+		if err == nil {
+			for _, p := range man.Permissions {
+				if p.Remote {
+					hasRemoteDoctypes = true
+					break
+				}
 			}
 		}
 	}
