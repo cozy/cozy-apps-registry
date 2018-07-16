@@ -68,6 +68,23 @@ const (
 	editorsDBSuffix     = "editors"
 )
 
+const (
+	// "DUC" stands for DataUserCommitment
+	DUCUserCiphered = "user_ciphered"
+	DUCUserReserved = "user_reserved"
+	DUCNone         = "none"
+
+	// "DUCBy" stands for DataUserCommitmentBy
+	DUCByCozy   = "cozy"
+	DUCByEditor = "editor"
+	DUCByNone   = "none"
+)
+
+var (
+	validDUCValues   = []string{DUCUserCiphered, DUCUserReserved, DUCNone}
+	validDUCByValues = []string{DUCByCozy, DUCByEditor, DUCByNone}
+)
+
 var (
 	client    *kivik.Client
 	clientURL *url.URL
@@ -91,11 +108,21 @@ var (
 )
 
 type Channel int
+type Label int
 
 const (
 	Stable Channel = iota + 1
 	Beta
 	Dev
+)
+
+const (
+	LabelA = iota
+	LabelB
+	LabelC
+	LabelD
+	LabelE
+	LabelF
 )
 
 type Space struct {
@@ -136,6 +163,9 @@ type AppOptions struct {
 	Slug   string `json:"slug"`
 	Editor string `json:"editor"`
 	Type   string `json:"type"`
+
+	DataUsageCommitment   string `json:"data_usage_commitment"`
+	DataUsageCommitmentBy string `json:"data_usage_commitment_by"`
 }
 
 type App struct {
@@ -147,9 +177,13 @@ type App struct {
 	Editor    string       `json:"editor"`
 	CreatedAt time.Time    `json:"created_at"`
 	Versions  *AppVersions `json:"versions,omitempty"`
+	Label     Label        `json:"label"`
 
 	MaintenanceActivated bool                `json:"maintenance_activated,omitempty"`
 	MaintenanceOptions   *MaintenanceOptions `json:"maintenance_options,omitempty"`
+
+	DataUsageCommitment   string `json:"data_usage_commitment"`
+	DataUsageCommitmentBy string `json:"data_usage_commitment_by"`
 
 	LatestVersion *Version `json:"latest_version,omitempty"`
 }
@@ -373,6 +407,14 @@ func IsValidApp(app *AppOptions) error {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
 			"got type %q, must be one of these: %s", app.Type, strings.Join(validAppTypes, ", "))
 	}
+	if app.DataUsageCommitment != "" && !stringInArray(app.DataUsageCommitment, validDUCValues) {
+		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
+			"got data_usage_commitment %q, must be one of these: %s", app.DataUsageCommitment, strings.Join(validDUCValues, ", "))
+	}
+	if app.DataUsageCommitmentBy != "" && !stringInArray(app.DataUsageCommitmentBy, validDUCByValues) {
+		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
+			"got data_usage_commitment_by %q, must be one of these: %s", app.DataUsageCommitmentBy, strings.Join(validDUCByValues, ", "))
+	}
 	return nil
 }
 
@@ -418,6 +460,7 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	app.Type = opts.Type
 	app.Editor = editor.Name()
 	app.CreatedAt = now
+	app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, opts)
 	_, app.Rev, err = db.CreateDoc(ctx, app)
 	if err != nil {
 		return nil, err
@@ -427,6 +470,7 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 		Beta:   make([]string, 0),
 		Dev:    make([]string, 0),
 	}
+	app.Label = calculateAppLabel(app, nil)
 	return app, nil
 }
 
@@ -929,6 +973,62 @@ func SplitVersion(version string) (v [3]string) {
 		v[0] = s[0]
 		v[1] = s[1]
 		v[2] = s[2]
+	}
+	return
+}
+
+func calculateAppLabel(app *App, ver *Version) Label {
+	hasRemoteDoctypes := false
+	if ver != nil {
+		type permissions struct {
+			Remote bool `json:"remote"`
+		}
+		var permissionsMap map[string]permissions
+		err := json.Unmarshal(ver.Manifest, &permissionsMap)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, p := range permissionsMap {
+			if p.Remote {
+				hasRemoteDoctypes = true
+				break
+			}
+		}
+	}
+
+	duc, ducBy := app.DataUsageCommitment, app.DataUsageCommitmentBy
+	switch {
+	case !hasRemoteDoctypes && duc == DUCUserCiphered:
+		return LabelA
+	case !hasRemoteDoctypes && duc == DUCUserReserved:
+		if ducBy == DUCByCozy {
+			return LabelB
+		} else if ducBy == DUCByEditor {
+			return LabelC
+		}
+	case hasRemoteDoctypes && (duc == DUCUserCiphered || duc == DUCUserReserved):
+		if ducBy == DUCByCozy {
+			return LabelD
+		} else if ducBy == DUCByEditor {
+			return LabelE
+		}
+	}
+	return LabelF
+}
+
+func defaultDataUserCommitment(app *App, opts *AppOptions) (duc, ducBy string) {
+	if opts != nil {
+		duc, ducBy = opts.DataUsageCommitment, opts.DataUsageCommitmentBy
+	} else {
+		duc, ducBy = app.DataUsageCommitment, app.DataUsageCommitmentBy
+	}
+	if duc == "" || ducBy == "" {
+		if strings.ToLower(app.Editor) == "cozy" {
+			duc, ducBy = DUCUserReserved, DUCByCozy
+		} else {
+			duc, ducBy = DUCNone, DUCByNone
+		}
 	}
 	return
 }

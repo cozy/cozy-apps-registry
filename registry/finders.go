@@ -332,6 +332,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	}
 
 	for _, app := range res {
+		app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
 		app.Versions, err = FindAppVersions(c, app.Slug)
 		if err != nil {
 			return 0, nil, err
@@ -340,6 +341,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 		if err != nil && err != ErrVersionNotFound {
 			return 0, nil, err
 		}
+		app.Label = calculateAppLabel(app, app.LatestVersion)
 	}
 
 	return cursor, res, nil
