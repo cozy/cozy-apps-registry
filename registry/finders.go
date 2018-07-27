@@ -53,10 +53,16 @@ func FindApp(c *Space, appSlug string) (*App, error) {
 		return nil, err
 	}
 
+	doc.DataUsageCommitment, doc.DataUsageCommitmentBy = defaultDataUserCommitment(doc, nil)
 	doc.Versions, err = FindAppVersions(c, doc.Slug)
 	if err != nil {
 		return nil, err
 	}
+	doc.LatestVersion, err = FindLatestVersion(c, doc.Slug, Stable)
+	if err != nil && err != ErrVersionNotFound {
+		return nil, err
+	}
+	doc.Label = calculateAppLabel(doc, doc.LatestVersion)
 
 	return doc, nil
 }
