@@ -564,6 +564,23 @@ are some examples to illustrates some usages:
   $ cozy-apps-registry revoke-tokens cozy --master
 ```
 
+## Maintenance
+
+In order to set/unset an application into maintenance mode, the binary offers
+a `maintenance` command-line. Here are some examples of how to use it:
+
+```sh
+# Activate maintenance mode for the application 'bank' of space 'myspace'
+# Available flagged options:
+#  --infra            specify a maintenance specific to our infra
+#  --no-manual-exec   specify a maintenance disallowing manual execution
+#  --short            specify a short maintenance
+$ cozy-apps-registry maintenance activate bank --space myspace
+
+# Deactivate maintenance mode for the application 'bank' of space 'myspace'
+$ cozy-apps-registry maintenance deactivate bank --space myspace
+```
+
 ## Community
 
 You can reach the Cozy Community by:

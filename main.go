@@ -692,11 +692,16 @@ var maintenanceActivateAppCmd = &cobra.Command{
 		if !ok {
 			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
 		}
+
 		messages := make(map[string]registry.MaintenanceMessage)
 		for {
 			locale := prompt("Locale (empty to abort):")
 			if locale == "" {
 				break
+			}
+			if len(locale) > 5 {
+				fmt.Errorf("Bad locale name %q", locale)
+				continue
 			}
 			shortMessage := prompt("Short message:")
 			longMessage := prompt("Long message:")
