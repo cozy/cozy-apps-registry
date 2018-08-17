@@ -581,6 +581,20 @@ $ cozy-apps-registry maintenance activate bank --space myspace
 $ cozy-apps-registry maintenance deactivate bank --space myspace
 ```
 
+Or using a cURL request and a master token:
+
+```sh
+curl -XPUT \
+  -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
+  -H"Content-Type: application/json" \
+  -d'{"flag_infra_maintenance": false,"flag_short_maintenance": false,"flag_disallow_manual_exec": false,"messages": {"fr": {"long_message": "Bla bla bla","short_message": "Bla"},"en": {"long_message": "Yadi yadi yada","short_message": "Yada"}}}' \
+  https://apps-registry.cozycloud.cc/registry/maintenance/bank/activate
+
+curl -XPUT \
+  -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
+  https://apps-registry.cozycloud.cc/registry/maintenance/bank/deactivate
+```
+
 ## Community
 
 You can reach the Cozy Community by:
