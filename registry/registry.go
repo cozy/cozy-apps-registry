@@ -183,6 +183,7 @@ type App struct {
 	DataUsageCommitment   string `json:"data_usage_commitment"`
 	DataUsageCommitmentBy string `json:"data_usage_commitment_by"`
 
+	// Calculated fields, not present in the database
 	Versions      *AppVersions `json:"versions,omitempty"`
 	Label         Label        `json:"label,omitempty"`
 	LatestVersion *Version     `json:"latest_version,omitempty"`
