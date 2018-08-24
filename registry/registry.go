@@ -164,20 +164,18 @@ type AppOptions struct {
 	Editor string `json:"editor"`
 	Type   string `json:"type"`
 
-	DataUsageCommitment   string `json:"data_usage_commitment"`
-	DataUsageCommitmentBy string `json:"data_usage_commitment_by"`
+	DataUsageCommitment   *string `json:"data_usage_commitment"`
+	DataUsageCommitmentBy *string `json:"data_usage_commitment_by"`
 }
 
 type App struct {
 	ID  string `json:"_id,omitempty"`
 	Rev string `json:"_rev,omitempty"`
 
-	Slug      string       `json:"slug"`
-	Type      string       `json:"type"`
-	Editor    string       `json:"editor"`
-	CreatedAt time.Time    `json:"created_at"`
-	Versions  *AppVersions `json:"versions,omitempty"`
-	Label     Label        `json:"label"`
+	Slug      string    `json:"slug"`
+	Type      string    `json:"type"`
+	Editor    string    `json:"editor"`
+	CreatedAt time.Time `json:"created_at"`
 
 	MaintenanceActivated bool                `json:"maintenance_activated,omitempty"`
 	MaintenanceOptions   *MaintenanceOptions `json:"maintenance_options,omitempty"`
@@ -185,7 +183,9 @@ type App struct {
 	DataUsageCommitment   string `json:"data_usage_commitment"`
 	DataUsageCommitmentBy string `json:"data_usage_commitment_by"`
 
-	LatestVersion *Version `json:"latest_version,omitempty"`
+	Versions      *AppVersions `json:"versions,omitempty"`
+	Label         Label        `json:"label,omitempty"`
+	LatestVersion *Version     `json:"latest_version,omitempty"`
 }
 
 type Locales map[string]interface{}
@@ -407,13 +407,13 @@ func IsValidApp(app *AppOptions) error {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
 			"got type %q, must be one of these: %s", app.Type, strings.Join(validAppTypes, ", "))
 	}
-	if app.DataUsageCommitment != "" && !stringInArray(app.DataUsageCommitment, validDUCValues) {
+	if app.DataUsageCommitment != nil && !stringInArray(*app.DataUsageCommitment, validDUCValues) {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
-			"got data_usage_commitment %q, must be one of these: %s", app.DataUsageCommitment, strings.Join(validDUCValues, ", "))
+			"got data_usage_commitment %q, must be one of these: %s", *app.DataUsageCommitment, strings.Join(validDUCValues, ", "))
 	}
-	if app.DataUsageCommitmentBy != "" && !stringInArray(app.DataUsageCommitmentBy, validDUCByValues) {
+	if app.DataUsageCommitmentBy != nil && !stringInArray(*app.DataUsageCommitmentBy, validDUCByValues) {
 		return errshttp.NewError(http.StatusBadRequest, "Invalid application: "+
-			"got data_usage_commitment_by %q, must be one of these: %s", app.DataUsageCommitmentBy, strings.Join(validDUCByValues, ", "))
+			"got data_usage_commitment_by %q, must be one of these: %s", *app.DataUsageCommitmentBy, strings.Join(validDUCByValues, ", "))
 	}
 	return nil
 }
@@ -443,7 +443,7 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 		return nil, err
 	}
 
-	_, err := FindApp(c, opts.Slug)
+	_, err := findApp(c, opts.Slug)
 	if err == nil {
 		return nil, ErrAppAlreadyExists
 	}
@@ -474,8 +474,26 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	return app, nil
 }
 
+func ModifyApp(c *Space, appSlug string, opts AppOptions) (*App, error) {
+	app, err := findApp(c, appSlug)
+	if err != nil {
+		return nil, err
+	}
+	if opts.DataUsageCommitment != nil {
+		app.DataUsageCommitment = *opts.DataUsageCommitment
+	}
+	if opts.DataUsageCommitmentBy != nil {
+		app.DataUsageCommitmentBy = *opts.DataUsageCommitmentBy
+	}
+	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	if err != nil {
+		return nil, err
+	}
+	return app, nil
+}
+
 func ActivateMaintenanceApp(c *Space, appSlug string, opts MaintenanceOptions) error {
-	app, err := FindApp(c, appSlug)
+	app, err := findApp(c, appSlug)
 	if err != nil {
 		return err
 	}
@@ -489,7 +507,7 @@ func ActivateMaintenanceApp(c *Space, appSlug string, opts MaintenanceOptions) e
 }
 
 func DeactivateMaintenanceApp(c *Space, appSlug string) error {
-	app, err := FindApp(c, appSlug)
+	app, err := findApp(c, appSlug)
 	if err != nil {
 		return err
 	}
@@ -1018,7 +1036,12 @@ func calculateAppLabel(app *App, ver *Version) Label {
 
 func defaultDataUserCommitment(app *App, opts *AppOptions) (duc, ducBy string) {
 	if opts != nil {
-		duc, ducBy = opts.DataUsageCommitment, opts.DataUsageCommitmentBy
+		if opts.DataUsageCommitment != nil {
+			duc = *opts.DataUsageCommitment
+		}
+		if opts.DataUsageCommitmentBy != nil {
+			ducBy = *opts.DataUsageCommitmentBy
+		}
 	} else {
 		duc, ducBy = app.DataUsageCommitment, app.DataUsageCommitmentBy
 	}

@@ -38,6 +38,8 @@ var appEditorFlag string
 var appTypeFlag string
 var appSpaceFlag string
 var appNameFlag string
+var appDUCFlag string
+var appDUCByFlag string
 
 var flagInfraMaintenance bool
 var flagShortMaintenance bool
@@ -92,6 +94,7 @@ func init() {
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
 	rootCmd.AddCommand(addAppCmd)
+	rootCmd.AddCommand(modifyAppCmd)
 	rootCmd.AddCommand(maintenanceCmd)
 	maintenanceCmd.AddCommand(maintenanceActivateAppCmd)
 	maintenanceCmd.AddCommand(maintenanceDeactivateAppCmd)
@@ -113,8 +116,14 @@ func init() {
 	addAppCmd.Flags().StringVar(&appEditorFlag, "app-editor", "", "specify the application editor")
 	addAppCmd.Flags().StringVar(&appTypeFlag, "app-type", "", "specify the application type")
 	addAppCmd.Flags().StringVar(&appSpaceFlag, "app-space", "", "specify the application space")
+	addAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
+	addAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
 	addAppCmd.MarkFlagRequired("editor")
 	addAppCmd.MarkFlagRequired("type")
+
+	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
+	modifyAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
 
 	maintenanceActivateAppCmd.Flags().BoolVar(&flagInfraMaintenance, "infra", false, "specify a maintenance specific to our infra")
 	maintenanceActivateAppCmd.Flags().BoolVar(&flagShortMaintenance, "short", false, "specify a short maintenance")
@@ -655,11 +664,52 @@ var addAppCmd = &cobra.Command{
 			Editor: appEditorFlag,
 			Type:   appTypeFlag,
 		}
+		if appDUCFlag != "" {
+			opts.DataUsageCommitment = &appDUCFlag
+		}
+		if appDUCByFlag != "" {
+			opts.DataUsageCommitmentBy = &appDUCByFlag
+		}
 		if err = registry.IsValidApp(opts); err != nil {
 			return err
 		}
 
 		app, err := registry.CreateApp(space, opts, editor)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(app, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+		return nil
+	},
+}
+
+var modifyAppCmd = &cobra.Command{
+	Use:     "modify-app [slug]",
+	Short:   `Modify the application properties`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 1 {
+			return cmd.Help()
+		}
+
+		space, ok := registry.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		var opts registry.AppOptions
+		if appDUCFlag != "" {
+			opts.DataUsageCommitment = &appDUCFlag
+		}
+		if appDUCByFlag != "" {
+			opts.DataUsageCommitmentBy = &appDUCByFlag
+		}
+		app, err := registry.ModifyApp(space, args[0], opts)
 		if err != nil {
 			return err
 		}

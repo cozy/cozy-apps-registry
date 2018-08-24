@@ -36,7 +36,7 @@ func getAppID(appSlug string) string {
 	return strings.ToLower(appSlug)
 }
 
-func FindApp(c *Space, appSlug string) (*App, error) {
+func findApp(c *Space, appSlug string) (*App, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -50,6 +50,15 @@ func FindApp(c *Space, appSlug string) (*App, error) {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			return nil, ErrAppNotFound
 		}
+		return nil, err
+	}
+
+	return doc, nil
+}
+
+func FindApp(c *Space, appSlug string) (*App, error) {
+	doc, err := findApp(c, appSlug)
+	if err != nil {
 		return nil, err
 	}
 
