@@ -588,11 +588,32 @@ curl -XPUT \
   -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
   -H"Content-Type: application/json" \
   -d'{"flag_infra_maintenance": false,"flag_short_maintenance": false,"flag_disallow_manual_exec": false,"messages": {"fr": {"long_message": "Bla bla bla","short_message": "Bla"},"en": {"long_message": "Yadi yadi yada","short_message": "Yada"}}}' \
-  https://apps-registry.cozycloud.cc/registry/maintenance/bank/activate
+  https://apps-registry.cozycloud.cc/myspace/registry/maintenance/bank/activate
 
 curl -XPUT \
   -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
   https://apps-registry.cozycloud.cc/registry/maintenance/bank/deactivate
+```
+
+## Application confidence grade / labelling
+
+The confidence grade of an applications can be specified by specifying the
+`data_usage_commitment` fields of the application document.
+
+To do that, a command line and admin API are available, and be used as follow:
+
+```sh
+$ cozy-apps-registry modify-app banks --space my_space --data-usage-commitment user_reserved --data-usage-commitment-by editor
+```
+
+Or using a cURL request and a master token:
+
+```
+curl -XPATCH \
+  -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
+  -H"Content-Type: application/json" \
+  -d'{"data_usage_commitment": "user_reserved", "data_usage_commitment_by": "editor"}
+  https://apps-registry.cozycloud.cc/my_space/registry/banks
 ```
 
 ## Community

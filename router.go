@@ -69,6 +69,39 @@ func createApp(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, app)
 }
 
+func patchApp(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
+	var opts registry.AppOptions
+	if err = c.Bind(&opts); err != nil {
+		return err
+	}
+
+	appSlug := c.Param("app")
+	app, err := registry.FindApp(getSpace(c), appSlug)
+	if err != nil {
+		return err
+	}
+
+	_, err = checkPermissions(c, app.Editor, "", true /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	app, err = registry.ModifyApp(getSpace(c), appSlug, opts)
+	if err != nil {
+		return err
+	}
+
+	// Do not show internal identifier and revision
+	app.ID = ""
+	app.Rev = ""
+
+	return c.JSON(http.StatusOK, app)
+}
+
 // Do not show internal identifier and revision
 func cleanVersion(version *registry.Version) {
 	version.ID = ""
@@ -788,6 +821,7 @@ func Router(addr string) *echo.Echo {
 		g := e.Group(groupName, ensureSpace(c))
 
 		g.POST("", createApp, jsonEndpoint)
+		g.PATCH("/:app", patchApp, jsonEndpoint)
 		g.POST("/:app", createVersion, jsonEndpoint)
 
 		g.GET("", getAppsList, jsonEndpoint)

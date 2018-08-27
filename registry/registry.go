@@ -185,7 +185,7 @@ type App struct {
 
 	// Calculated fields, not present in the database
 	Versions      *AppVersions `json:"versions,omitempty"`
-	Label         Label        `json:"label,omitempty"`
+	Label         Label        `json:"label"`
 	LatestVersion *Version     `json:"latest_version,omitempty"`
 }
 
