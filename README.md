@@ -603,7 +603,7 @@ application document.
 
 Possible values for these properties are:
 
-* `data_usage_commitment_by`: specify a technical commitment from the
+* `data_usage_commitment`: specify a technical commitment from the
   application editor:
   - `user_ciphered`: technical commitment that the user's data is encrypted
     and can only be known by him.
