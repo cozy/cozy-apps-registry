@@ -598,7 +598,22 @@ curl -XPUT \
 ## Application confidence grade / labelling
 
 The confidence grade of an applications can be specified by specifying the
-`data_usage_commitment` fields of the application document.
+`data_usage_commitment` and `data_usage_commitment_by` fields of the
+application document.
+
+Possible values for these properties are:
+
+* `data_usage_commitment_by`: specify a technical commitment from the
+  application editor:
+  - `user_ciphered`: technical commitment that the user's data is encrypted
+    and can only be known by him.
+  - `user_reserved`: commitment that the data is only used for the user, to
+    directly offer its service.
+  - `none`: no commitment
+* `data_usage_commitment_by`: specify what entity is taking the commitment:
+  - `cozy`: the commitment is taken by cozy
+  - `editor`: the commitment is taken by the application's editor
+  - `none`: no commitment is taken
 
 To do that, a command line and admin API are available, and be used as follow:
 
