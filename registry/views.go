@@ -25,21 +25,17 @@ function getVersionChannel(version) {
 }
 
 function expandVersion(doc) {
-  var v = [];
+  var v = [0, 0, 0];
   var exp = 0;
   var sp = doc.version.split(".");
-  v[0] = parseInt(sp[0], 10);
-  v[1] = parseInt(sp[1], 10);
-  var channel = getVersionChannel(doc.version);
-  if (channel == "stable") {
-    v[2] = parseInt(sp[2], 10);
-  } else if (channel == "beta") {
-    sp = sp[2].split("-beta.");
-    v[2] = parseInt(sp[0]);
-    exp = sp[1];
-  } else if (channel == "dev") {
-    sp = sp[2].split("-dev.");
-    v[2] = parseInt(sp[0]);
+  if (sp.length >= 3) {
+    v[0] = parseInt(sp[0], 10);
+    v[1] = parseInt(sp[1], 10);
+    v[2] = parseInt(sp[2].split("-")[0], 10);
+    var channel = getVersionChannel(doc.version);
+    if (channel == "beta" && sp.length > 3) {
+      exp = parseInt(sp[3], 10)
+    }
   }
   return {
     v: v,
