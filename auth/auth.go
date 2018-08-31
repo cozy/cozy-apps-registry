@@ -147,7 +147,7 @@ func generateToken(secret, msg, additionalData []byte, maxAge time.Duration) ([]
 	return msg, nil
 }
 
-func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyBytes []byte) (*Editor, error) {
+func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyBytes []byte, autoPublication bool) (*Editor, error) {
 	if err := CheckEditorName(editorName); err != nil {
 		return nil, err
 	}
@@ -171,14 +171,15 @@ func (r *EditorRegistry) CreateEditorWithPublicKey(editorName string, publicKeyB
 	return editor, nil
 }
 
-func (r *EditorRegistry) CreateEditorWithoutPublicKey(editorName string) (*Editor, error) {
+func (r *EditorRegistry) CreateEditorWithoutPublicKey(editorName string, autoPublication bool) (*Editor, error) {
 	if err := CheckEditorName(editorName); err != nil {
 		return nil, err
 	}
 	editor := &Editor{
-		name:       editorName,
-		editorSalt: readRand(saltsLen),
-		masterSalt: readRand(saltsLen),
+		name:            editorName,
+		editorSalt:      readRand(saltsLen),
+		masterSalt:      readRand(saltsLen),
+		autoPublication: autoPublication,
 	}
 	if err := r.CreateEditor(editor); err != nil {
 		return nil, err

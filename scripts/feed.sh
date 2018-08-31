@@ -15,8 +15,8 @@ reg1=("banks" "drive" "health" "photos" "collect")
 reg2=("drive" "homebook" "banks" "collect")
 mesinfos=("banks" "digiposte" "collect" "drive" "onboarding" "photos" "settings")
 
-cozy-apps-registry add-editor Cozy
-cozy-apps-registry add-editor MesInfos
+cozy-apps-registry add-editor Cozy --auto-publication
+cozy-apps-registry add-editor MesInfos --auto-publication
 cozy-apps-registry --port 8081 --spaces __default__,reg2,mesinfos serve &
 pid=$!
 sleep 1

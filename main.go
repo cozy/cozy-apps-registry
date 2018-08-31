@@ -41,6 +41,8 @@ var appNameFlag string
 var appDUCFlag string
 var appDUCByFlag string
 
+var editorAutoPublicationFlag bool
+
 var flagInfraMaintenance bool
 var flagShortMaintenance bool
 var flagDisallowManualExec bool
@@ -131,6 +133,8 @@ func init() {
 	maintenanceActivateAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	maintenanceDeactivateAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+
+	addEditorCmd.Flags().BoolVar(&editorAutoPublicationFlag, "auto-publication", false, "activate auto-publication of version for this editor")
 }
 
 func useConfig(cmd *cobra.Command) (err error) {
@@ -588,7 +592,7 @@ var addEditorCmd = &cobra.Command{
 		// }
 
 		fmt.Printf("Creating new editor %q...", editorName)
-		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName)
+		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName, editorAutoPublicationFlag)
 		if err != nil {
 			fmt.Println("failed")
 			return err
