@@ -265,15 +265,6 @@ func NewSpace(prefix string) *Space {
 }
 
 func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err error) {
-	var userInfo *url.Userinfo
-	if user != "" {
-		if pass != "" {
-			userInfo = url.UserPassword(user, pass)
-		} else {
-			userInfo = url.User(user)
-		}
-	}
-
 	u, err := url.Parse(addr)
 	if err != nil {
 		return
@@ -285,11 +276,10 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 		return
 	}
 
-	if userInfo != nil {
-		password, _ := userInfo.Password()
-		err = client.Authenticate(ctx, chttp.BasicAuth{
-			Username: userInfo.Username(),
-			Password: password,
+	if user != "" {
+		err = client.Authenticate(ctx, &chttp.BasicAuth{
+			Username: user,
+			Password: pass,
 		})
 		if err != nil {
 			return
