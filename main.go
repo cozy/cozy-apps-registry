@@ -320,16 +320,19 @@ var genTokenCmd = &cobra.Command{
 		var token []byte
 		if tokenMasterFlag {
 			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
-		} else {
+		} else if appNameFlag != "" {
 			space, ok := registry.GetSpace(appSpaceFlag)
 			if !ok {
-				return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+				err = fmt.Errorf("Space %q does not exist", appSpaceFlag)
+			} else {
+				var app *registry.App
+				app, err = registry.FindApp(space, appNameFlag)
+				if err == nil {
+					token, err = editor.GenerateEditorToken(sessionSecret, maxAge, app.Slug)
+				}
 			}
-			app, err := registry.FindApp(space, appNameFlag)
-			if err != nil {
-				return err
-			}
-			token, err = editor.GenerateEditorToken(sessionSecret, maxAge, app.Slug)
+		} else {
+			err = fmt.Errorf("Should use either --app flag or --master flag")
 		}
 		if err != nil {
 			return fmt.Errorf("Could not generate editor token for %q: %s",
