@@ -33,9 +33,9 @@ const spaceKey = "space"
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 var (
-	oneMinute = 1 * time.Minute
-	oneHour   = 1 * time.Hour
-	oneYear   = 365 * 24 * time.Hour
+	fiveMinute = 5 * time.Minute
+	oneHour    = 1 * time.Hour
+	oneYear    = 365 * 24 * time.Hour
 )
 
 func createApp(c echo.Context) (err error) {
@@ -421,7 +421,7 @@ func getApp(c echo.Context) error {
 		return err
 	}
 
-	if cacheControl(c, doc.Rev, oneMinute) {
+	if cacheControl(c, doc.Rev, fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
@@ -545,7 +545,7 @@ func getAppVersions(c echo.Context) error {
 		return err
 	}
 
-	if cacheControl(c, "", oneMinute) {
+	if cacheControl(c, "", fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
@@ -594,7 +594,7 @@ func getLatestVersion(c echo.Context) error {
 		return err
 	}
 
-	if cacheControl(c, doc.Rev, oneMinute) {
+	if cacheControl(c, doc.Rev, fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
@@ -613,7 +613,7 @@ func getEditor(c echo.Context) error {
 		return err
 	}
 
-	if cacheControl(c, "", oneMinute) {
+	if cacheControl(c, "", fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
