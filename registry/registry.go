@@ -25,6 +25,7 @@ import (
 
 	"github.com/cozy/echo"
 	_ "github.com/go-kivik/couchdb" // for couchdb
+	"github.com/go-kivik/couchdb/chttp"
 	"github.com/go-kivik/kivik"
 )
 
@@ -277,12 +278,24 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	if err != nil {
 		return
 	}
-	u.User = userInfo
+	u.User = nil
 
 	client, err = kivik.New("couch", u.String())
 	if err != nil {
 		return
 	}
+
+	if userInfo != nil {
+		password, _ := userInfo.Password()
+		err = client.Authenticate(ctx, chttp.BasicAuth{
+			Username: userInfo.Username(),
+			Password: password,
+		})
+		if err != nil {
+			return
+		}
+	}
+
 	clientURL = u
 	clientURL.Path = ""
 	clientURL.RawPath = ""
