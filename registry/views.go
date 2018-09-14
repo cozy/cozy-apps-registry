@@ -102,7 +102,7 @@ func versViewDocName(appSlug string) string {
 
 func createVersionsViews(c *Space, appSlug string) error {
 	ddoc := versViewDocName(appSlug)
-	chttpClient, err := chttp.New(ctx, clientURL.String())
+	chttpClient, err := chttp.New(clientURL.String())
 	if err != nil {
 		return err
 	}

@@ -279,7 +279,7 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	}
 	u.User = userInfo
 
-	client, err = kivik.New(ctx, "couch", u.String())
+	client, err = kivik.New("couch", u.String())
 	if err != nil {
 		return
 	}
