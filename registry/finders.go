@@ -198,6 +198,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	if !rows.Next() {
 		return nil, ErrVersionNotFound
 	}
+
 	var data json.RawMessage
 	var latestVersion *Version
 	if err = rows.ScanDoc(&data); err != nil {
@@ -206,6 +207,11 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	if err = json.Unmarshal(data, &latestVersion); err != nil {
 		return nil, err
 	}
+
+	latestVersion.ID = ""
+	latestVersion.Rev = ""
+	latestVersion.Attachments = nil
+
 	cacheVersionsLatest.Add(key, lru.Value(data))
 	return latestVersion, nil
 }
