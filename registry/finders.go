@@ -1,9 +1,13 @@
 package registry
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/cozy/cozy-apps-registry/lru"
 
 	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
@@ -27,6 +31,14 @@ var validSorts = []string{
 }
 
 const maxLimit = 200
+
+// basic caching system. could be generalized, was installed for a quick win:
+// two caches are added for latest versions ans versions list, since this data
+// is being fetched form couch for each application, this avoids 1+2*N rtts.
+var (
+	cacheVersionsLatest = lru.New(256, 5*time.Minute)
+	cacheVersionsList   = lru.New(256, 5*time.Minute)
+)
 
 func getVersionID(appSlug, version string) string {
 	return getAppID(appSlug) + "-" + version
@@ -165,6 +177,14 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 		return nil, ErrAppSlugInvalid
 	}
 
+	key := lru.Key(appSlug)
+	if data, ok := cacheVersionsLatest.Get(key); ok {
+		var latestVersion *Version
+		if err := json.Unmarshal(data, &latestVersion); err == nil {
+			return latestVersion, nil
+		}
+	}
+
 	db := c.VersDB()
 	rows, err := versionViewQuery(c, db, appSlug, channelToStr(channel), map[string]interface{}{
 		"limit":        1,
@@ -178,19 +198,29 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	if !rows.Next() {
 		return nil, ErrVersionNotFound
 	}
-
+	var data json.RawMessage
 	var latestVersion *Version
-	if err = rows.ScanDoc(&latestVersion); err != nil {
+	if err = rows.ScanDoc(&data); err != nil {
 		return nil, err
 	}
-
+	if err = json.Unmarshal(data, &latestVersion); err != nil {
+		return nil, err
+	}
+	cacheVersionsLatest.Add(key, lru.Value(data))
 	return latestVersion, nil
 }
 
 func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 	db := c.VersDB()
 
-	var allVersions []string
+	key := lru.Key(appSlug)
+	if data, ok := cacheVersionsList.Get(key); ok {
+		var versions *AppVersions
+		if err := json.Unmarshal(data, &versions); err == nil {
+			return versions, nil
+		}
+	}
+
 	rows, err := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
 		"limit":      2000,
 		"descending": false,
@@ -199,6 +229,8 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 		return nil, err
 	}
 	defer rows.Close()
+
+	allVersions := make([]string, int(rows.TotalRows()))
 	for rows.Next() {
 		var version string
 		if err = rows.ScanValue(&version); err != nil {
@@ -224,11 +256,17 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 		}
 	}
 
-	return &AppVersions{
+	versions := &AppVersions{
 		Stable: stable,
 		Beta:   beta,
 		Dev:    dev,
-	}, nil
+	}
+
+	if data, err := json.Marshal(versions); err == nil {
+		cacheVersionsList.Add(key, data)
+	}
+
+	return versions, nil
 }
 
 type AppsListOptions struct {

@@ -20,7 +20,9 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/errshttp"
+	"github.com/cozy/cozy-apps-registry/lru"
 	"github.com/cozy/cozy-apps-registry/magic"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/cozy/echo"
@@ -548,6 +550,9 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	if err != nil {
 		return err
 	}
+
+	cacheVersionsLatest.Remove(lru.Key(ver.Slug))
+	cacheVersionsList.Remove(lru.Key(ver.Slug))
 
 	for _, att := range attachments {
 		ver.Rev, err = db.PutAttachment(ctx, ver.ID, ver.Rev, att)
