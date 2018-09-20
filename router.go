@@ -177,8 +177,8 @@ func getPendingVersions(c echo.Context) (err error) {
 		return err
 	}
 
-	editor := c.QueryParam("editor")
-	_, err = checkPermissions(c, editor, "", true /* = master */)
+	editorName := c.QueryParam("editor")
+	_, err = checkPermissions(c, editorName, "", true /* = master */)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
@@ -188,11 +188,16 @@ func getPendingVersions(c echo.Context) (err error) {
 		return errshttp.NewError(http.StatusInternalServerError, err.Error())
 	}
 
+	slugFilter := c.QueryParam("slug")
+	filteredVersions := versions[:]
 	for _, version := range versions {
-		cleanVersion(version)
+		if slugFilter == "" || version.Slug == slugFilter {
+			cleanVersion(version)
+			filteredVersions = append(filteredVersions, version)
+		}
 	}
 
-	return c.JSON(http.StatusOK, versions)
+	return c.JSON(http.StatusOK, filteredVersions)
 }
 
 func approvePendingVersion(c echo.Context) (err error) {
