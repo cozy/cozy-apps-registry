@@ -205,6 +205,13 @@ func approvePendingVersion(c echo.Context) (err error) {
 		return err
 	}
 
+	// only allow approving versions from editor cozy
+	editorName := "cozy"
+	_, err = checkPermissions(c, editorName, "", true /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
 	appSlug := c.Param("app")
 	app, err := registry.FindApp(getSpace(c), appSlug)
 	if err != nil {
