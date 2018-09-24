@@ -209,7 +209,7 @@ type MaintenanceMessage struct {
 type AppVersions struct {
 	Stable []string `json:"stable"`
 	Beta   []string `json:"beta"`
-	Dev    []string `json:"dev"`
+	Dev    []string `json:"dev,omitempty"`
 }
 
 type Developer struct {

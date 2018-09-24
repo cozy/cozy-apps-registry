@@ -62,9 +62,8 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	// Do not show internal identifier and revision
-	app.ID = ""
-	app.Rev = ""
+	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
+	cleanApp(app, noDev)
 
 	return c.JSON(http.StatusCreated, app)
 }
@@ -95,9 +94,8 @@ func patchApp(c echo.Context) (err error) {
 		return err
 	}
 
-	// Do not show internal identifier and revision
-	app.ID = ""
-	app.Rev = ""
+	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
+	cleanApp(app, noDev)
 
 	return c.JSON(http.StatusOK, app)
 }
@@ -107,6 +105,18 @@ func cleanVersion(version *registry.Version) {
 	version.ID = ""
 	version.Rev = ""
 	version.Attachments = nil
+}
+
+// Do not show internal identifier and revision
+func cleanApp(app *registry.App, noDev bool) {
+	app.ID = ""
+	app.Rev = ""
+	if app.LatestVersion != nil {
+		cleanVersion(app.LatestVersion)
+	}
+	if noDev {
+		app.Versions.Dev = nil
+	}
 }
 
 func checkAuthorized(c echo.Context) error {
@@ -188,7 +198,7 @@ func getPendingVersions(c echo.Context) (err error) {
 		return errshttp.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	slugFilter := c.QueryParam("slug")
+	slugFilter := c.QueryParam("filter[slug]")
 	filteredVersions := versions[:]
 	for _, version := range versions {
 		if slugFilter == "" || version.Slug == slugFilter {
@@ -382,7 +392,7 @@ func getAppsList(c echo.Context) error {
 		}
 	}
 
-	next, docs, err := registry.GetAppsList(getSpace(c), &registry.AppsListOptions{
+	next, apps, err := registry.GetAppsList(getSpace(c), &registry.AppsListOptions{
 		Filters:              filter,
 		Limit:                limit,
 		Cursor:               cursor,
@@ -393,13 +403,9 @@ func getAppsList(c echo.Context) error {
 		return err
 	}
 
-	for _, doc := range docs {
-		// Do not show internal identifier and revision
-		doc.ID = ""
-		doc.Rev = ""
-		if doc.LatestVersion != nil {
-			cleanVersion(doc.LatestVersion)
-		}
+	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
+	for _, app := range apps {
+		cleanApp(app, noDev)
 	}
 
 	type pageInfo struct {
@@ -416,9 +422,9 @@ func getAppsList(c echo.Context) error {
 		List     []*registry.App `json:"data"`
 		PageInfo pageInfo        `json:"meta"`
 	}{
-		List: docs,
+		List: apps,
 		PageInfo: pageInfo{
-			Count:      len(docs),
+			Count:      len(apps),
 			NextCursor: nextCursor,
 		},
 	}
@@ -428,20 +434,19 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
 
-	if cacheControl(c, doc.Rev, fiveMinute) {
+	if cacheControl(c, app.Rev, fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	// Do not show internal identifier and revision
-	doc.ID = ""
-	doc.Rev = ""
+	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
+	cleanApp(app, noDev)
 
-	return writeJSON(c, doc)
+	return writeJSON(c, app)
 }
 
 func getAppIcon(c echo.Context) error {
@@ -552,7 +557,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 func getAppVersions(c echo.Context) error {
 	appSlug := c.Param("app")
-	doc, err := registry.FindAppVersions(getSpace(c), appSlug)
+	versions, err := registry.FindAppVersions(getSpace(c), appSlug)
 	if err != nil {
 		return err
 	}
@@ -561,7 +566,12 @@ func getAppVersions(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	return writeJSON(c, doc)
+	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
+	if noDev {
+		versions.Dev = nil
+	}
+
+	return writeJSON(c, versions)
 }
 
 func getVersion(c echo.Context) error {
