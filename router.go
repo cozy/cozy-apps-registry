@@ -62,8 +62,7 @@ func createApp(c echo.Context) (err error) {
 		return err
 	}
 
-	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
-	cleanApp(app, noDev)
+	cleanApp(app)
 
 	return c.JSON(http.StatusCreated, app)
 }
@@ -79,7 +78,7 @@ func patchApp(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -94,8 +93,7 @@ func patchApp(c echo.Context) (err error) {
 		return err
 	}
 
-	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
-	cleanApp(app, noDev)
+	cleanApp(app)
 
 	return c.JSON(http.StatusOK, app)
 }
@@ -108,14 +106,11 @@ func cleanVersion(version *registry.Version) {
 }
 
 // Do not show internal identifier and revision
-func cleanApp(app *registry.App, noDev bool) {
+func cleanApp(app *registry.App) {
 	app.ID = ""
 	app.Rev = ""
 	if app.LatestVersion != nil {
 		cleanVersion(app.LatestVersion)
-	}
-	if noDev {
-		app.Versions.Dev = nil
 	}
 }
 
@@ -136,7 +131,7 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -223,7 +218,7 @@ func approvePendingVersion(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -257,7 +252,7 @@ func activateMaintenanceApp(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return
 	}
@@ -286,7 +281,7 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return
 	}
@@ -356,6 +351,7 @@ func getAppsList(c echo.Context) error {
 	var sort string
 	var err error
 	latestVersionChannel := registry.Stable
+	versionsChannel := registry.Dev
 	for name, vals := range c.QueryParams() {
 		val := vals[0]
 		switch name {
@@ -379,6 +375,12 @@ func getAppsList(c echo.Context) error {
 				return errshttp.NewError(http.StatusBadRequest,
 					`Query param "latestChannelVersion" is invalid: %s`, err)
 			}
+		case "versionsChannel":
+			versionsChannel, err = registry.StrToChannel(val)
+			if err != nil {
+				return errshttp.NewError(http.StatusBadRequest,
+					`Query param "versionsChannel" is invalid: %s`, err)
+			}
 		default:
 			if queryFilterReg.MatchString(name) {
 				subs := queryFilterReg.FindStringSubmatch(name)
@@ -398,14 +400,14 @@ func getAppsList(c echo.Context) error {
 		Cursor:               cursor,
 		Sort:                 sort,
 		LatestVersionChannel: latestVersionChannel,
+		VersionsChannel:      versionsChannel,
 	})
 	if err != nil {
 		return err
 	}
 
-	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
 	for _, app := range apps {
-		cleanApp(app, noDev)
+		cleanApp(app)
 	}
 
 	type pageInfo struct {
@@ -434,7 +436,7 @@ func getAppsList(c echo.Context) error {
 
 func getApp(c echo.Context) error {
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug)
+	app, err := registry.FindApp(getSpace(c), appSlug, getVersionsChannel(c, registry.Dev))
 	if err != nil {
 		return err
 	}
@@ -443,8 +445,7 @@ func getApp(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
-	cleanApp(app, noDev)
+	cleanApp(app)
 
 	return writeJSON(c, app)
 }
@@ -557,7 +558,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 func getAppVersions(c echo.Context) error {
 	appSlug := c.Param("app")
-	versions, err := registry.FindAppVersions(getSpace(c), appSlug)
+	versions, err := registry.FindAppVersions(getSpace(c), appSlug, getVersionsChannel(c, registry.Dev))
 	if err != nil {
 		return err
 	}
@@ -566,18 +567,13 @@ func getAppVersions(c echo.Context) error {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	noDev, _ := strconv.ParseBool(c.QueryParam("noDev"))
-	if noDev {
-		versions.Dev = nil
-	}
-
 	return writeJSON(c, versions)
 }
 
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	version := stripVersion(c.Param("version"))
-	_, err := registry.FindApp(getSpace(c), appSlug)
+	_, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -602,7 +598,7 @@ func getVersion(c echo.Context) error {
 func getLatestVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
-	_, err := registry.FindApp(getSpace(c), appSlug)
+	_, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -611,21 +607,18 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	doc, err := registry.FindLatestVersion(getSpace(c), appSlug, ch)
+	version, err := registry.FindLatestVersion(getSpace(c), appSlug, ch)
 	if err != nil {
 		return err
 	}
 
-	if cacheControl(c, doc.Rev, fiveMinute) {
+	if cacheControl(c, version.Rev, fiveMinute) {
 		return c.NoContent(http.StatusNotModified)
 	}
 
-	// Do not show internal identifier and revision
-	doc.ID = ""
-	doc.Rev = ""
-	doc.Attachments = nil
+	cleanVersion(version)
 
-	return writeJSON(c, doc)
+	return writeJSON(c, version)
 }
 
 func getEditor(c echo.Context) error {
@@ -690,6 +683,18 @@ func ensureSpace(spaceName string) echo.MiddlewareFunc {
 
 func getSpace(c echo.Context) *registry.Space {
 	return c.Get(spaceKey).(*registry.Space)
+}
+
+func getVersionsChannel(c echo.Context, defaultChannel registry.Channel) registry.Channel {
+	queryParam := c.QueryParam("versionsChannel")
+	if queryParam == "" {
+		return defaultChannel
+	}
+	channel, err := registry.StrToChannel(queryParam)
+	if err != nil {
+		return defaultChannel
+	}
+	return channel
 }
 
 func validateAppRequest(c echo.Context, app *registry.AppOptions) error {

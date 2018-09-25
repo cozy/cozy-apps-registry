@@ -326,7 +326,7 @@ var genTokenCmd = &cobra.Command{
 				err = fmt.Errorf("Space %q does not exist", appSpaceFlag)
 			} else {
 				var app *registry.App
-				app, err = registry.FindApp(space, appNameFlag)
+				app, err = registry.FindApp(space, appNameFlag, registry.Stable)
 				if err == nil {
 					token, err = editor.GenerateEditorToken(sessionSecret, maxAge, app.Slug)
 				}
@@ -417,7 +417,7 @@ var verifyTokenCmd = &cobra.Command{
 			if !ok {
 				return fmt.Errorf("Space %q does not exist", appSpaceFlag)
 			}
-			app, err := registry.FindApp(space, appNameFlag)
+			app, err := registry.FindApp(space, appNameFlag, registry.Stable)
 			if err != nil {
 				return err
 			}

@@ -68,14 +68,14 @@ func findApp(c *Space, appSlug string) (*App, error) {
 	return doc, nil
 }
 
-func FindApp(c *Space, appSlug string) (*App, error) {
+func FindApp(c *Space, appSlug string, channel Channel) (*App, error) {
 	doc, err := findApp(c, appSlug)
 	if err != nil {
 		return nil, err
 	}
 
 	doc.DataUsageCommitment, doc.DataUsageCommitmentBy = defaultDataUserCommitment(doc, nil)
-	doc.Versions, err = FindAppVersions(c, doc.Slug)
+	doc.Versions, err = FindAppVersions(c, doc.Slug, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -218,10 +218,12 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	return latestVersion, nil
 }
 
-func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
+func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, error) {
 	db := c.VersDB()
 
-	key := lru.Key(appSlug)
+	channelStr := channelToStr(channel)
+
+	key := lru.Key(appSlug + "/" + channelStr)
 	if data, ok := cacheVersionsList.Get(key); ok {
 		var versions *AppVersions
 		if err := json.Unmarshal(data, &versions); err == nil {
@@ -229,7 +231,7 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 		}
 	}
 
-	rows, err := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
+	rows, err := versionViewQuery(c, db, appSlug, channelStr, map[string]interface{}{
 		"limit":      2000,
 		"descending": false,
 	})
@@ -238,8 +240,23 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 	}
 	defer rows.Close()
 
+	hasVersions := false
+	if channel != Dev {
+		rowsDev, errv := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
+			"limit": 1,
+		})
+		defer rowsDev.Close()
+		if errv != nil {
+			return nil, errv
+		}
+		hasVersions = rowsDev.Next()
+	}
+
 	allVersions := make([]string, int(rows.TotalRows()))
 	for rows.Next() {
+		if channel == Dev {
+			hasVersions = true
+		}
 		var version string
 		if err = rows.ScanValue(&version); err != nil {
 			return nil, err
@@ -247,27 +264,37 @@ func FindAppVersions(c *Space, appSlug string) (*AppVersions, error) {
 		allVersions = append(allVersions, version)
 	}
 
-	stable := make([]string, 0)
-	beta := make([]string, 0)
-	dev := make([]string, 0)
-
-	for _, v := range allVersions {
-		switch GetVersionChannel(v) {
-		case Stable:
-			stable = append(stable, v)
-			fallthrough
-		case Beta:
-			beta = append(beta, v)
-			fallthrough
-		case Dev:
-			dev = append(dev, v)
+	var stable, beta, dev []string
+	switch channel {
+	case Stable:
+		stable = allVersions
+	case Beta:
+		beta = allVersions
+		for _, v := range allVersions {
+			if GetVersionChannel(v) == Stable {
+				stable = append(stable, v)
+			}
 		}
+	case Dev:
+		dev = allVersions
+		for _, v := range allVersions {
+			switch GetVersionChannel(v) {
+			case Stable:
+				stable = append(stable, v)
+				fallthrough
+			default:
+				beta = append(beta, v)
+			}
+		}
+	default:
+		panic("unreachable")
 	}
 
 	versions := &AppVersions{
-		Stable: stable,
-		Beta:   beta,
-		Dev:    dev,
+		HasVersions: hasVersions,
+		Stable:      stable,
+		Beta:        beta,
+		Dev:         dev,
 	}
 
 	if data, err := json.Marshal(versions); err == nil {
@@ -283,6 +310,7 @@ type AppsListOptions struct {
 	Sort                 string
 	Filters              map[string]string
 	LatestVersionChannel Channel
+	VersionsChannel      Channel
 }
 
 func GetPendingVersions(c *Space) ([]*Version, error) {
@@ -394,7 +422,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 
 	for _, app := range res {
 		app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
-		app.Versions, err = FindAppVersions(c, app.Slug)
+		app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel)
 		if err != nil {
 			return 0, nil, err
 		}

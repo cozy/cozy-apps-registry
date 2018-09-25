@@ -207,9 +207,10 @@ type MaintenanceMessage struct {
 }
 
 type AppVersions struct {
-	Stable []string `json:"stable"`
-	Beta   []string `json:"beta"`
-	Dev    []string `json:"dev,omitempty"`
+	HasVersions bool     `json:"has_versions"`
+	Stable      []string `json:"stable,omitempty"`
+	Beta        []string `json:"beta,omitempty"`
+	Dev         []string `json:"dev,omitempty"`
 }
 
 type Developer struct {
@@ -551,10 +552,14 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		return err
 	}
 
+	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
-		cacheVersionsLatest.Remove(lru.Key(ver.Slug + "/" + channelToStr(channel)))
+		if channel >= versionChannel {
+			key := lru.Key(ver.Slug + "/" + channelToStr(channel))
+			cacheVersionsLatest.Remove(key)
+			cacheVersionsList.Remove(key)
+		}
 	}
-	cacheVersionsList.Remove(lru.Key(ver.Slug))
 
 	for _, att := range attachments {
 		ver.Rev, err = db.PutAttachment(ctx, ver.ID, ver.Rev, att)

@@ -11,7 +11,7 @@ curl -s $couch_addr/_all_dbs | jq -r '.[]' | grep "registry-" | \
   xargs -I % python -c "import urllib; print urllib.quote('''%''', safe='')" | \
   xargs -I % curl -X DELETE ${couch_addr}/%
 
-reg1=("banks" "drive" "health" "photos" "collect")
+reg1=("banks" "drive" "health" "photos" "collect" "store")
 reg2=("drive" "homebook" "banks" "collect")
 mesinfos=("banks" "digiposte" "collect" "drive" "onboarding" "photos" "settings")
 
