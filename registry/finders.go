@@ -177,16 +177,18 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 		return nil, ErrAppSlugInvalid
 	}
 
-	// key := lru.Key(appSlug)
-	// if data, ok := cacheVersionsLatest.Get(key); ok {
-	// 	var latestVersion *Version
-	// 	if err := json.Unmarshal(data, &latestVersion); err == nil {
-	// 		return latestVersion, nil
-	// 	}
-	// }
+	channelStr := channelToStr(channel)
+
+	key := lru.Key(appSlug + "/" + channelStr)
+	if data, ok := cacheVersionsLatest.Get(key); ok {
+		var latestVersion *Version
+		if err := json.Unmarshal(data, &latestVersion); err == nil {
+			return latestVersion, nil
+		}
+	}
 
 	db := c.VersDB()
-	rows, err := versionViewQuery(c, db, appSlug, channelToStr(channel), map[string]interface{}{
+	rows, err := versionViewQuery(c, db, appSlug, channelStr, map[string]interface{}{
 		"limit":        1,
 		"descending":   true,
 		"include_docs": true,
@@ -212,7 +214,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	latestVersion.Rev = ""
 	latestVersion.Attachments = nil
 
-	// cacheVersionsLatest.Add(key, lru.Value(data))
+	cacheVersionsLatest.Add(key, lru.Value(data))
 	return latestVersion, nil
 }
 

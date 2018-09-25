@@ -551,7 +551,9 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		return err
 	}
 
-	cacheVersionsLatest.Remove(lru.Key(ver.Slug))
+	for _, channel := range []Channel{Stable, Beta, Dev} {
+		cacheVersionsLatest.Remove(lru.Key(ver.Slug + "/" + channelToStr(channel)))
+	}
 	cacheVersionsList.Remove(lru.Key(ver.Slug))
 
 	for _, att := range attachments {
