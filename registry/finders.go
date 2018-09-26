@@ -240,23 +240,8 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 	}
 	defer rows.Close()
 
-	hasVersions := false
-	if channel != Dev {
-		rowsDev, errv := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
-			"limit": 1,
-		})
-		defer rowsDev.Close()
-		if errv != nil {
-			return nil, errv
-		}
-		hasVersions = rowsDev.Next()
-	}
-
 	allVersions := make([]string, int(rows.TotalRows()))
 	for rows.Next() {
-		if channel == Dev {
-			hasVersions = true
-		}
 		var version string
 		if err = rows.ScanValue(&version); err != nil {
 			return nil, err
@@ -291,10 +276,9 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 	}
 
 	versions := &AppVersions{
-		HasVersions: hasVersions,
-		Stable:      stable,
-		Beta:        beta,
-		Dev:         dev,
+		Stable: stable,
+		Beta:   beta,
+		Dev:    dev,
 	}
 
 	if data, err := json.Marshal(versions); err == nil {
