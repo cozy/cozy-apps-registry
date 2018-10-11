@@ -260,6 +260,8 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 			if channel == Beta || channel == Dev {
 				beta = append(beta, v)
 			}
+		case Dev:
+			// do nothing
 		default:
 			panic("unreachable")
 		}
