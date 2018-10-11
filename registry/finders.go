@@ -27,7 +27,6 @@ var validSorts = []string{
 	"editor",
 	"category",
 	"created_at",
-	"updated_at",
 }
 
 const maxLimit = 200
@@ -221,9 +220,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, error) {
 	db := c.VersDB()
 
-	channelStr := channelToStr(channel)
-
-	key := lru.Key(appSlug + "/" + channelStr)
+	key := lru.Key(appSlug + "/" + channelToStr(channel))
 	if data, ok := cacheVersionsList.Get(key); ok {
 		var versions *AppVersions
 		if err := json.Unmarshal(data, &versions); err == nil {
@@ -231,7 +228,7 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 		}
 	}
 
-	rows, err := versionViewQuery(c, db, appSlug, channelStr, map[string]interface{}{
+	rows, err := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
 		"limit":      2000,
 		"descending": false,
 	})
@@ -250,35 +247,29 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 	}
 
 	var stable, beta, dev []string
-	switch channel {
-	case Stable:
-		stable = allVersions
-	case Beta:
-		beta = allVersions
-		for _, v := range allVersions {
-			if GetVersionChannel(v) == Stable {
-				stable = append(stable, v)
-			}
-		}
-	case Dev:
+	if channel == Dev {
 		dev = allVersions
-		for _, v := range allVersions {
-			switch GetVersionChannel(v) {
-			case Stable:
-				stable = append(stable, v)
-				fallthrough
-			default:
+	}
+
+	for _, v := range allVersions {
+		switch GetVersionChannel(v) {
+		case Stable:
+			stable = append(stable, v)
+			fallthrough
+		case Beta:
+			if channel == Beta || channel == Dev {
 				beta = append(beta, v)
 			}
+		default:
+			panic("unreachable")
 		}
-	default:
-		panic("unreachable")
 	}
 
 	versions := &AppVersions{
-		Stable: stable,
-		Beta:   beta,
-		Dev:    dev,
+		HasVersions: len(allVersions) > 0,
+		Stable:      stable,
+		Beta:        beta,
+		Dev:         dev,
 	}
 
 	if data, err := json.Marshal(versions); err == nil {

@@ -207,9 +207,10 @@ type MaintenanceMessage struct {
 }
 
 type AppVersions struct {
-	Stable []string `json:"stable,omitempty"`
-	Beta   []string `json:"beta,omitempty"`
-	Dev    []string `json:"dev,omitempty"`
+	HasVersions bool     `json:"has_versions"`
+	Stable      []string `json:"stable,omitempty"`
+	Beta        []string `json:"beta,omitempty"`
+	Dev         []string `json:"dev,omitempty"`
 }
 
 type Developer struct {
