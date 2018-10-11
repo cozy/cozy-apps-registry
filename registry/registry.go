@@ -98,12 +98,13 @@ var (
 
 	ctx = context.Background()
 
-	appsIndexes = map[string][]string{
-		"by-slug":        []string{"slug", "editor", "type"},
-		"by-type":        []string{"type", "slug", "editor"},
-		"by-editor":      []string{"editor", "slug", "type"},
-		"by-created_at":  []string{"created_at", "slug", "editor", "type"},
-		"by-maintenance": []string{"maintenance_activated"},
+	appsIndexes = map[string]echo.Map{
+		"by-slug":        {"fields": []string{"slug"}},
+		"by-type":        {"fields": []string{"type", "slug", "category"}},
+		"by-editor":      {"fields": []string{"editor", "slug", "category"}},
+		"by-category":    {"fields": []string{"category", "slug", "editor"}},
+		"by-created_at":  {"fields": []string{"created_at", "slug", "category", "editor"}},
+		"by-maintenance": {"fields": []string{"maintenance_activated"}},
 	}
 
 	versIndex = echo.Map{"fields": []string{"version", "slug", "type"}}
@@ -382,8 +383,8 @@ func (c *Space) init() (err error) {
 		}
 	}
 
-	for name, fields := range appsIndexes {
-		err = c.AppsDB().CreateIndex(ctx, "apps-index-"+name, "apps-index-"+name, echo.Map{"fields": fields})
+	for name, index := range appsIndexes {
+		err = c.AppsDB().CreateIndex(ctx, "apps-index-"+name, "apps-index-"+name, index)
 		if err != nil {
 			return
 		}

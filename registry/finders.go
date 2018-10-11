@@ -16,6 +16,7 @@ import (
 var validFilters = []string{
 	"type",
 	"editor",
+	"category",
 	"tags",
 	"locales",
 }
@@ -24,6 +25,7 @@ var validSorts = []string{
 	"slug",
 	"type",
 	"editor",
+	"category",
 	"created_at",
 }
 
@@ -317,7 +319,6 @@ func GetPendingVersions(c *Space) ([]*Version, error) {
 func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	db := c.AppsDB()
 	order := "asc"
-
 	sortField := opts.Sort
 	if len(sortField) > 0 && sortField[0] == '-' {
 		order = "desc"
@@ -326,19 +327,12 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	if sortField == "" || !stringInArray(sortField, validSorts) {
 		sortField = "slug"
 	}
-
-	indexName := "by-" + sortField
-	useIndex := "apps-index-" + indexName
-	sortFields := appsIndexes[indexName]
-	sort := ""
-	for _, field := range sortFields {
-		if sort != "" {
-			sort += ","
-		}
-		sort += fmt.Sprintf(`{"%s": "%s"}`, field, order)
+	sort := fmt.Sprintf(`{"%s": "%s"}`, sortField, order)
+	if sortField != "slug" {
+		sort += fmt.Sprintf(`,{"slug": "%s"}`, order)
 	}
 
-	selector := ``
+	selector := string(sprintfJSON(`%s: {"$gt": null}`, sortField))
 	for name, val := range opts.Filters {
 		if !stringInArray(name, validFilters) {
 			continue
@@ -364,6 +358,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	designsCount := len(appsIndexes)
 	limit := opts.Limit + designsCount + 1
 	cursor := opts.Cursor
+	useIndex := "apps-index-by-" + sortField
 	req := sprintfJSON(`{
   "use_index": %s,
   "selector": {`+selector+`},
