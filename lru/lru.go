@@ -80,7 +80,6 @@ func (c *Cache) Get(key Key) (value Value, ok bool) {
 	if ele, hit := c.cache[key]; hit {
 		if c.TTL == 0 || time.Since(ele.Value.(*entry).date) <= c.TTL {
 			c.ll.MoveToFront(ele)
-			ele.Value.(*entry).date = time.Now()
 			return ele.Value.(*entry).value, true
 		}
 		c.removeElement(ele)
