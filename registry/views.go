@@ -97,7 +97,7 @@ var versionsViews = map[string]view{
 }
 
 func versViewDocName(appSlug string) string {
-	return "versions-" + appSlug + "-v1"
+	return "versions-" + appSlug + "-v2"
 }
 
 func createVersionsViews(c *Space, appSlug string) error {
