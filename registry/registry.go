@@ -278,7 +278,7 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	if err != nil {
 		return
 	}
-	viewClient, err = chttp.New(clientURL.String())
+	viewClient, err = chttp.New(u.String())
 	if err != nil {
 		return
 	}
