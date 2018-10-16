@@ -278,9 +278,20 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	if err != nil {
 		return
 	}
+	viewClient, err = chttp.New(clientURL.String())
+	if err != nil {
+		return
+	}
 
 	if user != "" {
 		err = client.Authenticate(ctx, &chttp.BasicAuth{
+			Username: user,
+			Password: pass,
+		})
+		if err != nil {
+			return
+		}
+		err = viewClient.Auth(&chttp.BasicAuth{
 			Username: user,
 			Password: pass,
 		})

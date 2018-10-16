@@ -86,6 +86,8 @@ function(doc) {
 }`
 )
 
+var viewClient *chttp.Client
+
 type view struct {
 	Map string `json:"map"`
 }
@@ -102,10 +104,6 @@ func versViewDocName(appSlug string) string {
 
 func createVersionsViews(c *Space, appSlug string) error {
 	ddoc := versViewDocName(appSlug)
-	chttpClient, err := chttp.New(clientURL.String())
-	if err != nil {
-		return err
-	}
 
 	var object struct {
 		Rev   string `json:"_rev"`
@@ -136,7 +134,7 @@ func createVersionsViews(c *Space, appSlug string) error {
 		Language: "javascript",
 	})
 
-	resp, err := chttpClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
+	resp, err := viewClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
 		Body: ioutil.NopCloser(bytes.NewReader(body)),
 	})
 	if err != nil {
