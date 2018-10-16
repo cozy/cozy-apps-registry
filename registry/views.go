@@ -105,11 +105,6 @@ func versViewDocName(appSlug string) string {
 func createVersionsViews(c *Space, appSlug string) error {
 	ddoc := versViewDocName(appSlug)
 
-	var object struct {
-		Rev   string `json:"_rev"`
-		Views map[string]view
-	}
-
 	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
 	path := fmt.Sprintf("/%s/%s", c.VersDB().Name(), ddocID)
 
@@ -124,12 +119,10 @@ func createVersionsViews(c *Space, appSlug string) error {
 
 	body, _ := json.Marshal(struct {
 		ID       string          `json:"_id"`
-		Rev      string          `json:"_rev,omitempty"`
 		Views    json.RawMessage `json:"views"`
 		Language string          `json:"language"`
 	}{
 		ID:       ddocID,
-		Rev:      object.Rev,
 		Views:    json.RawMessage(viewsBody),
 		Language: "javascript",
 	})
