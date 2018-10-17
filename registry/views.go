@@ -120,5 +120,8 @@ func createVersionsViews(c *Space, db *kivik.DB, appSlug string) error {
 	}
 
 	_, _, err := db.CreateDoc(ctx, doc)
-	return err
+	if err != nil {
+		return fmt.Errorf("Could not create versions views: %s", err)
+	}
+	return nil
 }

@@ -387,6 +387,7 @@ func (c *Space) init() (err error) {
 	for name, fields := range appsIndexes {
 		err = c.AppsDB().CreateIndex(ctx, appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
 		if err != nil {
+			err = fmt.Errorf("Error while creating index %q: %s", appIndexName(name), err)
 			return
 		}
 	}

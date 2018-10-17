@@ -160,7 +160,7 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			if err = createVersionsViews(c, db, appSlug); err != nil {
-				return nil, fmt.Errorf("Could not create versions views: %s", err)
+				return nil, err
 			}
 			return versionViewQuery(c, db, appSlug, channel, opts)
 		}
