@@ -159,7 +159,7 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 	rows, err := db.Query(ctx, versViewDocName(appSlug), channel, opts)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			if err = createVersionsViews(c, appSlug); err != nil {
+			if err = createVersionsViews(c, db, appSlug); err != nil {
 				return nil, err
 			}
 			return versionViewQuery(c, db, appSlug, channel, opts)

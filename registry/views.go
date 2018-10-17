@@ -1,15 +1,12 @@
 package registry
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/go-kivik/couchdb/chttp"
+	"github.com/go-kivik/kivik"
 )
 
 const (
@@ -86,8 +83,6 @@ function(doc) {
 }`
 )
 
-var viewClient *chttp.Client
-
 type view struct {
 	Map string `json:"map"`
 }
@@ -102,11 +97,8 @@ func versViewDocName(appSlug string) string {
 	return "versions-" + appSlug + "-v2"
 }
 
-func createVersionsViews(c *Space, appSlug string) error {
-	ddoc := versViewDocName(appSlug)
-
-	ddocID := fmt.Sprintf("_design/%s", url.PathEscape(ddoc))
-	path := fmt.Sprintf("/%s/%s", c.VersDB().Name(), ddocID)
+func createVersionsViews(c *Space, db *kivik.DB, appSlug string) error {
+	docID := fmt.Sprintf("_design/%s", url.PathEscape(versViewDocName(appSlug)))
 
 	var viewsBodies []string
 	for name, view := range versionsViews {
@@ -115,23 +107,18 @@ func createVersionsViews(c *Space, appSlug string) error {
 			string(sprintfJSON(`%s: {"map": %s}`, name, code)))
 	}
 
-	viewsBody := `{` + strings.Join(viewsBodies, ",") + `}`
+	viewsBody := json.RawMessage(`{` + strings.Join(viewsBodies, ",") + `}`)
 
-	body, _ := json.Marshal(struct {
+	doc := struct {
 		ID       string          `json:"_id"`
 		Views    json.RawMessage `json:"views"`
 		Language string          `json:"language"`
 	}{
-		ID:       ddocID,
-		Views:    json.RawMessage(viewsBody),
+		ID:       docID,
+		Views:    viewsBody,
 		Language: "javascript",
-	})
-
-	resp, err := viewClient.DoError(ctx, http.MethodPut, path, &chttp.Options{
-		Body: ioutil.NopCloser(bytes.NewReader(body)),
-	})
-	if err != nil {
-		return err
 	}
-	return resp.Body.Close()
+
+	_, _, err := db.CreateDoc(ctx, doc)
+	return err
 }
