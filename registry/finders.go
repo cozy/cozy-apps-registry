@@ -16,7 +16,6 @@ import (
 var validFilters = []string{
 	"type",
 	"editor",
-	"category",
 	"tags",
 	"locales",
 }
@@ -25,7 +24,6 @@ var validSorts = []string{
 	"slug",
 	"type",
 	"editor",
-	"category",
 	"created_at",
 }
 
@@ -162,7 +160,7 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			if err = createVersionsViews(c, db, appSlug); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Could not create versions views: %s", err)
 			}
 			return versionViewQuery(c, db, appSlug, channel, opts)
 		}
@@ -319,6 +317,7 @@ func GetPendingVersions(c *Space) ([]*Version, error) {
 func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	db := c.AppsDB()
 	order := "asc"
+
 	sortField := opts.Sort
 	if len(sortField) > 0 && sortField[0] == '-' {
 		order = "desc"
@@ -327,12 +326,18 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	if sortField == "" || !stringInArray(sortField, validSorts) {
 		sortField = "slug"
 	}
-	sort := fmt.Sprintf(`{"%s": "%s"}`, sortField, order)
-	if sortField != "slug" {
-		sort += fmt.Sprintf(`,{"slug": "%s"}`, order)
+
+	useIndex := appIndexName(sortField)
+	sortFields := appsIndexes[sortField]
+	sort := ""
+	for _, field := range sortFields {
+		if sort != "" {
+			sort += ","
+		}
+		sort += fmt.Sprintf(`{"%s": "%s"}`, field, order)
 	}
 
-	selector := string(sprintfJSON(`%s: {"$gt": null}`, sortField))
+	selector := ``
 	for name, val := range opts.Filters {
 		if !stringInArray(name, validFilters) {
 			continue
@@ -348,6 +353,9 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 			selector += string(sprintfJSON("%s: %s", name, val))
 		}
 	}
+	if selector == "" {
+		selector = string(sprintfJSON(`%s: {"$gt": null}`, sortField))
+	}
 
 	if opts.Limit == 0 {
 		opts.Limit = 50
@@ -358,7 +366,6 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	designsCount := len(appsIndexes)
 	limit := opts.Limit + designsCount + 1
 	cursor := opts.Cursor
-	useIndex := "apps-index-by-" + sortField
 	req := sprintfJSON(`{
   "use_index": %s,
   "selector": {`+selector+`},
