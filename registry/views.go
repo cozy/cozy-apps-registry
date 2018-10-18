@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -121,6 +122,9 @@ func createVersionsViews(c *Space, db *kivik.DB, appSlug string) error {
 
 	_, _, err := db.CreateDoc(ctx, doc)
 	if err != nil {
+		if kivik.StatusCode(err) == http.StatusConflict {
+			return nil
+		}
 		return fmt.Errorf("Could not create versions views: %s", err)
 	}
 	return nil
