@@ -421,11 +421,12 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 }
 
 func GetMaintainanceApps(c *Space) ([]*App, error) {
-	req := `{
-  "use_index": "apps-index-by-maintenance",
+	useIndex := appIndexName("maintenance")
+	req := sprintfJSON(`{
+  "use_index": %s,
   "selector": {"maintenance_activated": true},
   "limit": 1000
-}`
+}`, useIndex)
 	rows, err := c.dbApps.Find(ctx, req)
 	if err != nil {
 		return nil, err
