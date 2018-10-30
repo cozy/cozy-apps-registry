@@ -95,6 +95,7 @@ func init() {
 	rootCmd.AddCommand(addEditorCmd)
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
+	rootCmd.AddCommand(lsAppsCmd)
 	rootCmd.AddCommand(addAppCmd)
 	rootCmd.AddCommand(modifyAppCmd)
 	rootCmd.AddCommand(maintenanceCmd)
@@ -649,6 +650,50 @@ var lsEditorsCmd = &cobra.Command{
 		}
 		for _, editor := range editors {
 			fmt.Println(editor.Name())
+		}
+		return nil
+	},
+}
+
+var lsAppsCmd = &cobra.Command{
+	Use:     "ls-apps [editor]",
+	Short:   `List all apps from an editor.`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, ok := registry.GetSpace(appSpaceFlag)
+		if ok != true {
+			return nil
+		}
+		db := c.AppsDB()
+
+		editor, _, err := fetchEditor(args)
+		if err != nil {
+			return err
+		}
+
+		sel := map[string]interface{}{
+			"editor": editor.Name(),
+		}
+		search := map[string]interface{}{
+			"selector": sel,
+		}
+
+		res, err := db.Find(context.TODO(), search)
+		if err != nil {
+			return err
+		}
+
+		var app map[string]string
+		var editors []string
+
+		for res.Next() {
+			res.ScanDoc(&app)
+			editors = append(editors, app["slug"])
+		}
+		if len(editors) > 0 {
+			fmt.Println(strings.Join(editors, ", "))
+		} else {
+			return fmt.Errorf("no apps found for editor %s", editor.Name())
 		}
 		return nil
 	},
