@@ -661,8 +661,8 @@ var lsAppsCmd = &cobra.Command{
 	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, ok := registry.GetSpace(appSpaceFlag)
-		if ok != true {
-			return nil
+		if !ok {
+			return fmt.Errorf("cannot get space %s", appSpaceFlag)
 		}
 		db := c.AppsDB()
 
@@ -690,11 +690,10 @@ var lsAppsCmd = &cobra.Command{
 			res.ScanDoc(&app)
 			editors = append(editors, app["slug"])
 		}
-		if len(editors) > 0 {
-			fmt.Println(strings.Join(editors, ", "))
-		} else {
+		if len(editors) == 0 {
 			return fmt.Errorf("no apps found for editor %s", editor.Name())
 		}
+		fmt.Println(strings.Join(editors, ", "))
 		return nil
 	},
 }
