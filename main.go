@@ -676,6 +676,7 @@ var lsAppsCmd = &cobra.Command{
 		}
 		search := map[string]interface{}{
 			"selector": sel,
+			"limit":    1000,
 		}
 
 		res, err := db.Find(context.TODO(), search)
