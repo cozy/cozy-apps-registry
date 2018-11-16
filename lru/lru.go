@@ -25,7 +25,7 @@ type (
 	Value []byte
 )
 
-// Cache is an LRU cache. It is not safe for concurrent access.
+// Cache is an LRU cache.
 type Cache struct {
 	// MaxEntries is the maximum number of cache entries before
 	// an item is evicted. Zero means no limit.
@@ -68,7 +68,7 @@ func (c *Cache) Add(key Key, value Value) {
 		ele := c.ll.PushFront(&entry{key, value, time.Now()})
 		c.cache[key] = ele
 		if c.MaxEntries != 0 && c.ll.Len() > c.MaxEntries {
-			c.RemoveOldest()
+			c.removeOldest()
 		}
 	}
 }
@@ -96,10 +96,7 @@ func (c *Cache) Remove(key Key) {
 	}
 }
 
-// RemoveOldest removes the oldest item from the cache.
-func (c *Cache) RemoveOldest() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *Cache) removeOldest() {
 	if ele := c.ll.Back(); ele != nil {
 		c.removeElement(ele)
 	}
