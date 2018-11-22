@@ -17,12 +17,10 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cozy/echo"
 	"github.com/cozy/echo/middleware"
-
 	"github.com/go-kivik/kivik"
+	"github.com/sirupsen/logrus"
 )
 
 const RegistryVersion = "0.1.0"
@@ -218,12 +216,18 @@ func approvePendingVersion(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
+	if appSlug == "" {
+		return errshttp.NewError(http.StatusNotFound, "App is missing in the URL")
+	}
 	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
 
 	ver := stripVersion(c.Param("version"))
+	if ver == "" {
+		return errshttp.NewError(http.StatusNotFound, "Version is missing in the URL")
+	}
 	version, err := registry.FindPendingVersion(getSpace(c), appSlug, ver)
 	if err != nil {
 		return err
