@@ -279,6 +279,7 @@ Here are all properties meaning for the manifest file (for webapp and konnectors
 
 Field          | Description
 ---------------|-------------------------------------------------------------
+`aggregator`       | Object containing aggregator data. Typically `{ accountId: 'aggregator-service' }`.
 `categories`       | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
 `data_types`       | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`        | `name` and `url` for the developer
