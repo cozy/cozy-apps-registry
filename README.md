@@ -299,6 +299,7 @@ Field          | Description
 `name_prefix`      | the prefix to display with the name
 `oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
 `parameters`       | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
+`partnership`      | an object to provide informations (to display in the Store for example) about a partnership related to the application (`icon` and `description`)
 `permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
 `platforms`        | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
 `routes`           | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details) (__REQUIRED__)
@@ -313,7 +314,7 @@ Field          | Description
 `vendor_link`      | _(konnector specific)_ URL to editor or service website
 
 > __Notices:__
-> - All images paths (`icon` and `screenshots`) should be relative to the build directory. For example, here, the `icon.svg` is stored in the build root directory and all `screenshots` are store in a folder `screenshots` in the build directory. Therefore, if you use a bundler (like webpack) be sure to know exactly where the bundler will store these assets in the build directory (and change it in the manifest if needed).
+> - All images paths (`icon`, `partnership.icon` and `screenshots`) should be relative to the build directory. For example, here, the `icon.svg` is stored in the build root directory and all `screenshots` are store in a folder `screenshots` in the build directory. Therefore, if you use a bundler (like webpack) be sure to know exactly where the bundler will store these assets in the build directory (and change it in the manifest if needed).
 > - All properties in `locales` objects will override the matched property of the main `manifest.webapp` body, if a property is not found in `locales` it will fallback to the main body one.
 > - We use to have the `en` locale as default one if the one wanted by the user doesn't exist. Be sure to have, at least, that locale complete with the name and all descriptions.
 > - In your build files, this `manifest.webapp` file must be at the root.
