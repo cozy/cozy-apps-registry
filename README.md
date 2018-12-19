@@ -308,7 +308,7 @@ Field          | Description
 `slug`             | the default slug that should never change (alpha-numeric lowercase) (__REQUIRED__)
 `source`           | where the files of the app can be downloaded (by default it will look for the branch `build`)
 `tags`             | a list a tags describing your application and features (useful for indexing and search)
-`terms`            | an object defining some properties about a related terms that need to be displayed/accepted by the user when installing the application
+`terms`            | an object defining  properties for terms that need to be displayed/accepted by the user when installing the application ([more-info-below](#application-terms))
 `time_interval`    | _(konnector specific)_ By defaults, konnector triggers are scheduled randomly between 00:00 AM and 05:00 AM. Those two values can be overwritten thanks to this property, by passing an array containing two values: first is the interval start hour, second is the interval end hour. Example: `[15, 21]` will randomly schedule the konnector trigger between 15:00 (03:00 PM) and 21:00 (09:00 PM).
 `type`             | type of application (`konnector` or `webapp`) (__REQUIRED__)
 `version`          | the current version number (__REQUIRED__)
@@ -337,6 +337,7 @@ You can provide a related `terms` property if you want to display and make the u
 
 - `url`, the URL of the terms/contract to redirect the user to (__REQUIRED__)
 - `version`: A specific version of the terms, we need it handle terms updates and ask the user again to accept the update (__REQUIRED__)
+- `id`: An id for the terms. When accepting terms, we store in `io.cozy.terms`, a document containing the `id` and `version` so that we know which terms have been accepted, and show the user a modal if the terms have not been accepted yet. (__REQUIRED__)
 
 ##### Konnectors folders handling
 
