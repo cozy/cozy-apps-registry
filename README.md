@@ -299,6 +299,7 @@ Field          | Description
 `name_prefix`      | the prefix to display with the name
 `oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
 `parameters`       | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
+`partnership`      | an object to provide informations (to display in the Store for example) about a partnership related to the application (`icon` and `description`)
 `permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
 `platforms`        | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
 `routes`           | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details) (__REQUIRED__)
@@ -307,13 +308,14 @@ Field          | Description
 `slug`             | the default slug that should never change (alpha-numeric lowercase) (__REQUIRED__)
 `source`           | where the files of the app can be downloaded (by default it will look for the branch `build`)
 `tags`             | a list a tags describing your application and features (useful for indexing and search)
+`terms`            | an object defining some properties about a related terms that need to be displayed/accepted by the user when installing the application
 `time_interval`    | _(konnector specific)_ By defaults, konnector triggers are scheduled randomly between 00:00 AM and 05:00 AM. Those two values can be overwritten thanks to this property, by passing an array containing two values: first is the interval start hour, second is the interval end hour. Example: `[15, 21]` will randomly schedule the konnector trigger between 15:00 (03:00 PM) and 21:00 (09:00 PM).
 `type`             | type of application (`konnector` or `webapp`) (__REQUIRED__)
 `version`          | the current version number (__REQUIRED__)
 `vendor_link`      | _(konnector specific)_ URL to editor or service website
 
 > __Notices:__
-> - All images paths (`icon` and `screenshots`) should be relative to the build directory. For example, here, the `icon.svg` is stored in the build root directory and all `screenshots` are store in a folder `screenshots` in the build directory. Therefore, if you use a bundler (like webpack) be sure to know exactly where the bundler will store these assets in the build directory (and change it in the manifest if needed).
+> - All images paths (`icon`, `partnership.icon` and `screenshots`) should be relative to the build directory. For example, here, the `icon.svg` is stored in the build root directory and all `screenshots` are store in a folder `screenshots` in the build directory. Therefore, if you use a bundler (like webpack) be sure to know exactly where the bundler will store these assets in the build directory (and change it in the manifest if needed).
 > - All properties in `locales` objects will override the matched property of the main `manifest.webapp` body, if a property is not found in `locales` it will fallback to the main body one.
 > - We use to have the `en` locale as default one if the one wanted by the user doesn't exist. Be sure to have, at least, that locale complete with the name and all descriptions.
 > - In your build files, this `manifest.webapp` file must be at the root.
@@ -328,6 +330,13 @@ Here are the properties that you can override using `locales` (we recommand to a
 - `changes`
 - `screenshots`
 - `folders`
+
+##### Application terms
+
+You can provide a related `terms` property if you want to display and make the user accept some terms (ToS for example) just before installing the application. Here are all properties allowed and used:
+
+- `url`, the URL of the terms/contract to redirect the user to (__REQUIRED__)
+- `version`: A specific version of the terms, we need it handle terms updates and ask the user again to accept the update (__REQUIRED__)
 
 ##### Konnectors folders handling
 
