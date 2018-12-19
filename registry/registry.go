@@ -225,13 +225,13 @@ type Platform struct {
 }
 
 type VersionOptions struct {
-	Version         string          `json:"version"`
-	URL             string          `json:"url"`
-	Sha256          string          `json:"sha256"`
-	Parameters      json.RawMessage `json:"parameters"`
-	Icon            string          `json:"icon"`
-	PartnershipIcon string          `json:"partnership_icon"`
-	Screenshots     []string        `json:"screenshots"`
+	Version     string          `json:"version"`
+	URL         string          `json:"url"`
+	Sha256      string          `json:"sha256"`
+	Parameters  json.RawMessage `json:"parameters"`
+	Icon        string          `json:"icon"`
+	Partnership Partnership     `json:"partnership"`
+	Screenshots []string        `json:"screenshots"`
 }
 
 type Version struct {
@@ -865,8 +865,8 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		}
 
 		var partnershipIconPath string
-		if opts.PartnershipIcon != "" {
-			partnershipIconPath = opts.PartnershipIcon
+		if opts.Partnership.Icon != "" {
+			partnershipIconPath = opts.Partnership.Icon
 		} else {
 			partnershipIconPath = parsedManifest.Partnership.Icon
 		}
