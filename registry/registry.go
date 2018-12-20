@@ -548,7 +548,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
-			key := lru.Key(ver.Slug + "/" + channelToStr(channel))
+			key := lru.Key(c.prefix + "/" + ver.Slug + "/" + channelToStr(channel))
 			cacheVersionsLatest.Remove(key)
 			cacheVersionsList.Remove(key)
 		}
