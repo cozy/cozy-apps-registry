@@ -512,7 +512,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 
 	contentType := att.ContentType
 	// force image/svg content-type for svg assets that start with <?xml
-	if filename == "icon" && contentType == "text/xml" {
+	if (filename == "icon" || filename == "partnership_icon") && contentType == "text/xml" {
 		contentType = "image/svg+xml"
 	}
 
@@ -553,7 +553,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 	contentType := att.ContentType
 	// force image/svg content-type for svg assets that start with <?xml
-	if filename == "icon" && contentType == "text/xml" {
+	if (filename == "icon" || filename == "partnership_icon") && contentType == "text/xml" {
 		contentType = "image/svg+xml"
 	}
 
