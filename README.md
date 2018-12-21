@@ -336,8 +336,8 @@ Here are the properties that you can override using `locales` (we recommand to a
 You can provide a related `terms` property if you want to display and make the user accept some terms (ToS for example) just before installing the application. Here are all properties allowed and used:
 
 - `url`, the URL of the terms/contract to redirect the user to (__REQUIRED__)
-- `version`: A specific version of the terms, we need it handle terms updates and ask the user again to accept the update (__REQUIRED__)
-- `id`: An id for the terms. When accepting terms, we store in `io.cozy.terms`, a document containing the `id` and `version` so that we know which terms have been accepted, and show the user a modal if the terms have not been accepted yet. (__REQUIRED__)
+- `version`: A specific version of the terms, we need it handle terms updates and ask the user again to accept the update. The special characters `[*+~.()'"!:@]` are not allowed here. (__REQUIRED__)
+- `id`: An id for the terms. When accepting terms, we store in `io.cozy.terms`, a document containing the `id` and `version` so that we know which terms have been accepted, and show the user a modal if the terms have not been accepted yet. The special characters `[*+~.()'"!:@]` are not allowed here. (__REQUIRED__)
 
 ##### Konnectors folders handling
 
