@@ -97,6 +97,14 @@ Feel free to change it if some configurations change in your case (the couchdb u
 > - Here the generated session token (step 1) is stored in the `sessionsecret.key` file of the working directory, this is so the value of the property `session-secret` at the end of the configuration file.
 > - By default, the local couchdb allow all admin accesses without creating users, so there is no user and password here. But if an admin user has been created, you have to use the properties `user` and `password` in the `couchdb` part to provide these informations.
 
+It's also possible to use env variables for configuration. You can take the key from the configuration file and add the `COZY_REGISTRY` prefix. For example, you can run:
+
+```shell
+COZY_REGISTRY_PORT=8081 cozy-apps-registry serve
+```
+
+There is also the `REGISTRY_SESSION_PASS` env variable for the password for the session secret.
+
 ### 3) Run the registry to serve the apps
 
 Run the registry using this followed command (here our configuration file is a `cozy-registry.yml` in the current working directory):
