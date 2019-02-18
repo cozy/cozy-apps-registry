@@ -18,13 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis"
-	"github.com/spf13/viper"
-
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/lru"
 	"github.com/cozy/cozy-apps-registry/magic"
+	"github.com/spf13/viper"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -559,19 +557,10 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
 			key := lru.Key(c.prefix + "/" + ver.Slug + "/" + channelToStr(channel))
-
-			latestCache := viper.Get("redisCacheVersionsLatest")
-			listCache := viper.Get("redisCacheVersionsList")
-
-			if latestCache != nil && listCache != nil {
-				la := latestCache.(*redis.Client)
-				li := listCache.(*redis.Client)
-				la.Del(key.String())
-				li.Del(key.String())
-			} else {
-				cacheVersionsLatest.Remove(key)
-				cacheVersionsList.Remove(key)
-			}
+			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(lru.Cache)
+			cacheVersionsList := viper.Get("cacheVersionsList").(lru.Cache)
+			cacheVersionsLatest.Remove(key)
+			cacheVersionsList.Remove(key)
 		}
 	}
 

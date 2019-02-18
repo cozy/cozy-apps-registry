@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/lru"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
 	"github.com/go-redis/redis"
@@ -29,6 +30,7 @@ import (
 )
 
 const envSessionPass = "REGISTRY_SESSION_PASS"
+const defaultTTL = 5 * time.Minute
 
 var cfgFileFlag string
 var tokenMaxAgeFlag string
@@ -184,7 +186,7 @@ func useConfig(cmd *cobra.Command) (err error) {
 			cfgFile, err)
 	}
 
-	// Create redis-client for cache
+	// Create cache
 	if viper.GetString("redis.url") != "" {
 		redisCacheVersionsLatest := redis.NewClient(&redis.Options{
 			Addr:     viper.GetString("redis.url"),
@@ -199,9 +201,11 @@ func useConfig(cmd *cobra.Command) (err error) {
 
 		if err := redisCacheVersionsLatest.Ping().Err; err() != nil {
 			fmt.Fprintf(os.Stderr, "cannot use redis for cache: %s\n", err().Error())
+			viper.Set("cacheVersionsLatest", lru.NewLRUCache(256, defaultTTL))
+			viper.Set("cacheVersionsList", lru.NewLRUCache(256, defaultTTL))
 		} else {
-			viper.Set("redisCacheVersionsLatest", redisCacheVersionsLatest)
-			viper.Set("redisCacheVersionsList", redisCacheVersionsList)
+			viper.Set("cacheVersionsLatest", lru.NewRedisCache(defaultTTL, redisCacheVersionsLatest))
+			viper.Set("cacheVersionsList", lru.NewRedisCache(defaultTTL, redisCacheVersionsList))
 		}
 	}
 
