@@ -22,6 +22,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
+	"github.com/go-redis/redis"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -182,6 +183,28 @@ func useConfig(cmd *cobra.Command) (err error) {
 		return fmt.Errorf("Failed to read cozy-apps-registry configuration %q: %s",
 			cfgFile, err)
 	}
+
+	// Create redis-client for cache
+	if viper.GetString("redis.url") != "" {
+		redisCacheVersionsLatest := redis.NewClient(&redis.Options{
+			Addr:     viper.GetString("redis.url"),
+			Password: viper.GetString("redis.password"),
+			DB:       0,
+		})
+		redisCacheVersionsList := redis.NewClient(&redis.Options{
+			Addr:     viper.GetString("redis.url"),
+			Password: viper.GetString("redis.password"),
+			DB:       1,
+		})
+
+		if err := redisCacheVersionsLatest.Ping().Err; err() != nil {
+			fmt.Fprintf(os.Stderr, "cannot use redis for cache: %s\n", err().Error())
+		} else {
+			viper.Set("redisCacheVersionsLatest", redisCacheVersionsLatest)
+			viper.Set("redisCacheVersionsList", redisCacheVersionsList)
+		}
+	}
+
 	return nil
 }
 

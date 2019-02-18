@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/lru"
+	"github.com/go-redis/redis"
+	"github.com/spf13/viper"
 
 	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
@@ -211,7 +213,12 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	latestVersion.Rev = ""
 	latestVersion.Attachments = nil
 
-	cacheVersionsLatest.Add(key, lru.Value(data))
+	if redisCacheVersionsLatest := viper.Get("redisCacheVersionsLatest"); redisCacheVersionsLatest != nil {
+		la := redisCacheVersionsLatest.(*redis.Client)
+		la.Set(key.String(), data, 5*time.Minute)
+	} else {
+		cacheVersionsLatest.Add(key, lru.Value(data))
+	}
 	return latestVersion, nil
 }
 
@@ -273,7 +280,12 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 	}
 
 	if data, err := json.Marshal(versions); err == nil {
-		cacheVersionsList.Add(key, data)
+		if redisCacheVersionsList := viper.Get("redisCacheVersionsList"); redisCacheVersionsList != nil {
+			li := redisCacheVersionsList.(*redis.Client)
+			li.Set(key.String(), data, 5*time.Minute)
+		} else {
+			cacheVersionsList.Add(key, data)
+		}
 	}
 
 	return versions, nil

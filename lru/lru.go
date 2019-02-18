@@ -56,6 +56,11 @@ func New(maxEntries int, ttl time.Duration) *Cache {
 	}
 }
 
+// Key returns the key as a string
+func (k Key) String() string {
+	return string(k)
+}
+
 // Add adds a value to the cache.
 func (c *Cache) Add(key Key, value Value) {
 	c.mu.Lock()
