@@ -13,8 +13,6 @@ type RedisCache struct {
 }
 
 // New creates a new Cache.
-// If maxEntries is zero, the cache has no limit and it's assumed
-// that eviction is done by the caller.
 func NewRedisCache(ttl time.Duration, client *redis.Client) *RedisCache {
 	return &RedisCache{
 		TTL:   ttl,
