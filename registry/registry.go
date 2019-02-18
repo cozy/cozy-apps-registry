@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/errshttp"
-	"github.com/cozy/cozy-apps-registry/lru"
 	"github.com/cozy/cozy-apps-registry/magic"
 	"github.com/spf13/viper"
 
@@ -556,9 +556,9 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
-			key := lru.Key(c.prefix + "/" + ver.Slug + "/" + channelToStr(channel))
-			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(lru.Cache)
-			cacheVersionsList := viper.Get("cacheVersionsList").(lru.Cache)
+			key := cache.Key(c.prefix + "/" + ver.Slug + "/" + channelToStr(channel))
+			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
+			cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
 			cacheVersionsLatest.Remove(key)
 			cacheVersionsList.Remove(key)
 		}

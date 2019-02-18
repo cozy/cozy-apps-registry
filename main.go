@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
-	"github.com/cozy/cozy-apps-registry/lru"
+	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
 	"github.com/go-redis/redis"
@@ -199,15 +199,17 @@ func useConfig(cmd *cobra.Command) (err error) {
 			DB:       1,
 		})
 
-		if err := redisCacheVersionsLatest.Ping().Err; err() != nil {
-			fmt.Fprintf(os.Stderr, "cannot use redis for cache: %s\n", err().Error())
-			viper.Set("cacheVersionsLatest", lru.NewLRUCache(256, defaultTTL))
-			viper.Set("cacheVersionsList", lru.NewLRUCache(256, defaultTTL))
-		} else {
-			viper.Set("cacheVersionsLatest", lru.NewRedisCache(defaultTTL, redisCacheVersionsLatest))
-			viper.Set("cacheVersionsList", lru.NewRedisCache(defaultTTL, redisCacheVersionsList))
+		res := redisCacheVersionsLatest.Ping()
+		if res.Err() == nil {
+			viper.Set("cacheVersionsLatest", cache.NewRedisCache(defaultTTL, redisCacheVersionsLatest))
+			viper.Set("cacheVersionsList", cache.NewRedisCache(defaultTTL, redisCacheVersionsList))
+			return nil
 		}
+		fmt.Fprintf(os.Stderr, "cannot use redis for cache: %s\n", res.Err())
 	}
+
+	viper.Set("cacheVersionsLatest", cache.NewLRUCache(256, defaultTTL))
+	viper.Set("cacheVersionsList", cache.NewLRUCache(256, defaultTTL))
 
 	return nil
 }

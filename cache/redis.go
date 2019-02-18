@@ -1,5 +1,4 @@
-// Package lru implements a redis cache.
-package lru
+package cache
 
 import (
 	"time"

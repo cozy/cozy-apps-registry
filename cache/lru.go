@@ -11,8 +11,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package lru implements an LRU cache.
-package lru
+// Package cache implements an LRU cache and a redis cache.
+package cache
 
 import (
 	"container/list"

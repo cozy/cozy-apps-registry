@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cozy/cozy-apps-registry/lru"
 	"github.com/spf13/viper"
 
+	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
 )
@@ -168,8 +168,8 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 
 	channelStr := channelToStr(channel)
 
-	key := lru.Key(c.prefix + "/" + appSlug + "/" + channelStr)
-	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(lru.Cache)
+	key := cache.Key(c.prefix + "/" + appSlug + "/" + channelStr)
+	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
 	if data, ok := cacheVersionsLatest.Get(key); ok {
 		var latestVersion *Version
 		if err := json.Unmarshal(data, &latestVersion); err == nil {
@@ -204,15 +204,15 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	latestVersion.Rev = ""
 	latestVersion.Attachments = nil
 
-	cacheVersionsLatest.Add(key, lru.Value(data))
+	cacheVersionsLatest.Add(key, cache.Value(data))
 	return latestVersion, nil
 }
 
 func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, error) {
 	db := c.VersDB()
 
-	key := lru.Key(c.prefix + "/" + appSlug + "/" + channelToStr(channel))
-	cacheVersionsList := viper.Get("cacheVersionsList").(lru.Cache)
+	key := cache.Key(c.prefix + "/" + appSlug + "/" + channelToStr(channel))
+	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
 	if data, ok := cacheVersionsList.Get(key); ok {
 		var versions *AppVersions
 		if err := json.Unmarshal(data, &versions); err == nil {
