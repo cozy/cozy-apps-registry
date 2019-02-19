@@ -9,11 +9,11 @@ import (
 // Cache is an redis cache.
 type RedisCache struct {
 	TTL   time.Duration
-	cache *redis.Client
+	cache redis.UniversalClient
 }
 
 // New creates a new Cache.
-func NewRedisCache(ttl time.Duration, client *redis.Client) *RedisCache {
+func NewRedisCache(ttl time.Duration, client redis.UniversalClient) *RedisCache {
 	return &RedisCache{
 		TTL:   ttl,
 		cache: client,
