@@ -188,7 +188,7 @@ func useConfig(cmd *cobra.Command) (err error) {
 
 	// Create cache
 	if redisURL := viper.GetString("redis.addrs"); redisURL != "" {
-		redisOpts := &redis.UniversalOptions{
+		optsLatest := &redis.UniversalOptions{
 			// Either a single address or a seed list of host:port addresses
 			// of cluster/sentinel nodes.
 			Addrs: viper.GetStringSlice("redis.addrs"),
@@ -209,12 +209,32 @@ func useConfig(cmd *cobra.Command) (err error) {
 			PoolTimeout:        viper.GetDuration("redis.pool_timeout"),
 			IdleTimeout:        viper.GetDuration("redis.idle_timeout"),
 			IdleCheckFrequency: viper.GetDuration("redis.idle_check_frequency"),
+			DB:                 viper.GetInt("redis.databases.versionsLatest"),
 		}
-		optsList := redisOpts
-		optsLatest := redisOpts
 
-		optsList.DB = viper.GetInt("redis.databases.versionsList")
-		optsLatest.DB = viper.GetInt("redis.databases.versionsLatest")
+		optsList := &redis.UniversalOptions{
+			// Either a single address or a seed list of host:port addresses
+			// of cluster/sentinel nodes.
+			Addrs: viper.GetStringSlice("redis.addrs"),
+
+			// The sentinel master name.
+			// Only failover clients.
+			MasterName: viper.GetString("redis.master"),
+
+			// Enables read only queries on slave nodes.
+			ReadOnly: viper.GetBool("redis.read_only_slave"),
+
+			MaxRetries:         viper.GetInt("redis.max_retries"),
+			Password:           viper.GetString("redis.password"),
+			DialTimeout:        viper.GetDuration("redis.dial_timeout"),
+			ReadTimeout:        viper.GetDuration("redis.read_timeout"),
+			WriteTimeout:       viper.GetDuration("redis.write_timeout"),
+			PoolSize:           viper.GetInt("redis.pool_size"),
+			PoolTimeout:        viper.GetDuration("redis.pool_timeout"),
+			IdleTimeout:        viper.GetDuration("redis.idle_timeout"),
+			IdleCheckFrequency: viper.GetDuration("redis.idle_check_frequency"),
+			DB:                 viper.GetInt("redis.databases.versionsList"),
+		}
 		redisCacheVersionsLatest := redis.NewUniversalClient(optsLatest)
 		redisCacheVersionsList := redis.NewUniversalClient(optsList)
 
