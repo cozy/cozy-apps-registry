@@ -224,7 +224,7 @@ func useConfig(cmd *cobra.Command) (err error) {
 			viper.Set("cacheVersionsList", cache.NewRedisCache(defaultTTL, redisCacheVersionsList))
 			return nil
 		}
-		fmt.Fprintf(os.Stderr, "cannot use redis for cache: %s\n", res.Err())
+
 	}
 
 	viper.Set("cacheVersionsLatest", cache.NewLRUCache(256, defaultTTL))
