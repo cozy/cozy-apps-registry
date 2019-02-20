@@ -21,6 +21,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
+	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
 	"github.com/go-redis/redis"
