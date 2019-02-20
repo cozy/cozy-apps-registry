@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+var config *Config
+
 type Config struct {
 	SwiftConnection *swift.Connection
 }
@@ -14,11 +16,18 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	sc, err := initSwiftConnection()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Cannot access to swift: %s", err)
 	}
 	return &Config{
 		SwiftConnection: sc,
 	}, nil
+}
+
+func GetConfig() (*Config, error) {
+	if config == nil {
+		return NewConfig()
+	}
+	return config, nil
 }
 
 func initSwiftConnection() (*swift.Connection, error) {
@@ -35,9 +44,9 @@ func initSwiftConnection() (*swift.Connection, error) {
 		Domain: viper.GetString("swift.domain"),
 	}
 	// Authenticate
-	err := swiftConnection.Authenticate()
-	if err != nil {
-		panic(err)
+
+	if err := swiftConnection.Authenticate(); err != nil {
+		return nil, err
 	}
 
 	// Prepare containers

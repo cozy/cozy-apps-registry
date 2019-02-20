@@ -134,7 +134,7 @@ const (
 )
 
 type Space struct {
-	prefix        string
+	Prefix        string
 	dbApps        *kivik.DB
 	dbVers        *kivik.DB
 	dbPendingVers *kivik.DB
@@ -153,8 +153,8 @@ func (c *Space) PendingVersDB() *kivik.DB {
 }
 
 func (c *Space) dbName(suffix string) (name string) {
-	if c.prefix != "" {
-		name = c.prefix + "-"
+	if c.Prefix != "" {
+		name = c.Prefix + "-"
 	}
 	name += suffix
 	return dbName(name)
@@ -276,7 +276,7 @@ type Manifest struct {
 }
 
 func NewSpace(prefix string) *Space {
-	return &Space{prefix: prefix}
+	return &Space{Prefix: prefix}
 }
 
 func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err error) {
@@ -449,6 +449,14 @@ func IsValidVersion(ver *VersionOptions) error {
 	return nil
 }
 
+func (av *AppVersions) GetAll() []string {
+	res := []string{}
+	res = append(res, av.Stable...)
+	res = append(res, av.Beta...)
+	res = append(res, av.Dev...)
+	return res
+}
+
 func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	if err := IsValidApp(opts); err != nil {
 		return nil, err
@@ -562,7 +570,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
-			key := cache.Key(c.prefix + "/" + ver.Slug + "/" + channelToStr(channel))
+			key := cache.Key(c.Prefix + "/" + ver.Slug + "/" + channelToStr(channel))
 			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
 			cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
 			cacheVersionsLatest.Remove(key)
@@ -573,7 +581,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
 	basePath := filepath.Join(ver.Slug, ver.Version)
 
-	prefix := c.prefix
+	prefix := c.Prefix
 	if prefix == "" {
 		prefix = consts.DefaultSpacePrefix
 	}
@@ -587,7 +595,11 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		if err != nil {
 			return err
 		}
-		f.Write(content)
+		_, err = f.Write(content)
+		if err != nil {
+			return err
+		}
+
 		defer f.Close()
 	}
 
@@ -975,7 +987,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 				if isIcon {
 					filename = "icon"
 				} else if isShot {
-					filename = path.Join("screenshots", name)
+					filename = name
 				} else if isPartnershipIcon {
 					filename = "partnership_icon"
 				} else {
