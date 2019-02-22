@@ -545,7 +545,10 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		return ErrVersionSlugMismatch
 	}
 
-	conf, err := config.NewConfig()
+	conf, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
 	sc := conf.SwiftConnection
 
 	if ensureVersion {
@@ -600,7 +603,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 			return err
 		}
 
-		defer f.Close()
+		f.Close()
 	}
 
 	return nil

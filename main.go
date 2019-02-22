@@ -25,8 +25,8 @@ import (
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
-	"github.com/go-redis/redis"
 	"github.com/cozy/swift"
+	"github.com/go-redis/redis"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,6 +46,7 @@ var appSpaceFlag string
 var appNameFlag string
 var appDUCFlag string
 var appDUCByFlag string
+var fixerSpacesFlag []string
 
 var editorAutoPublicationFlag bool
 
@@ -134,6 +135,8 @@ func init() {
 	addAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
 	addAppCmd.MarkFlagRequired("editor")
 	addAppCmd.MarkFlagRequired("type")
+
+	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
@@ -343,8 +346,14 @@ var assetsCmd = &cobra.Command{
 			return err
 		}
 		sc := conf.SwiftConnection
+
+		var spaces []string
+		if len(fixerSpacesFlag) > 0 {
+			spaces = fixerSpacesFlag
+		} else {
+			spaces = registry.GetSpacesNames()
+		}
 		// Iterate over each space
-		spaces := registry.GetSpacesNames()
 		for _, space := range spaces {
 			s, ok := registry.GetSpace(space)
 			spacePrefix = s.Prefix

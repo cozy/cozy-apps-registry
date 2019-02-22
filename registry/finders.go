@@ -105,7 +105,7 @@ func FindAppAttachment(c *Space, appSlug, filename string, channel Channel) (*At
 
 func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attachment, error) {
 	// Return from swift
-	conf, err := config.NewConfig()
+	conf, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
