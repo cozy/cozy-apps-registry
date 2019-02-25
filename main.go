@@ -1136,11 +1136,24 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 			if err := registry.RegisterSpace(spaceName); err != nil {
 				return err
 			}
+
+			if spaceName == consts.DefaultSpacePrefix {
+				spaceName = ""
+			}
+
+			// Create apps view
+			s, ok := registry.GetSpace(spaceName)
+			if ok {
+				db := s.VersDB()
+				if err := registry.CreateVersionsDateView(db); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	}
 
-	return registry.RegisterSpace("__default__")
+	return registry.RegisterSpace(consts.DefaultSpacePrefix)
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {
