@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
@@ -198,6 +199,43 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 		return nil, err
 	}
 	return rows, nil
+}
+
+// FindLastsVersionsUpTo returns versions of a channel up to a date
+//
+// Example: FindLastsVersionUpTo("foo", "stable", myDate) returns all the
+// versions created beetween myDate and now
+func FindLastsVersionsUpTo(c *Space, channel string, date time.Time) ([]*Version, error) {
+	db := c.VersDB()
+	versions := make([]*Version, 0)
+
+	marshaled, err := json.Marshal(date.Format(time.RFC3339Nano))
+	if err != nil {
+		return nil, err
+	}
+
+	options := map[string]interface{}{
+		"startkey":     string(marshaled),
+		"include_docs": true,
+	}
+
+	rows, err := db.Query(ctx, "by-date", channel, options)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, ErrVersionNotFound
+	}
+
+	var version *Version
+	for rows.Next() {
+		if err := rows.ScanDoc(&version); err != nil {
+			return nil, err
+		}
+		versions = append(versions, version)
+	}
+	return versions, nil
 }
 
 func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, error) {
