@@ -53,7 +53,6 @@ func initSwiftConnection() (*swift.Connection, error) {
 	spacesNames := viper.GetStringSlice("spaces")
 	for _, space := range spacesNames {
 		if _, _, err := swiftConnection.Container(space); err != nil {
-			fmt.Printf("Creating container for space %s\n", space)
 			err = swiftConnection.ContainerCreate(space, nil)
 			if err != nil {
 				return nil, err

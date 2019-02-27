@@ -594,16 +594,11 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		if err != nil {
 			return err
 		}
-		content, err := ioutil.ReadAll(att.Content)
+		defer f.Close()
+		_, err = io.Copy(f, att.Content)
 		if err != nil {
 			return err
 		}
-		_, err = f.Write(content)
-		if err != nil {
-			return err
-		}
-
-		f.Close()
 	}
 
 	return nil

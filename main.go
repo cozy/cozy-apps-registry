@@ -25,7 +25,6 @@ import (
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-stack/pkg/utils"
-	"github.com/cozy/swift"
 	"github.com/go-redis/redis"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
@@ -1302,37 +1301,4 @@ func envMap() map[string]string {
 		env[i[0:sep]] = i[sep+1:]
 	}
 	return env
-}
-
-func initSwiftConnection(cmd *cobra.Command, args []string) error {
-	endpointType := viper.GetString("swift.endpoint_type")
-
-	// Create the swift connection
-	c := swift.Connection{
-		UserName:     viper.GetString("swift.username"),
-		ApiKey:       viper.GetString("swift.api_key"), // Password
-		AuthUrl:      viper.GetString("swift.auth_url"),
-		EndpointType: swift.EndpointType(endpointType),
-		Tenant:       viper.GetString("swift.tenant"), // Projet name
-
-		Domain: viper.GetString("swift.domain"),
-	}
-	// Authenticate
-	err := c.Authenticate()
-	if err != nil {
-		panic(err)
-	}
-
-	// Prepare containers
-	spacesNames := viper.GetStringSlice("spaces")
-	for _, space := range spacesNames {
-		if _, _, err := c.Container(space); err != nil {
-			fmt.Printf("Creating container for space %s\n", space)
-			err = c.ContainerCreate(space, nil)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
