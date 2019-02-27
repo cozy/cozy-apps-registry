@@ -24,8 +24,12 @@ func NewConfig() (*Config, error) {
 }
 
 func GetConfig() (*Config, error) {
+	var err error
 	if config == nil {
-		return NewConfig()
+		config, err = NewConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return config, nil
 }
