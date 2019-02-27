@@ -43,8 +43,8 @@ func initSwiftConnection() (*swift.Connection, error) {
 
 		Domain: viper.GetString("swift.domain"),
 	}
-	// Authenticate
 
+	// Authenticate to swift
 	if err := swiftConnection.Authenticate(); err != nil {
 		return nil, err
 	}
