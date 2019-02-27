@@ -74,7 +74,7 @@ func FindApp(c *Space, appSlug string, channel Channel) (*App, error) {
 	}
 
 	doc.DataUsageCommitment, doc.DataUsageCommitmentBy = defaultDataUserCommitment(doc, nil)
-	doc.Versions, err = FindAppVersions(c, doc.Slug, channel)
+	doc.Versions, err = FindAppVersions(c, doc.Slug, channel, true)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func FindLastsVersionsUpTo(c *Space, channel string, date time.Time) ([]*Version
 	return versions, nil
 }
 
-// findPreviousMinor tries to find the old previous version of semver-type
+// findPreviousMinor tries to find the old previous minor version of semver-type
 // versions
 func findPreviousMinor(version string, versions []string) (string, bool) {
 	vs := []*semver.Version{}
@@ -259,7 +259,8 @@ func findPreviousMinor(version string, versions []string) (string, bool) {
 	// Create constraints
 	major := currentVersion.Major()
 	minor := currentVersion.Minor()
-	notActualMinor, _ := semver.NewConstraint(fmt.Sprintf("< %s.%s", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10))) // Try to get the next minor version
+	patch := currentVersion.Patch()
+	notActualMinor, _ := semver.NewConstraint(fmt.Sprintf("< %s.%s.%s", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10), strconv.FormatInt(patch, 10))) // Try to get the next minor version
 	inMajor, _ := semver.NewConstraint(fmt.Sprintf("> %s", strconv.FormatInt(major, 10)))
 
 	// Finding
@@ -271,7 +272,7 @@ func findPreviousMinor(version string, versions []string) (string, bool) {
 	return "", false
 }
 
-// findPreviousMajor tries to find the old previous version of semver-type
+// findPreviousMajor tries to find the old previous major version of semver-type
 // versions
 func findPreviousMajor(version string, versions []string) (string, bool) {
 	vs := []*semver.Version{}
@@ -297,6 +298,59 @@ func findPreviousMajor(version string, versions []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// FindLastNVersions returns the N lasts versions of an app
+// If N is greater than available versions, only available are returned
+func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMinor int) ([]*Version, error) {
+	channel, err := StrToChannel(channelStr)
+	if err != nil {
+		return nil, err
+	}
+	versions, err := FindAppVersions(c, appSlug, channel, false)
+	latestVersion, err := FindLatestVersion(c, appSlug, channel)
+
+	resVersions := []string{}
+	minor := latestVersion.Version
+	major := latestVersion.Version
+
+	majors := []string{}
+
+	for len(majors) < nMajor {
+		minors := []string{}
+		minors = append(minors, minor)
+		majors = append(majors, major)
+
+		for len(minors) < nMinor {
+			previousMinor, ok := findPreviousMinor(minor, versions.Stable)
+			if ok {
+				minors = append(minors, previousMinor)
+				minor = previousMinor
+			} else {
+				// No more versions available, append & break
+				resVersions = append(resVersions, minors...)
+				break
+			}
+			// Append to final result
+			resVersions = append(resVersions, minors...)
+		}
+		major, ok := findPreviousMajor(major, versions.Stable)
+		if ok {
+			minor = major
+		} else {
+			break
+		}
+	}
+	returned := []*Version{}
+
+	for _, toReturn := range resVersions {
+		v, err := FindVersion(c, appSlug, toReturn)
+		if err != nil {
+			return nil, err
+		}
+		returned = append(returned, v)
+	}
+	return returned, nil
 }
 
 func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, error) {
@@ -346,7 +400,10 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	return latestVersion, nil
 }
 
-func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, error) {
+// FindAppVersions return all the app versions. The concat params allows you to
+// concatenate stable & beta versions in dev list, and stable versions in beta
+// list
+func FindAppVersions(c *Space, appSlug string, channel Channel, concat bool) (*AppVersions, error) {
 	db := c.VersDB()
 
 	key := cache.Key(c.Prefix + "/" + appSlug + "/" + channelToStr(channel))
@@ -377,23 +434,38 @@ func FindAppVersions(c *Space, appSlug string, channel Channel) (*AppVersions, e
 	}
 
 	var stable, beta, dev []string
-	if channel == Dev {
-		dev = allVersions
-	}
+	if concat {
+		if channel == Dev {
+			dev = allVersions
+		}
 
-	for _, v := range allVersions {
-		switch GetVersionChannel(v) {
-		case Stable:
-			stable = append(stable, v)
-			fallthrough
-		case Beta:
-			if channel == Beta || channel == Dev {
-				beta = append(beta, v)
+		for _, v := range allVersions {
+			switch GetVersionChannel(v) {
+			case Stable:
+				stable = append(stable, v)
+				fallthrough
+			case Beta:
+				if channel == Beta || channel == Dev {
+					beta = append(beta, v)
+				}
+			case Dev:
+				// do nothing
+			default:
+				panic("unreachable")
 			}
-		case Dev:
-			// do nothing
-		default:
-			panic("unreachable")
+		}
+	} else {
+		for _, v := range allVersions {
+			switch GetVersionChannel(v) {
+			case Stable:
+				stable = append(stable, v)
+			case Beta:
+				beta = append(beta, v)
+			case Dev:
+				dev = append(dev, v)
+			default:
+				panic("unreachable")
+			}
 		}
 	}
 
@@ -538,7 +610,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 
 	for _, app := range res {
 		app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
-		app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel)
+		app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel, true)
 		if err != nil {
 			return 0, nil, err
 		}
