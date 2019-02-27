@@ -300,7 +300,7 @@ var rootCmd = &cobra.Command{
 var serveCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   `Start the registry HTTP server`,
-	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces, initSwiftConnection),
+	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		InitLogger(LoggerOptions{Syslog: viper.GetBool("syslog")})
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
