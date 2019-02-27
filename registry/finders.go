@@ -7,9 +7,12 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/echo"
@@ -236,6 +239,64 @@ func FindLastsVersionsUpTo(c *Space, channel string, date time.Time) ([]*Version
 		versions = append(versions, version)
 	}
 	return versions, nil
+}
+
+// findPreviousMinor tries to find the old previous version of semver-type
+// versions
+func findPreviousMinor(version string, versions []string) (string, bool) {
+	vs := []*semver.Version{}
+	currentVersion, _ := semver.NewVersion(version)
+
+	// Init
+	for _, v := range versions {
+		sv, _ := semver.NewVersion(v)
+		vs = append(vs, sv)
+	}
+
+	// Sorting by reverse
+	sort.Sort(sort.Reverse(semver.Collection(vs)))
+
+	// Create constraints
+	major := currentVersion.Major()
+	minor := currentVersion.Minor()
+	notActualMinor, _ := semver.NewConstraint(fmt.Sprintf("< %s.%s", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10))) // Try to get the next minor version
+	inMajor, _ := semver.NewConstraint(fmt.Sprintf("> %s", strconv.FormatInt(major, 10)))
+
+	// Finding
+	for _, v := range vs {
+		if inMajor.Check(v) && notActualMinor.Check(v) {
+			return v.Original(), true
+		}
+	}
+	return "", false
+}
+
+// findPreviousMajor tries to find the old previous version of semver-type
+// versions
+func findPreviousMajor(version string, versions []string) (string, bool) {
+	vs := []*semver.Version{}
+	currentVersion, _ := semver.NewVersion(version)
+
+	// Init
+	for _, v := range versions {
+		sv, _ := semver.NewVersion(v)
+		vs = append(vs, sv)
+	}
+
+	// Sorting by reverse
+	sort.Sort(sort.Reverse(semver.Collection(vs)))
+
+	// Create constraints
+	major := currentVersion.Major()
+	previousMajor, _ := semver.NewConstraint(fmt.Sprintf("< %s.0.0", strconv.FormatInt(major, 10)))
+
+	// Finding
+	for _, v := range vs {
+		if previousMajor.Check(v) {
+			return v.Original(), true
+		}
+	}
+	return "", false
 }
 
 func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, error) {
