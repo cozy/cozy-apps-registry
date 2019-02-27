@@ -13,7 +13,7 @@ type Config struct {
 	SwiftConnection *swift.Connection
 }
 
-func NewConfig() (*Config, error) {
+func New() (*Config, error) {
 	sc, err := initSwiftConnection()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot access to swift: %s", err)
@@ -26,7 +26,7 @@ func NewConfig() (*Config, error) {
 func GetConfig() (*Config, error) {
 	var err error
 	if config == nil {
-		config, err = NewConfig()
+		config, err = New()
 		if err != nil {
 			return nil, err
 		}
