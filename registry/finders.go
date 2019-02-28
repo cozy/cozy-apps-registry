@@ -310,6 +310,17 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 	versions, err := FindAppVersions(c, appSlug, channel, false)
 	latestVersion, err := FindLatestVersion(c, appSlug, channel)
 
+	var versionsList []string
+
+	switch channel {
+	case Stable:
+		versionsList = versions.Stable
+	case Beta:
+		versionsList = versions.Beta
+	case Dev:
+		versionsList = versions.Dev
+	}
+
 	resVersions := []string{}
 	minor := latestVersion.Version
 	major := latestVersion.Version
@@ -322,7 +333,7 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 		majors = append(majors, major)
 
 		for len(minors) < nMinor {
-			previousMinor, ok := findPreviousMinor(minor, versions.Stable)
+			previousMinor, ok := findPreviousMinor(minor, versionsList)
 			if ok {
 				minors = append(minors, previousMinor)
 				minor = previousMinor
@@ -334,7 +345,7 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 			// Append to final result
 			resVersions = append(resVersions, minors...)
 		}
-		major, ok := findPreviousMajor(major, versions.Stable)
+		major, ok := findPreviousMajor(major, versionsList)
 		if ok {
 			minor = major
 		} else {
