@@ -46,6 +46,9 @@ var appNameFlag string
 var appDUCFlag string
 var appDUCByFlag string
 var fixerSpacesFlag []string
+var minorFlag int
+var majorFlag int
+var durationFlag int
 
 var editorAutoPublicationFlag bool
 
@@ -114,6 +117,7 @@ func init() {
 
 	rootCmd.AddCommand(fixerCmd)
 	fixerCmd.AddCommand(assetsCmd)
+	fixerCmd.AddCommand(oldVersionsCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 
@@ -141,6 +145,10 @@ func init() {
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
+	oldVersionsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to expire")
+	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to expire")
+	oldVersionsCmd.Flags().IntVar(&durationFlag, "duration", 2, "number of months to check")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
@@ -440,6 +448,77 @@ var assetsCmd = &cobra.Command{
 			}
 		}
 		return
+	},
+}
+
+var oldVersionsCmd = &cobra.Command{
+	Use:     "rm-old-versions [channel] [app]",
+	Short:   "List and remove old app versions",
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) < 2 {
+			return cmd.Usage()
+		}
+
+		channel := args[0]
+		appSlug := args[1]
+		space, _ := registry.GetSpace(appSpaceFlag)
+
+		// Finding last versions of the app
+		versionsToKeepFromN, err := registry.FindLastNVersions(space, appSlug, channel, majorFlag, minorFlag)
+		if err != nil {
+			return err
+		}
+
+		d := time.Now().AddDate(0, -durationFlag, 0)
+		if err != nil {
+			return err
+		}
+
+		// Finding all the versions of apps from a date
+		versionsToKeepFromDate, err := registry.FindLastsVersionsUpTo(space, appSlug, channel, d)
+		if err != nil {
+			return err
+		}
+
+		// Concat the two lists without duplicates
+		versionsToKeep := versionsToKeepFromDate
+
+		var found bool
+
+		for _, y := range versionsToKeepFromN {
+			for _, v := range versionsToKeepFromDate {
+				if v.ID == y.ID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				versionsToKeep = append(versionsToKeep, y)
+			}
+		}
+		c, err := registry.StrToChannel(channel)
+		if err != nil {
+			return err
+		}
+
+		// Get versions and filter ones to expire
+		versions, err := registry.GetAppChannelVersions(space, appSlug, c)
+		toExpire := true
+		for _, v := range versions {
+			for _, vk := range versionsToKeep {
+				if v.ID == vk.ID {
+					toExpire = false
+					break
+				}
+			}
+
+			if toExpire {
+				v.Expire()
+			}
+		}
+
+		return nil
 	},
 }
 

@@ -13,14 +13,12 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
+	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/echo"
-
-	"github.com/spf13/viper"
-
-	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/go-kivik/kivik"
+	"github.com/spf13/viper"
 )
 
 var validFilters = []string{
@@ -208,9 +206,9 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 //
 // Example: FindLastsVersionUpTo("foo", "stable", myDate) returns all the
 // versions created beetween myDate and now
-func FindLastsVersionsUpTo(c *Space, channel string, date time.Time) ([]*Version, error) {
+func FindLastsVersionsUpTo(c *Space, appSlug, channel string, date time.Time) ([]*Version, error) {
 	db := c.VersDB()
-	versions := make([]*Version, 0)
+	versions := []*Version{}
 
 	marshaled, err := json.Marshal(date.Format(time.RFC3339Nano))
 	if err != nil {
@@ -231,12 +229,15 @@ func FindLastsVersionsUpTo(c *Space, channel string, date time.Time) ([]*Version
 		return nil, ErrVersionNotFound
 	}
 
-	var version *Version
 	for rows.Next() {
+		var version *Version
 		if err := rows.ScanDoc(&version); err != nil {
 			return nil, err
 		}
-		versions = append(versions, version)
+		// Filter by version
+		if version.Slug == appSlug {
+			versions = append(versions, version)
+		}
 	}
 	return versions, nil
 }
@@ -308,8 +309,13 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 		return nil, err
 	}
 	versions, err := FindAppVersions(c, appSlug, channel, false)
+	if err != nil {
+		return nil, err
+	}
 	latestVersion, err := FindLatestVersion(c, appSlug, channel)
-
+	if err != nil {
+		return nil, err
+	}
 	var versionsList []string
 
 	switch channel {
@@ -527,6 +533,34 @@ func GetPendingVersions(c *Space) ([]*Version, error) {
 	}
 
 	return versions, nil
+}
+
+// GetAppChannelVersions returns the versions list of an app channel
+func GetAppChannelVersions(c *Space, appSlug string, channel Channel) ([]*Version, error) {
+	var versions []string
+	var resultVersions []*Version
+
+	fv, err := FindAppVersions(c, appSlug, channel, false)
+	if err != nil {
+		return nil, err
+	}
+	switch channel {
+	case Stable:
+		versions = fv.Stable
+	case Beta:
+		versions = fv.Beta
+	case Dev:
+		versions = fv.Dev
+	}
+	for _, v := range versions {
+		vers, err := FindVersion(c, appSlug, v)
+		if err != nil {
+			return nil, err
+		}
+		resultVersions = append(resultVersions, vers)
+	}
+
+	return resultVersions, nil
 }
 
 func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {

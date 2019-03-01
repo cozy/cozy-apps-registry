@@ -253,6 +253,7 @@ type Version struct {
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
 	TarPrefix string          `json:"tar_prefix"`
+	Expired   bool            `json:"expired"`
 }
 
 type Partnership struct {
@@ -1100,6 +1101,14 @@ func calculateAppLabel(app *App, ver *Version) Label {
 		}
 	}
 	return LabelF
+}
+
+// Expire function sets a version as no more available, but does not delete
+// contents from the database
+func (v *Version) Expire() error {
+	v.Expired = true
+	// TODO: Delete attachments (swift or couchdb)
+	return nil
 }
 
 func defaultDataUserCommitment(app *App, opts *AppOptions) (duc, ducBy string) {
