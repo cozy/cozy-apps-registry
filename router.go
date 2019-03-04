@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -134,9 +135,9 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	space := getSpace(c)
-
-	if space.Prefix == "" {
-		space.Prefix = consts.DefaultSpacePrefix
+	prefix := space.Prefix
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
 	}
 
 	appSlug := c.Param("app")
@@ -150,7 +151,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	opts.Version = stripVersion(opts.Version)
-	opts.Space = space.Prefix
+	opts.Space = prefix
 
 	editor, err := checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
 	if err != nil {
@@ -575,6 +576,10 @@ func getVersionScreenshot(c echo.Context) error {
 	return err
 }
 
+func getVersionTarball(c echo.Context) error {
+	return getVersionAttachment(c, c.Param("tarball"))
+}
+
 func getVersionAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	version := c.Param("version")
@@ -617,7 +622,13 @@ func getAppVersions(c echo.Context) error {
 func getVersion(c echo.Context) error {
 	appSlug := c.Param("app")
 	version := stripVersion(c.Param("version"))
-	_, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
+
+	space := getSpace(c)
+	prefix := space.Prefix
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+	_, err := registry.FindApp(space, appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -636,6 +647,21 @@ func getVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
+	// Check if we have the local tarfile
+
+	conf, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
+	sc := conf.SwiftConnection
+
+	base := filepath.Base(doc.URL)
+	fp := filepath.Join(appSlug, version, base)
+	buf := new(bytes.Buffer)
+	if _, err := sc.ObjectGet(prefix, fp, buf, false, nil); err == nil {
+		updatedURL := fmt.Sprintf("%s://%s/%s/registry/%s/%s/tarball/%s", c.Scheme(), c.Request().Host, space.Prefix, appSlug, version, base)
+		doc.URL = updatedURL // Update the URL to point to the registry instead of the downcloud/aws/... url
+	}
 	return writeJSON(c, doc)
 }
 
@@ -936,6 +962,8 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/partnership_icon", getVersionPartnershipIcon)
 		g.HEAD("/:app/:version/screenshots/*", getVersionScreenshot)
 		g.GET("/:app/:version/screenshots/*", getVersionScreenshot)
+		g.HEAD("/:app/:version/tarball/:tarball", getVersionTarball)
+		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
 	}
 
 	e.GET("/editors", getEditorsList, jsonEndpoint)
