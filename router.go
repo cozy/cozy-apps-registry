@@ -14,11 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/cozy-apps-registry/config"
-
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
+
 	"github.com/cozy/echo"
 	"github.com/cozy/echo/middleware"
 	"github.com/sirupsen/logrus"
@@ -132,9 +133,14 @@ func createVersion(c echo.Context) (err error) {
 	if err = checkAuthorized(c); err != nil {
 		return err
 	}
+	space := getSpace(c)
+
+	if space.Prefix == "" {
+		space.Prefix = consts.DefaultSpacePrefix
+	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
+	app, err := registry.FindApp(space, appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -144,6 +150,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	opts.Version = stripVersion(opts.Version)
+	opts.Space = space.Prefix
 
 	editor, err := checkPermissions(c, app.Editor, app.Slug, false /* = not master */)
 	if err != nil {

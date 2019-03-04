@@ -239,6 +239,7 @@ type VersionOptions struct {
 	Icon        string          `json:"icon"`
 	Partnership Partnership     `json:"partnership"`
 	Screenshots []string        `json:"screenshots"`
+	Space       string
 }
 
 type Version struct {
@@ -772,6 +773,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	var manifestContent []byte
 	hasPrefix := true
 
+	// Prepare a new reader to write file content
+	var fileContent = new(bytes.Buffer)
+	reader = io.TeeReader(reader, fileContent)
+
 	tr, err := tarReader(reader, contentType)
 	if err != nil {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -885,9 +890,10 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 			fmt.Errorf("%q field is empty", "slug"))
 	}
 
+	var version string
 	{
 		var match bool
-		version := parsedManifest.Version
+		version = parsedManifest.Version
 		if version != "" {
 			match = VersionMatch(opts.Version, version)
 		}
@@ -909,6 +915,26 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Content of the manifest does not match: %s", errm)
 		return
+	}
+
+	// Saving the tar to Swift
+	conf, err := config.GetConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	sc := conf.SwiftConnection
+
+	filename := filepath.Base(url)
+	filepath := filepath.Join(slug, version, filename)
+	f, err := sc.ObjectCreate(opts.Space, filepath, false, "", contentType, nil)
+
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, fileContent)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	{
