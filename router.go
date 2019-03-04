@@ -167,7 +167,7 @@ func createVersion(c echo.Context) (err error) {
 
 		// Cleaning old versions when adding a new one
 		channel := registry.GetVersionChannel(ver.Version)
-		registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), 2, 2, 2)
+		go registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), 2, 2, 2)
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
