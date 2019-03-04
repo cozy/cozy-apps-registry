@@ -514,7 +514,8 @@ var oldVersionsCmd = &cobra.Command{
 			}
 
 			if toExpire {
-				v.Expire()
+				fmt.Printf("Removing %s\n", v.Slug+"/"+v.Version)
+				v.Delete(space)
 			}
 		}
 

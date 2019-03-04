@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy/swift"
+
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
@@ -1103,11 +1105,78 @@ func calculateAppLabel(app *App, ver *Version) Label {
 	return LabelF
 }
 
-// Expire function sets a version as no more available, but does not delete
-// contents from the database
-func (v *Version) Expire() error {
-	v.Expired = true
-	// TODO: Delete attachments (swift or couchdb)
+// Expire function deletes a version from the database
+func (v *Version) Delete(c *Space) error {
+	// Delete attachments (swift or couchdb)
+	prefix := c.Prefix
+
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+
+	err := v.RemoveAllAttachments(c)
+	if err != nil {
+		return err
+	}
+
+	// Removing the CouchDB document
+	db := c.VersDB()
+	_, err = db.Delete(context.Background(), v.ID, v.Rev)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveAttachment removes one attachment from a version
+func (v *Version) RemoveAttachment(c *Space, filename string) error {
+	prefix := c.Prefix
+
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+
+	conf, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
+	sc := conf.SwiftConnection
+	fp := filepath.Join(v.Slug, v.Version, filename)
+
+	err = sc.ObjectDelete(prefix, fp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveAllAttachments removes all the attachments of a version
+func (v *Version) RemoveAllAttachments(c *Space) error {
+	prefix := c.Prefix
+
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+
+	conf, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
+	sc := conf.SwiftConnection
+
+	fp := filepath.Join(v.Slug, v.Version)
+	opts := &swift.ObjectsOpts{Prefix: fp + "/"}
+	objs, err := sc.ObjectsAll(prefix, opts)
+
+	for _, obj := range objs {
+		// Deleting object
+		err := sc.ObjectDelete(prefix, obj.Name)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
