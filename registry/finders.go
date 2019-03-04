@@ -225,9 +225,6 @@ func FindLastsVersionsUpTo(c *Space, appSlug, channel string, date time.Time) ([
 		return nil, err
 	}
 	defer rows.Close()
-	if !rows.Next() {
-		return nil, ErrVersionNotFound
-	}
 
 	for rows.Next() {
 		var version *Version
