@@ -464,61 +464,10 @@ var oldVersionsCmd = &cobra.Command{
 		appSlug := args[1]
 		space, _ := registry.GetSpace(appSpaceFlag)
 
-		// Finding last versions of the app
-		versionsToKeepFromN, err := registry.FindLastNVersions(space, appSlug, channel, majorFlag, minorFlag)
+		err = registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag)
 		if err != nil {
 			return err
 		}
-
-		d := time.Now().AddDate(0, -durationFlag, 0)
-		if err != nil {
-			return err
-		}
-
-		// Finding all the versions of apps from a date
-		versionsToKeepFromDate, err := registry.FindLastsVersionsUpTo(space, appSlug, channel, d)
-		if err != nil {
-			return err
-		}
-
-		// Concat the two lists without duplicates
-		versionsToKeep := versionsToKeepFromDate
-
-		var found bool
-
-		for _, y := range versionsToKeepFromN {
-			for _, v := range versionsToKeepFromDate {
-				if v.ID == y.ID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				versionsToKeep = append(versionsToKeep, y)
-			}
-		}
-		c, err := registry.StrToChannel(channel)
-		if err != nil {
-			return err
-		}
-
-		// Get versions and filter ones to expire
-		versions, err := registry.GetAppChannelVersions(space, appSlug, c)
-		toExpire := true
-		for _, v := range versions {
-			for _, vk := range versionsToKeep {
-				if v.ID == vk.ID {
-					toExpire = false
-					break
-				}
-			}
-
-			if toExpire {
-				fmt.Printf("Removing %s\n", v.Slug+"/"+v.Version)
-				v.Delete(space)
-			}
-		}
-
 		return nil
 	},
 }
