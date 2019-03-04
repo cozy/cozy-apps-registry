@@ -255,7 +255,6 @@ type Version struct {
 	Size      int64           `json:"size,string"`
 	Sha256    string          `json:"sha256"`
 	TarPrefix string          `json:"tar_prefix"`
-	Expired   bool            `json:"expired"`
 }
 
 type Partnership struct {
