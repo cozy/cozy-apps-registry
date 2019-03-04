@@ -576,7 +576,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
-			key := cache.Key(c.Prefix + "/" + ver.Slug + "/" + channelToStr(channel))
+			key := cache.Key(c.Prefix + "/" + ver.Slug + "/" + ChannelToStr(channel))
 			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
 			cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
 			cacheVersionsLatest.Remove(key)
@@ -1213,7 +1213,7 @@ func StrToChannel(channel string) (Channel, error) {
 	}
 }
 
-func channelToStr(channel Channel) string {
+func ChannelToStr(channel Channel) string {
 	switch channel {
 	case Stable:
 		return "stable"

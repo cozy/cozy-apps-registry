@@ -372,7 +372,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 		return nil, ErrAppSlugInvalid
 	}
 
-	channelStr := channelToStr(channel)
+	channelStr := ChannelToStr(channel)
 
 	key := cache.Key(c.Prefix + "/" + appSlug + "/" + channelStr)
 	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
@@ -420,7 +420,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 func FindAppVersions(c *Space, appSlug string, channel Channel, concat bool) (*AppVersions, error) {
 	db := c.VersDB()
 
-	key := cache.Key(c.Prefix + "/" + appSlug + "/" + channelToStr(channel))
+	key := cache.Key(c.Prefix + "/" + appSlug + "/" + ChannelToStr(channel))
 	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
 	if data, ok := cacheVersionsList.Get(key); ok {
 		var versions *AppVersions

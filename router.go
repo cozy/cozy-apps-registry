@@ -162,7 +162,12 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	if editor.AutoPublication() {
-		err = registry.CreateReleaseVersion(getSpace(c), ver, attachments, app, true)
+		space := getSpace(c)
+		err = registry.CreateReleaseVersion(space, ver, attachments, app, true)
+
+		// Cleaning old versions when adding a new one
+		channel := registry.GetVersionChannel(ver.Version)
+		registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), 2, 2, 2)
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
