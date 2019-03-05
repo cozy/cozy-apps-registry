@@ -76,6 +76,7 @@ const (
 	versDBSuffix        = "versions"
 	pendingVersDBSuffix = "pending"
 	editorsDBSuffix     = "editors"
+	assetStoreDBSuffix  = "assets"
 )
 
 const (
@@ -100,8 +101,9 @@ var (
 	clientURL *url.URL
 	spaces    map[string]*Space
 
-	globalPrefix    string
-	globalEditorsDB *kivik.DB
+	globalPrefix       string
+	globalEditorsDB    *kivik.DB
+	globalAssetStoreDB *kivik.DB
 
 	ctx = context.Background()
 
@@ -329,7 +331,31 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	}
 
 	editorsDB = globalEditorsDB
+
 	return
+}
+
+// InitGlobalAssetStore initializes the global asset store database
+func InitGlobalAssetStore(addr, user, pass, prefix string) (*kivik.DB, error) {
+	assetsStoreDBName := dbName(assetStoreDBSuffix)
+	exists, err := client.DBExists(ctx, assetsStoreDBName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		fmt.Printf("Creating database %q...", assetsStoreDBName)
+		if _, err = client.CreateDB(ctx, assetsStoreDBName); err != nil {
+			return nil, err
+		}
+		fmt.Println("ok.")
+	}
+
+	globalAssetStoreDB, err = client.DB(ctx, assetsStoreDBName)
+	if err != nil {
+		return nil, err
+	}
+
+	return globalAssetStoreDB, nil
 }
 
 func RegisterSpace(name string) error {
