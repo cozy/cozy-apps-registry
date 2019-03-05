@@ -602,6 +602,9 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	if c.Request().Method == http.MethodHead {
 		return c.NoContent(http.StatusOK)
 	}
+
+	c.Response().Header().Set(echo.HeaderContentLength, att.ContentLength)
+
 	return c.Stream(http.StatusOK, contentType, att.Content)
 }
 
@@ -912,7 +915,6 @@ func Router(addr string) *echo.Echo {
 	})
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.BodyLimit("100K"))
-	e.Use(middleware.Gzip())
 	e.Use(middleware.Recover())
 
 	for _, c := range registry.GetSpacesNames() {
@@ -924,27 +926,27 @@ func Router(addr string) *echo.Echo {
 		}
 		g := e.Group(groupName, ensureSpace(c))
 
-		g.POST("", createApp, jsonEndpoint)
-		g.PATCH("/:app", patchApp, jsonEndpoint)
-		g.POST("/:app", createVersion, jsonEndpoint)
+		g.POST("", createApp, jsonEndpoint, middleware.Gzip())
+		g.PATCH("/:app", patchApp, jsonEndpoint, middleware.Gzip())
+		g.POST("/:app", createVersion, jsonEndpoint, middleware.Gzip())
 
-		g.GET("", getAppsList, jsonEndpoint)
+		g.GET("", getAppsList, jsonEndpoint, middleware.Gzip())
 
-		g.HEAD("/pending", getPendingVersions, jsonEndpoint)
-		g.GET("/pending", getPendingVersions, jsonEndpoint)
-		g.PUT("/pending/:app/:version/approval", approvePendingVersion)
+		g.HEAD("/pending", getPendingVersions, jsonEndpoint, middleware.Gzip())
+		g.GET("/pending", getPendingVersions, jsonEndpoint, middleware.Gzip())
+		g.PUT("/pending/:app/:version/approval", approvePendingVersion, middleware.Gzip())
 
 		g.GET("/maintenance", getMaintenanceApps)
-		g.PUT("/maintenance/:app/activate", activateMaintenanceApp, jsonEndpoint)
-		g.PUT("/maintenance/:app/deactivate", deactivateMaintenanceApp)
+		g.PUT("/maintenance/:app/activate", activateMaintenanceApp, jsonEndpoint, middleware.Gzip())
+		g.PUT("/maintenance/:app/deactivate", deactivateMaintenanceApp, middleware.Gzip())
 
-		g.HEAD("/:app", getApp, jsonEndpoint)
-		g.GET("/:app", getApp, jsonEndpoint)
-		g.GET("/:app/versions", getAppVersions, jsonEndpoint)
-		g.HEAD("/:app/:version", getVersion, jsonEndpoint)
-		g.GET("/:app/:version", getVersion, jsonEndpoint)
-		g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
-		g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint)
+		g.HEAD("/:app", getApp, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app", getApp, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/versions", getAppVersions, jsonEndpoint, middleware.Gzip())
+		g.HEAD("/:app/:version", getVersion, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/:version", getVersion, jsonEndpoint, middleware.Gzip())
+		g.HEAD("/:app/:channel/latest", getLatestVersion, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/:channel/latest", getLatestVersion, jsonEndpoint, middleware.Gzip())
 
 		g.GET("/:app/icon", getAppIcon)
 		g.HEAD("/:app/icon", getAppIcon)
@@ -966,9 +968,9 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
 	}
 
-	e.GET("/editors", getEditorsList, jsonEndpoint)
-	e.HEAD("/editors/:editor", getEditor, jsonEndpoint)
-	e.GET("/editors/:editor", getEditor, jsonEndpoint)
+	e.GET("/editors", getEditorsList, jsonEndpoint, middleware.Gzip())
+	e.HEAD("/editors/:editor", getEditor, jsonEndpoint, middleware.Gzip())
+	e.GET("/editors/:editor", getEditor, jsonEndpoint, middleware.Gzip())
 
 	e.GET("/favicon.ico", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "image/png", faviconBytes)
@@ -976,7 +978,7 @@ func Router(addr string) *echo.Echo {
 	e.GET("/robots.txt", func(c echo.Context) error {
 		return c.String(http.StatusOK, "User-agent: *\n"+
 			"Disallow: /")
-	})
+	}, middleware.Gzip())
 
 	return e
 }

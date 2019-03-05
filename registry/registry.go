@@ -927,11 +927,11 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	filename := filepath.Base(url)
 	filepath := filepath.Join(slug, version, filename)
 	f, err := sc.ObjectCreate(opts.Space, filepath, false, "", contentType, nil)
-
 	if err != nil {
 		return nil, nil, err
 	}
 	defer f.Close()
+
 	_, err = io.Copy(f, fileContent)
 	if err != nil {
 		return nil, nil, err
