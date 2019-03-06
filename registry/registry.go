@@ -622,6 +622,10 @@ func (version *Version) Clone() *Version {
 }
 
 func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, error) {
+	conf, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
 	db := c.PendingVersDB()
 
 	release := pending.Clone()
@@ -641,7 +645,7 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 
 	// We need to skip version check, because we don't drop pending
 	// version until the end to avoid data loss in case of error
-	err := CreateReleaseVersion(c, release, attachments, app, false)
+	err = CreateReleaseVersion(c, release, attachments, app, false)
 	if err != nil {
 		return nil, err
 	}
@@ -650,6 +654,12 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	if _, err := db.Delete(ctx, pending.ID, pending.Rev); err != nil {
 		return nil, err
 	}
+
+	// Get version channel
+	channel := GetVersionChannel(release.Version)
+
+	// Cleaning the old versions
+	go CleanOldVersions(c, release.Slug, ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 
 	return release, nil
 }

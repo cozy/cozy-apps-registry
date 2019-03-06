@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy/cozy-apps-registry/config"
+
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
@@ -123,6 +125,10 @@ func checkAuthorized(c echo.Context) error {
 }
 
 func createVersion(c echo.Context) (err error) {
+	conf, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
 	if err = checkAuthorized(c); err != nil {
 		return err
 	}
@@ -167,7 +173,7 @@ func createVersion(c echo.Context) (err error) {
 
 		// Cleaning old versions when adding a new one
 		channel := registry.GetVersionChannel(ver.Version)
-		go registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), 2, 2, 2)
+		go registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
