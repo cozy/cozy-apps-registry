@@ -930,7 +930,12 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	if err != nil {
 		return nil, nil, err
 	}
-	defer f.Close()
+
+	defer func() {
+		if errc := f.Close(); errc != nil {
+			errm = multierror.Append(errm, errc)
+		}
+	}()
 
 	_, err = io.Copy(f, fileContent)
 	if err != nil {
