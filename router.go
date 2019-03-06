@@ -660,8 +660,8 @@ func getVersion(c echo.Context) error {
 
 	base := filepath.Base(doc.URL)
 	fp := filepath.Join(appSlug, version, base)
-	buf := new(bytes.Buffer)
-	if _, err := sc.ObjectGet(prefix, fp, buf, false, nil); err == nil {
+
+	if _, _, err := sc.Object(prefix, fp); err == nil {
 		updatedURL := fmt.Sprintf("%s://%s/%s/registry/%s/%s/tarball/%s", c.Scheme(), c.Request().Host, space.Prefix, appSlug, version, base)
 		doc.URL = updatedURL // Update the URL to point to the registry instead of the downcloud/aws/... url
 	}
