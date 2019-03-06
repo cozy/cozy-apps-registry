@@ -240,6 +240,7 @@ type VersionOptions struct {
 	Partnership Partnership     `json:"partnership"`
 	Screenshots []string        `json:"screenshots"`
 	Space       string
+	RegistryURL *url.URL
 }
 
 type Version struct {
@@ -1074,7 +1075,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	ver.Slug = slug
 	ver.Version = opts.Version
 	ver.Type = appType
-	ver.URL = opts.URL
+	// Now the tarball has been downloaded, override the original tarball URL to
+	// local registry url for future downloads
+	ver.URL = opts.RegistryURL.String()
 	ver.Sha256 = opts.Sha256
 	ver.Editor = editorName
 	ver.Manifest = manifestContent

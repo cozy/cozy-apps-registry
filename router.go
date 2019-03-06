@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
-	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
@@ -169,6 +168,17 @@ func createVersion(c echo.Context) (err error) {
 	if err != registry.ErrVersionNotFound {
 		return err
 	}
+
+	// Generate the registryURL which contains the registryURL where to download
+	// the file
+	filename := filepath.Base(opts.URL)
+	buildedURL := &url.URL{
+		Scheme: c.Scheme(),
+		Host:   c.Request().Host,
+		Path:   fmt.Sprintf("%s/registry/%s/%s/tarball/%s", space.Prefix, appSlug, opts.Version, filename),
+	}
+
+	opts.RegistryURL = buildedURL
 
 	ver, attachments, err := registry.DownloadVersion(opts)
 	if err != nil {
@@ -650,21 +660,6 @@ func getVersion(c echo.Context) error {
 	doc.Rev = ""
 	doc.Attachments = nil
 
-	// Check if we have the local tarfile
-
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
-	sc := conf.SwiftConnection
-
-	base := filepath.Base(doc.URL)
-	fp := filepath.Join(appSlug, version, base)
-
-	if _, _, err := sc.Object(prefix, fp); err == nil {
-		updatedURL := fmt.Sprintf("%s://%s/%s/registry/%s/%s/tarball/%s", c.Scheme(), c.Request().Host, space.Prefix, appSlug, version, base)
-		doc.URL = updatedURL // Update the URL to point to the registry instead of the downcloud/aws/... url
-	}
 	return writeJSON(c, doc)
 }
 
