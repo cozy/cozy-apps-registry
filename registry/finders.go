@@ -210,11 +210,11 @@ func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[
 	return rows, nil
 }
 
-// FindLastsVersionsUpTo returns versions of a channel up to a date
+// FindLastsVersionsSince returns versions of a channel up to a date
 //
-// Example: FindLastsVersionUpTo("foo", "stable", myDate) returns all the
+// Example: FindLastsVersionSince("foo", "stable", myDate) returns all the
 // versions created beetween myDate and now
-func FindLastsVersionsUpTo(c *Space, appSlug, channel string, date time.Time) ([]*Version, error) {
+func FindLastsVersionsSince(c *Space, appSlug, channel string, date time.Time) ([]*Version, error) {
 	db := c.VersDB()
 	versions := []*Version{}
 

@@ -6,20 +6,20 @@ import (
 )
 
 // CleanOldVersions removes a specific app version of a space
-func CleanOldVersions(space *Space, appSlug, channel string, duration int, major, minor int) error {
+func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major, minor int) error {
 	// Finding last versions of the app
 	versionsToKeepFromN, err := FindLastNVersions(space, appSlug, channel, major, minor)
 	if err != nil {
 		return err
 	}
 
-	d := time.Now().AddDate(0, -duration, 0)
+	d := time.Now().AddDate(0, -nbMonths, 0)
 	if err != nil {
 		return err
 	}
 
 	// Finding all the versions of apps from a date
-	versionsToKeepFromDate, err := FindLastsVersionsUpTo(space, appSlug, channel, d)
+	versionsToKeepFromDate, err := FindLastsVersionsSince(space, appSlug, channel, d)
 	if err != nil {
 		return err
 	}
