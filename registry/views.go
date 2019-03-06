@@ -140,7 +140,7 @@ func CreateVersionsDateView(db *kivik.DB) error {
 			var version = expandVersion(doc);
 			var channel = version.channel;
 			if (channel == "%s") {
-				emit(doc.created_at, 1);
+				emit(doc.created_at);
 			}
 			}`, channel)
 		viewsBodies = append(viewsBodies,

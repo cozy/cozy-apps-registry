@@ -1112,11 +1112,7 @@ func (v *Version) Delete(c *Space) error {
 	// Removing the CouchDB document
 	db := c.VersDB()
 	_, err = db.Delete(context.Background(), v.ID, v.Rev)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // RemoveAttachment removes one attachment from a version
@@ -1130,11 +1126,7 @@ func (v *Version) RemoveAttachment(c *Space, filename string) error {
 	sc := conf.SwiftConnection
 	fp := filepath.Join(v.Slug, v.Version, filename)
 
-	err = sc.ObjectDelete(prefix, fp)
-	if err != nil {
-		return err
-	}
-	return nil
+	return sc.ObjectDelete(prefix, fp)
 }
 
 // RemoveAllAttachments removes all the attachments of a version

@@ -464,11 +464,7 @@ var oldVersionsCmd = &cobra.Command{
 		appSlug := args[1]
 		space, _ := registry.GetSpace(appSpaceFlag)
 
-		err = registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag)
-		if err != nil {
-			return err
-		}
-		return nil
+		return registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag)
 	},
 }
 

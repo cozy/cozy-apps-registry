@@ -15,7 +15,6 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
 	"github.com/spf13/viper"

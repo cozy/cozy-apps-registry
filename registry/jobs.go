@@ -47,8 +47,8 @@ func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major
 
 	// Get versions and filter ones to expire
 	versions, err := GetAppChannelVersions(space, appSlug, c)
-	toExpire := true
 	for _, v := range versions {
+		toExpire := true
 		for _, vk := range versionsToKeep {
 			if v.ID == vk.ID {
 				toExpire = false
