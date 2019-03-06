@@ -35,6 +35,14 @@ var validSorts = []string{
 	"created_at",
 }
 
+// ConcatChannels type
+type ConcatChannels bool
+
+const (
+	Concatenated    ConcatChannels = true
+	NotConcatenated ConcatChannels = false
+)
+
 const maxLimit = 200
 
 func getVersionID(appSlug, version string) string {
@@ -72,7 +80,7 @@ func FindApp(c *Space, appSlug string, channel Channel) (*App, error) {
 	}
 
 	doc.DataUsageCommitment, doc.DataUsageCommitmentBy = defaultDataUserCommitment(doc, nil)
-	doc.Versions, err = FindAppVersions(c, doc.Slug, channel, true)
+	doc.Versions, err = FindAppVersions(c, doc.Slug, channel, Concatenated)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +313,7 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 	if err != nil {
 		return nil, err
 	}
-	versions, err := FindAppVersions(c, appSlug, channel, false)
+	versions, err := FindAppVersions(c, appSlug, channel, NotConcatenated)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +425,7 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 // FindAppVersions return all the app versions. The concat params allows you to
 // concatenate stable & beta versions in dev list, and stable versions in beta
 // list
-func FindAppVersions(c *Space, appSlug string, channel Channel, concat bool) (*AppVersions, error) {
+func FindAppVersions(c *Space, appSlug string, channel Channel, concat ConcatChannels) (*AppVersions, error) {
 	db := c.VersDB()
 
 	key := cache.Key(c.Prefix + "/" + appSlug + "/" + ChannelToStr(channel))
@@ -537,7 +545,7 @@ func GetAppChannelVersions(c *Space, appSlug string, channel Channel) ([]*Versio
 	var versions []string
 	var resultVersions []*Version
 
-	fv, err := FindAppVersions(c, appSlug, channel, false)
+	fv, err := FindAppVersions(c, appSlug, channel, NotConcatenated)
 	if err != nil {
 		return nil, err
 	}
@@ -652,7 +660,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 
 	for _, app := range res {
 		app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
-		app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel, true)
+		app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel, Concatenated)
 		if err != nil {
 			return 0, nil, err
 		}

@@ -572,7 +572,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 func getAppVersions(c echo.Context) error {
 	appSlug := c.Param("app")
-	versions, err := registry.FindAppVersions(getSpace(c), appSlug, getVersionsChannel(c, registry.Dev), true)
+	versions, err := registry.FindAppVersions(getSpace(c), appSlug, getVersionsChannel(c, registry.Dev), registry.Concatenated)
 	if err != nil {
 		return err
 	}
