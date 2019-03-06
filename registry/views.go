@@ -137,8 +137,7 @@ func CreateVersionsDateView(db *kivik.DB) error {
 		code := fmt.Sprintf(`
 		function (doc) {
 			`+viewsHelpers+`
-			var version = expandVersion(doc);
-			var channel = version.channel;
+			var channel = getVersionChannel(doc.version);
 			if (channel == "%s") {
 				emit(doc.created_at);
 			}
