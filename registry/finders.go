@@ -122,10 +122,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	sc := conf.SwiftConnection
 	var buf bytes.Buffer
 	fp := filepath.Join(appSlug, version, filename)
-	prefix := c.Prefix
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
+	prefix := GetPrefixOrDefault(c)
 	headers, err := sc.ObjectGet(prefix, fp, &buf, false, nil)
 	if err != nil {
 		return nil, err

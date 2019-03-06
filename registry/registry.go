@@ -587,10 +587,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
 	basePath := filepath.Join(ver.Slug, ver.Version)
 
-	prefix := c.Prefix
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
+	prefix := GetPrefixOrDefault(c)
 
 	for _, att := range attachments {
 		f, err := sc.ObjectCreate(prefix, filepath.Join(basePath, att.Filename), false, "", att.ContentType, nil)
@@ -1107,12 +1104,6 @@ func calculateAppLabel(app *App, ver *Version) Label {
 // Expire function deletes a version from the database
 func (v *Version) Delete(c *Space) error {
 	// Delete attachments (swift or couchdb)
-	prefix := c.Prefix
-
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
-
 	err := v.RemoveAllAttachments(c)
 	if err != nil {
 		return err
@@ -1130,11 +1121,7 @@ func (v *Version) Delete(c *Space) error {
 
 // RemoveAttachment removes one attachment from a version
 func (v *Version) RemoveAttachment(c *Space, filename string) error {
-	prefix := c.Prefix
-
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
+	prefix := GetPrefixOrDefault(c)
 
 	conf, err := config.GetConfig()
 	if err != nil {
@@ -1152,11 +1139,7 @@ func (v *Version) RemoveAttachment(c *Space, filename string) error {
 
 // RemoveAllAttachments removes all the attachments of a version
 func (v *Version) RemoveAllAttachments(c *Space) error {
-	prefix := c.Prefix
-
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
+	prefix := GetPrefixOrDefault(c)
 
 	conf, err := config.GetConfig()
 	if err != nil {
@@ -1223,4 +1206,12 @@ func ChannelToStr(channel Channel) string {
 		return "dev"
 	}
 	panic("Unknown channel")
+}
+
+func GetPrefixOrDefault(c *Space) string {
+	prefix := c.Prefix
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+	return prefix
 }
