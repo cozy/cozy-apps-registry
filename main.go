@@ -452,8 +452,8 @@ var assetsCmd = &cobra.Command{
 }
 
 var oldVersionsCmd = &cobra.Command{
-	Use:     "rm-old-versions [channel] [app]",
-	Short:   "List and remove old app versions",
+	Use:     "rm-old-versions <channel> <app>",
+	Short:   "Remove old app versions",
 	PreRunE: compose(prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) < 2 {
