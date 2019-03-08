@@ -24,7 +24,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
-	"github.com/cozy/cozy-stack/pkg/utils"
+	"github.com/cozy/cozy-apps-registry/utils"
 	"github.com/go-redis/redis"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
