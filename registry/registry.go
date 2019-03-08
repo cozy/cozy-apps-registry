@@ -380,8 +380,7 @@ func (c *Space) init() (err error) {
 			}
 			fmt.Println("ok.")
 		}
-		var db *kivik.DB
-		db = client.DB(context.Background(), dbName)
+		db := client.DB(context.Background(), dbName)
 		if err = db.Err(); err != nil {
 			return
 		}

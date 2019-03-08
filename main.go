@@ -56,7 +56,7 @@ var flagDisallowManualExec bool
 var editorRegistry *auth.EditorRegistry
 var sessionSecret []byte
 
-var ctx context.Context = context.Background()
+var ctx = context.Background()
 
 func init() {
 	flags := rootCmd.PersistentFlags()
@@ -405,6 +405,9 @@ var assetsCmd = &cobra.Command{
 							filename := name
 							contentType := a["content_type"].(string)
 							attachment, err := registry.FindVersionOldAttachment(s, app.Slug, version, filename)
+							if err != nil {
+								return err
+							}
 
 							fp := filepath.Join(app.Slug, version, filename)
 							f, err := sc.ObjectCreate(spacePrefix, fp, false, "", contentType, nil) // Create the swift object
@@ -413,6 +416,7 @@ var assetsCmd = &cobra.Command{
 							}
 							content, err := ioutil.ReadAll(attachment.Content)
 							if err != nil {
+								f.Close()
 								return err
 							}
 							f.Write(content)
@@ -609,7 +613,8 @@ var verifyTokenCmd = &cobra.Command{
 		} else if appNameFlag == "" {
 			return fmt.Errorf("missing --app flag")
 		} else {
-			space, ok := registry.GetSpace(appSpaceFlag)
+			var space *registry.Space
+			space, ok = registry.GetSpace(appSpaceFlag)
 			if !ok {
 				return fmt.Errorf("Space %q does not exist", appSpaceFlag)
 			}
@@ -997,7 +1002,7 @@ var maintenanceActivateAppCmd = &cobra.Command{
 				break
 			}
 			if len(locale) > 5 {
-				fmt.Errorf("Bad locale name %q", locale)
+				fmt.Printf("Invalid locale name: %q\n", locale)
 				continue
 			}
 			shortMessage := prompt("Short message:")
