@@ -146,8 +146,8 @@ func init() {
 
 	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
 	oldVersionsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
-	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to expire")
-	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to expire")
+	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to keep")
+	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to keep")
 	oldVersionsCmd.Flags().IntVar(&durationFlag, "duration", 2, "number of months to check")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")

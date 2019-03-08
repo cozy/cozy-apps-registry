@@ -20,18 +20,18 @@ type Config struct {
 }
 
 func New() (*Config, error) {
-	viper.SetDefault("deprecation.major", 2)
-	viper.SetDefault("deprecation.minor", 2)
-	viper.SetDefault("deprecation.month", 2)
+	viper.SetDefault("conservation.major", 2)
+	viper.SetDefault("conservation.minor", 2)
+	viper.SetDefault("conservation.month", 2)
 	sc, err := initSwiftConnection()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot access to swift: %s", err)
 	}
 	return &Config{
 		SwiftConnection:      sc,
-		CleanNbMajorVersions: viper.GetInt("deprecation.major"),
-		CleanNbMinorVersions: viper.GetInt("deprecation.minor"),
-		CleanNbMonths:        viper.GetInt("deprecation.month"),
+		CleanNbMajorVersions: viper.GetInt("conservation.major"),
+		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
+		CleanNbMonths:        viper.GetInt("conservation.month"),
 	}, nil
 }
 
