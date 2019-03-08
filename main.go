@@ -132,8 +132,12 @@ func init() {
 	addAppCmd.Flags().StringVar(&appSpaceFlag, "app-space", "", "specify the application space")
 	addAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
 	addAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
-	addAppCmd.MarkFlagRequired("editor")
-	addAppCmd.MarkFlagRequired("type")
+	if err := addAppCmd.MarkFlagRequired("editor"); err != nil {
+		fmt.Printf("Error on marking editor flag as required: %s", err)
+	}
+	if err := addAppCmd.MarkFlagRequired("type"); err != nil {
+		fmt.Printf("Error on marking editor flag as required: %s", err)
+	}
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
@@ -419,8 +423,11 @@ var assetsCmd = &cobra.Command{
 								f.Close()
 								return err
 							}
-							f.Write(content)
+							_, err = f.Write(content)
 							f.Close()
+							if err != nil {
+								return err
+							}
 
 							// Now the file is in Swift, removing the attachment from CouchDB
 							versionRev, err = db.DeleteAttachment(ctx, v.ID, versionRev, filename)
@@ -880,7 +887,9 @@ var lsAppsCmd = &cobra.Command{
 		var editors []string
 
 		for res.Next() {
-			res.ScanDoc(&app)
+			if err := res.ScanDoc(&app); err != nil {
+				return err
+			}
 			editors = append(editors, app["slug"])
 		}
 		if len(editors) == 0 {
