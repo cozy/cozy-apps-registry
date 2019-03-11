@@ -136,7 +136,7 @@ func init() {
 		fmt.Printf("Error on marking editor flag as required: %s", err)
 	}
 	if err := addAppCmd.MarkFlagRequired("type"); err != nil {
-		fmt.Printf("Error on marking editor flag as required: %s", err)
+		fmt.Printf("Error on marking type flag as required: %s", err)
 	}
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
