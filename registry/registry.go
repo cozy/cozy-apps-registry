@@ -797,18 +797,10 @@ func (t *Tarball) CheckVersion(expectedVersion string) (bool, error) {
 
 // CheckEditor validates a tarball manifest editor
 func (t *Tarball) CheckEditor() (bool, error) {
-	var errm error
 	editorName := t.Manifest.Editor
 
 	if editorName == "" {
-		errm = multierror.Append(errm,
-			fmt.Errorf("%q field is empty", "editor"))
-	}
-
-	if errm != nil {
-		err := errshttp.NewError(http.StatusUnprocessableEntity,
-			"Editor of the manifest is bad: %s", errm)
-		return false, err
+		return false, fmt.Errorf("%q field is empty", "editor")
 	}
 
 	return true, nil
@@ -816,18 +808,10 @@ func (t *Tarball) CheckEditor() (bool, error) {
 
 // CheckEditor validates a tarball manifest slug
 func (t *Tarball) CheckSlug() (bool, error) {
-	var errm error
 	slug := t.Manifest.Slug
 
 	if slug == "" {
-		errm = multierror.Append(errm,
-			fmt.Errorf("%q field is empty", "slug"))
-	}
-
-	if errm != nil {
-		err := errshttp.NewError(http.StatusUnprocessableEntity,
-			"Slug of the manifest is bad: %s", errm)
-		return false, err
+		return false, fmt.Errorf("%q field is empty", "slug")
 	}
 
 	return true, nil
@@ -887,17 +871,21 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	}
 
 	// Handling assets
-	attachments, err = HandleAssets(tarball, opts, buf, url, attachments)
+	attachments, erra := HandleAssets(tarball, opts, buf, url, attachments)
+	if erra != nil {
+		err = multierror.Append(err, erra)
+	}
 
 	manifestContent := tarball.ManifestContent
 	manifest := tarball.ManifestMap
 
 	// Adding parameters if needed
+	var errm error
 	if opts.Parameters != nil {
 		manifest["parameters"] = opts.Parameters
-		manifestContent, err = json.Marshal(manifest)
-		if err != nil {
-			return
+		manifestContent, errm = json.Marshal(manifest)
+		if errm != nil {
+			err = multierror.Append(err, errm)
 		}
 	}
 
@@ -905,9 +893,9 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	filepath := filepath.Join(parsedManifest.Slug, parsedManifest.Version, filename)
 
 	// Saving app tarball
-	err = SaveTarball(opts.Space, filepath, tarball.ContentType, fileContent)
-	if err != nil {
-		return nil, nil, err
+	errt := SaveTarball(opts.Space, filepath, tarball.ContentType, fileContent)
+	if errt != nil {
+		err = multierror.Append(err, errt)
 	}
 
 	// Creating version
@@ -1073,11 +1061,7 @@ func SaveTarball(space, filepath, contentType string, fileContent io.Reader) err
 	defer f.Close()
 
 	_, err = io.Copy(f, fileContent)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // ReadTarballVersion reads the content of the version tarball which has been
