@@ -290,6 +290,7 @@ type Tarball struct {
 	TarPrefix       string
 	ContentType     string
 	AppType         string
+	Content         *bytes.Reader
 }
 
 func NewSpace(prefix string) *Space {
@@ -817,13 +818,10 @@ func (t *Tarball) CheckSlug() (bool, error) {
 	return true, nil
 }
 
-func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.Attachment, err error) {
-	url := opts.URL
-
+func downloadTarball(opts *VersionOptions, url string) (*Tarball, *Counter, error) {
 	var buf *bytes.Reader
-
+	var err error
 	var contentType string
-	var tarPrefix string
 
 	// Downloading the file
 	tryCount := 0
@@ -835,7 +833,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		} else if tryCount <= 3 {
 			continue
 		} else {
-			return
+			return nil, nil, err
 		}
 	}
 
@@ -850,8 +848,22 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 
 	// Reading the tarball content
 	tarball, err := ReadTarballVersion(reader, contentType, url)
+	if err != nil {
+		return nil, nil, err
+	}
 	tarball.ContentType = contentType
 
+	return tarball, counter, nil
+}
+
+func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.Attachment, err error) {
+	var tarPrefix string
+	url := opts.URL
+
+	tarball, counter, errd := downloadTarball(opts, url)
+	if err != nil {
+		err = multierror.Append(err, errd)
+	}
 	// Retreiving the tarball manifest
 	parsedManifest := tarball.Manifest
 
@@ -870,8 +882,13 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		err = multierror.Append(err, errv)
 	}
 
+	fileContent := new(bytes.Buffer)
+	if _, errc := io.Copy(fileContent, tarball.Content); errc != nil {
+		err = multierror.Append(err, errc)
+	}
+
 	// Handling assets
-	attachments, erra := HandleAssets(tarball, opts, buf, url, attachments)
+	attachments, erra := HandleAssets(tarball, opts, tarball.Content, url, attachments)
 	if erra != nil {
 		err = multierror.Append(err, erra)
 	}
@@ -973,6 +990,9 @@ func getAssetFilename(iconPath, partnershipIconPath, name string, screenshotPath
 	isPartnershipIcon := partnershipIconPath != "" && name == partnershipIconPath
 
 	isShot := !isIcon && stringInArray(name, screenshotPaths)
+	if !isIcon && !isPartnershipIcon && !isShot {
+		return ""
+	}
 
 	// Sets filename
 	var filename string
@@ -1041,7 +1061,9 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 			}
 
 			filename := getAssetFilename(iconPath, partnershipIconPath, name, screenshotPaths)
-
+			if filename == "" {
+				continue
+			}
 			var data []byte
 			data, err = ioutil.ReadAll(tr)
 			if err != nil {
@@ -1092,6 +1114,10 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 	var manifestContent []byte
 	var manifest *Manifest
 	var manifestmap map[string]interface{}
+
+	var content = new(bytes.Buffer)
+
+	reader = io.TeeReader(reader, content)
 
 	hasPrefix := true
 
@@ -1178,6 +1204,7 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 		PackageVersion:  packVersion,
 		HasPrefix:       hasPrefix,
 		TarPrefix:       tarPrefix,
+		Content:         bytes.NewReader(content.Bytes()),
 	}, nil
 }
 
