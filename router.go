@@ -175,10 +175,19 @@ func createVersion(c echo.Context) (err error) {
 		channel := registry.GetVersionChannel(ver.Version)
 
 		// Cleaning the old versions
+		channelString := registry.ChannelToStr(channel)
 		go func() {
-			err := registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+			err := registry.CleanOldVersions(space, ver.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 			if err != nil {
-				fmt.Printf("Cannot remove old version %s for %s\n", ver.Version, ver.Slug)
+				log := logrus.WithFields(logrus.Fields{
+					"nspace":    "clean_version",
+					"space":     space.Prefix,
+					"slug":      ver.Slug,
+					"version":   ver.Version,
+					"channel":   channelString,
+					"error_msg": err,
+				})
+				log.Error()
 			}
 		}()
 

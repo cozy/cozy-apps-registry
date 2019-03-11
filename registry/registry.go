@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cozy/swift"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
@@ -658,11 +659,20 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	// Get version channel
 	channel := GetVersionChannel(release.Version)
 
+	channelString := ChannelToStr(channel)
 	// Cleaning the old versions
 	go func() {
-		err := CleanOldVersions(c, release.Slug, ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+		err := CleanOldVersions(c, release.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 		if err != nil {
-			fmt.Printf("Cannot remove old version %s for %s\n", release.Version, release.Slug)
+			log := logrus.WithFields(logrus.Fields{
+				"nspace":    "clean_version",
+				"space":     c.Prefix,
+				"slug":      release.Slug,
+				"version":   release.Version,
+				"channel":   channelString,
+				"error_msg": err,
+			})
+			log.Error()
 		}
 	}()
 
