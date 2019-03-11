@@ -47,6 +47,9 @@ func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major
 
 	// Get versions and filter ones to expire
 	versions, err := GetAppChannelVersions(space, appSlug, c)
+	if err != nil {
+		return err
+	}
 	for _, v := range versions {
 		toExpire := true
 		for _, vk := range versionsToKeep {
@@ -58,7 +61,10 @@ func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major
 
 		if toExpire {
 			fmt.Printf("Removing %s\n", v.Slug+"/"+v.Version)
-			v.Delete(space)
+			err := v.Delete(space)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

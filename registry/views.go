@@ -133,7 +133,7 @@ func createVersionsViews(c *Space, db *kivik.DB, appSlug string) error {
 func CreateVersionsDateView(db *kivik.DB) error {
 	var viewsBodies []string
 
-	for channel, _ := range versionsViews {
+	for channel := range versionsViews {
 		code := fmt.Sprintf(`
 		function (doc) {
 			`+viewsHelpers+`

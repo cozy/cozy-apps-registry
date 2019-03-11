@@ -659,7 +659,18 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	channel := GetVersionChannel(release.Version)
 
 	// Cleaning the old versions
-	go CleanOldVersions(c, release.Slug, ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+	errs := make(chan error)
+	go func() {
+		err := CleanOldVersions(c, release.Slug, ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+		if err != nil {
+			errs <- err
+			return
+		}
+	}()
+
+	if err := <-errs; err != nil {
+		return nil, err
+	}
 
 	return release, nil
 }
@@ -1152,7 +1163,9 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 	fp := filepath.Join(v.Slug, v.Version)
 	opts := &swift.ObjectsOpts{Prefix: fp + "/"}
 	objs, err := sc.ObjectsAll(prefix, opts)
-
+	if err != nil {
+		return err
+	}
 	for _, obj := range objs {
 		// Deleting object
 		err := sc.ObjectDelete(prefix, obj.Name)

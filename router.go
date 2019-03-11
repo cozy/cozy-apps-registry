@@ -173,7 +173,21 @@ func createVersion(c echo.Context) (err error) {
 
 		// Cleaning old versions when adding a new one
 		channel := registry.GetVersionChannel(ver.Version)
-		go registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+
+		// Cleaning the old versions
+		errs := make(chan error)
+		go func() {
+			err := registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
+			if err != nil {
+				errs <- err
+				return
+			}
+		}()
+
+		if err := <-errs; err != nil {
+			return err
+		}
+
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
 	}
