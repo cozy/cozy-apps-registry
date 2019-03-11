@@ -916,12 +916,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	return
 }
 
-// HandleAssets handles all the assets of the app tarball (icon, partnership
-// icon, screenshots). Appened to attachments
-func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url string, attachments []*kivik.Attachment) ([]*kivik.Attachment, error) {
-	parsedManifest := tarball.Manifest
-
-	// Handling the icon
+func getIconPath(parsedManifest *Manifest, opts *VersionOptions) string {
 	var iconPath string
 	if opts.Icon != "" {
 		iconPath = opts.Icon
@@ -931,8 +926,10 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 	if iconPath != "" {
 		iconPath = path.Join("/", iconPath)
 	}
+	return iconPath
+}
 
-	// Handling the partnership icon
+func getPartnershipIconPath(parsedManifest *Manifest, opts *VersionOptions) string {
 	var partnershipIconPath string
 	if opts.Partnership.Icon != "" {
 		partnershipIconPath = opts.Partnership.Icon
@@ -942,8 +939,10 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 	if partnershipIconPath != "" {
 		partnershipIconPath = path.Join("/", partnershipIconPath)
 	}
+	return partnershipIconPath
+}
 
-	// Handling the screenshots
+func getScreenshotPaths(parsedManifest *Manifest, opts *VersionOptions) []string {
 	var screenshotPaths []string
 	if opts.Screenshots != nil {
 		screenshotPaths = opts.Screenshots
@@ -963,6 +962,41 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 			}
 		}
 	}
+
+	return screenshotPaths
+}
+
+// getAssetFilename computes the asset filename to write to the FS (icon,
+// partnership_icon, screenshot, ...)
+func getAssetFilename(iconPath, partnershipIconPath, name string, screenshotPaths []string) string {
+	isIcon := iconPath != "" && name == iconPath
+	isPartnershipIcon := partnershipIconPath != "" && name == partnershipIconPath
+
+	isShot := !isIcon && stringInArray(name, screenshotPaths)
+
+	// Sets filename
+	var filename string
+	if isIcon {
+		filename = "icon"
+	} else if isShot {
+		filename = name
+	} else if isPartnershipIcon {
+		filename = "partnership_icon"
+	} else {
+		panic("unreachable")
+	}
+
+	return filename
+}
+
+// HandleAssets handles all the assets of the app tarball (icon, partnership
+// icon, screenshots). Appened to attachments
+func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url string, attachments []*kivik.Attachment) ([]*kivik.Attachment, error) {
+	parsedManifest := tarball.Manifest
+
+	iconPath := getIconPath(parsedManifest, opts)
+	partnershipIconPath := getPartnershipIconPath(parsedManifest, opts)
+	screenshotPaths := getScreenshotPaths(parsedManifest, opts)
 
 	// Re-reading tarball content for assets
 	if len(screenshotPaths) > 0 || iconPath != "" || partnershipIconPath != "" {
@@ -1006,31 +1040,14 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 				continue
 			}
 
-			isIcon := iconPath != "" && name == iconPath
-			isPartnershipIcon := partnershipIconPath != "" && name == partnershipIconPath
-
-			isShot := !isIcon && stringInArray(name, screenshotPaths)
-			if !isIcon && !isPartnershipIcon && !isShot {
-				continue
-			}
+			filename := getAssetFilename(iconPath, partnershipIconPath, name, screenshotPaths)
 
 			var data []byte
 			data, err = ioutil.ReadAll(tr)
 			if err != nil {
-				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s", url, err)
 				return nil, err
 			}
-			var filename string
-			if isIcon {
-				filename = "icon"
-			} else if isShot {
-				filename = name
-			} else if isPartnershipIcon {
-				filename = "partnership_icon"
-			} else {
-				panic("unreachable")
-			}
+
 			mime := magic.MIMEType(name, data)
 			body := ioutil.NopCloser(bytes.NewReader(data))
 			attachments = append(attachments, &kivik.Attachment{
