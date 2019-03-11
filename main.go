@@ -132,10 +132,10 @@ func init() {
 	addAppCmd.Flags().StringVar(&appSpaceFlag, "app-space", "", "specify the application space")
 	addAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
 	addAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
-	if err := addAppCmd.MarkFlagRequired("editor"); err != nil {
+	if err := addAppCmd.MarkFlagRequired("app-editor"); err != nil {
 		fmt.Printf("Error on marking editor flag as required: %s", err)
 	}
-	if err := addAppCmd.MarkFlagRequired("type"); err != nil {
+	if err := addAppCmd.MarkFlagRequired("app-type"); err != nil {
 		fmt.Printf("Error on marking type flag as required: %s", err)
 	}
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
