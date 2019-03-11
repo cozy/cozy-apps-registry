@@ -175,18 +175,12 @@ func createVersion(c echo.Context) (err error) {
 		channel := registry.GetVersionChannel(ver.Version)
 
 		// Cleaning the old versions
-		errs := make(chan error)
 		go func() {
 			err := registry.CleanOldVersions(space, ver.Slug, registry.ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 			if err != nil {
-				errs <- err
-				return
+				fmt.Printf("Cannot remove old version %s for %s\n", ver.Version, ver.Slug)
 			}
 		}()
-
-		if err := <-errs; err != nil {
-			return err
-		}
 
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)

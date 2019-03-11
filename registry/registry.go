@@ -659,18 +659,12 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	channel := GetVersionChannel(release.Version)
 
 	// Cleaning the old versions
-	errs := make(chan error)
 	go func() {
 		err := CleanOldVersions(c, release.Slug, ChannelToStr(channel), conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
 		if err != nil {
-			errs <- err
-			return
+			fmt.Printf("Cannot remove old version %s for %s\n", release.Version, release.Slug)
 		}
 	}()
-
-	if err := <-errs; err != nil {
-		return nil, err
-	}
 
 	return release, nil
 }
