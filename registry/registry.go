@@ -1065,7 +1065,10 @@ func SaveTarball(space, filepath, contentType string, fileContent io.Reader) err
 }
 
 // ReadTarballVersion reads the content of the version tarball which has been
-// downloaded
+// downloaded. It reads the tarball to check if an app prefix exists, ensure
+// that the manifest and the package.json (if exists) files are correct, and
+// eventually returns a Tarball struct that holds these informations for the
+// next steps
 func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, error) {
 	var appType, tarPrefix string
 	var packVersion string
@@ -1161,7 +1164,8 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 	}, nil
 }
 
-// ReadTarballManifest handles the tarball manifest reading
+// ReadTarballManifest handles the tarball manifest. It checks if the manifest
+// exists, is valid JSON and tries to load it to the Manifest struct
 func ReadTarballManifest(tr io.Reader, url string) (*Manifest, []byte, map[string]interface{}, error) {
 	manifestContent, err := ioutil.ReadAll(tr)
 	if err != nil {
