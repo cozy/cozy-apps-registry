@@ -978,7 +978,10 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 
 	// Re-reading tarball content for assets
 	if len(screenshotPaths) > 0 || iconPath != "" || partnershipIconPath != "" {
-		buf.Seek(0, io.SeekStart)
+		_, err := buf.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
 		tr, err := tarReader(buf, tarball.ContentType)
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
@@ -990,7 +993,6 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 			var hdr *tar.Header
 			hdr, err = tr.Next()
 			if err == io.EOF {
-				err = nil
 				break
 			}
 			if err == io.ErrUnexpectedEOF {
@@ -1139,6 +1141,9 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 				appType = "konnector"
 			}
 			manifest, manifestContent, manifestmap, err = ReadTarballManifest(tr, url)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if basename == "package.json" {

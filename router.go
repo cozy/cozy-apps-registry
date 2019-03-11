@@ -637,10 +637,6 @@ func getVersion(c echo.Context) error {
 	version := stripVersion(c.Param("version"))
 
 	space := getSpace(c)
-	prefix := space.Prefix
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
 	_, err := registry.FindApp(space, appSlug, registry.Stable)
 	if err != nil {
 		return err
