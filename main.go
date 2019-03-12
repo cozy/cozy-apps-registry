@@ -46,6 +46,9 @@ var appNameFlag string
 var appDUCFlag string
 var appDUCByFlag string
 var fixerSpacesFlag []string
+var minorFlag int
+var majorFlag int
+var durationFlag int
 
 var editorAutoPublicationFlag bool
 
@@ -114,6 +117,7 @@ func init() {
 
 	rootCmd.AddCommand(fixerCmd)
 	fixerCmd.AddCommand(assetsCmd)
+	fixerCmd.AddCommand(oldVersionsCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 
@@ -141,6 +145,10 @@ func init() {
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
+	oldVersionsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to keep")
+	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to keep")
+	oldVersionsCmd.Flags().IntVar(&durationFlag, "duration", 2, "number of months to check")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
@@ -440,6 +448,23 @@ var assetsCmd = &cobra.Command{
 			}
 		}
 		return
+	},
+}
+
+var oldVersionsCmd = &cobra.Command{
+	Use:     "rm-old-versions <channel> <app>",
+	Short:   "Remove old app versions",
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) < 2 {
+			return cmd.Usage()
+		}
+
+		channel := args[0]
+		appSlug := args[1]
+		space, _ := registry.GetSpace(appSpaceFlag)
+
+		return registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag)
 	},
 }
 
@@ -1136,11 +1161,24 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 			if err := registry.RegisterSpace(spaceName); err != nil {
 				return err
 			}
+
+			if spaceName == consts.DefaultSpacePrefix {
+				spaceName = ""
+			}
+
+			// Create apps view
+			s, ok := registry.GetSpace(spaceName)
+			if ok {
+				db := s.VersDB()
+				if err := registry.CreateVersionsDateView(db); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	}
 
-	return registry.RegisterSpace("__default__")
+	return registry.RegisterSpace(consts.DefaultSpacePrefix)
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {
