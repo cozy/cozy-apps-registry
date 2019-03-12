@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -290,7 +291,9 @@ type Tarball struct {
 	TarPrefix       string
 	ContentType     string
 	AppType         string
-	Content         *bytes.Reader
+	Content         []byte
+	URL             string
+	Size            int64
 }
 
 func NewSpace(prefix string) *Space {
@@ -801,7 +804,7 @@ func (t *Tarball) CheckEditor() (bool, error) {
 	editorName := t.Manifest.Editor
 
 	if editorName == "" {
-		return false, fmt.Errorf("%q field is empty", "editor")
+		return false, errors.New(`The "editor" field is empty`)
 	}
 
 	return true, nil
@@ -812,13 +815,13 @@ func (t *Tarball) CheckSlug() (bool, error) {
 	slug := t.Manifest.Slug
 
 	if slug == "" {
-		return false, fmt.Errorf("%q field is empty", "slug")
+		return false, errors.New(`The "slug" field is empty`)
 	}
 
 	return true, nil
 }
 
-func downloadTarball(opts *VersionOptions, url string) (*Tarball, *Counter, error) {
+func downloadTarball(opts *VersionOptions, url string) (*Tarball, error) {
 	var buf *bytes.Reader
 	var err error
 	var contentType string
@@ -833,7 +836,7 @@ func downloadTarball(opts *VersionOptions, url string) (*Tarball, *Counter, erro
 		} else if tryCount <= 3 {
 			continue
 		} else {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
@@ -842,33 +845,29 @@ func downloadTarball(opts *VersionOptions, url string) (*Tarball, *Counter, erro
 	var reader io.Reader = buf
 	reader = io.TeeReader(reader, counter)
 
-	// Reader for tarball content
-	var fileContent = new(bytes.Buffer)
-	reader = io.TeeReader(reader, fileContent)
-
 	// Reading the tarball content
 	tarball, err := ReadTarballVersion(reader, contentType, url)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	tarball.ContentType = contentType
 
-	return tarball, counter, nil
+	// Adding metadata to the tarball struct
+	tarball.ContentType = contentType
+	tarball.Size = counter.Written()
+
+	if !tarball.HasPrefix {
+		tarball.TarPrefix = ""
+	}
+
+	return tarball, nil
 }
 
 func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.Attachment, err error) {
-	var tarPrefix string
 	url := opts.URL
 
-	tarball, counter, errd := downloadTarball(opts, url)
-	if err != nil {
-		err = multierror.Append(err, errd)
-	}
-	// Retreiving the tarball manifest
-	parsedManifest := tarball.Manifest
-
-	if !tarball.HasPrefix {
-		tarPrefix = ""
+	tarball, errd := downloadTarball(opts, url)
+	if errd != nil {
+		return nil, nil, errd
 	}
 
 	// Checks
@@ -882,37 +881,40 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		err = multierror.Append(err, errv)
 	}
 
-	fileContent := new(bytes.Buffer)
-	if _, errc := io.Copy(fileContent, tarball.Content); errc != nil {
-		err = multierror.Append(err, errc)
-	}
-
-	// Handling assets
-	attachments, erra := HandleAssets(tarball, opts, tarball.Content, url, attachments)
+	// Handling tarball assets
+	attachments, erra := HandleAssets(tarball, opts)
 	if erra != nil {
 		err = multierror.Append(err, erra)
+	}
+
+	// If there was any error during checks, we are not going further
+	if err != nil {
+		return nil, nil, err
 	}
 
 	manifestContent := tarball.ManifestContent
 	manifest := tarball.ManifestMap
 
-	// Adding parameters if needed
+	// Adding custom parameters if needed
 	var errm error
 	if opts.Parameters != nil {
 		manifest["parameters"] = opts.Parameters
 		manifestContent, errm = json.Marshal(manifest)
 		if errm != nil {
-			err = multierror.Append(err, errm)
+			return nil, nil, err
 		}
 	}
+
+	// Retreiving the tarball manifest
+	parsedManifest := tarball.Manifest
 
 	filename := filepath.Base(url)
 	filepath := filepath.Join(parsedManifest.Slug, parsedManifest.Version, filename)
 
 	// Saving app tarball
-	errt := SaveTarball(opts.Space, filepath, tarball.ContentType, fileContent)
-	if errt != nil {
-		err = multierror.Append(err, errt)
+	err = SaveTarball(opts.Space, filepath, tarball)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Creating version
@@ -927,8 +929,8 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	ver.Sha256 = opts.Sha256
 	ver.Editor = parsedManifest.Editor
 	ver.Manifest = manifestContent
-	ver.Size = counter.Written()
-	ver.TarPrefix = tarPrefix
+	ver.Size = tarball.Size
+	ver.TarPrefix = tarball.TarPrefix
 	ver.CreatedAt = time.Now().UTC()
 	return
 }
@@ -1011,7 +1013,8 @@ func getAssetFilename(iconPath, partnershipIconPath, name string, screenshotPath
 
 // HandleAssets handles all the assets of the app tarball (icon, partnership
 // icon, screenshots). Appened to attachments
-func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url string, attachments []*kivik.Attachment) ([]*kivik.Attachment, error) {
+func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, error) {
+	var attachments []*kivik.Attachment
 	parsedManifest := tarball.Manifest
 
 	iconPath := getIconPath(parsedManifest, opts)
@@ -1020,14 +1023,11 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 
 	// Re-reading tarball content for assets
 	if len(screenshotPaths) > 0 || iconPath != "" || partnershipIconPath != "" {
-		_, err := buf.Seek(0, io.SeekStart)
-		if err != nil {
-			return nil, err
-		}
+		var buf io.Reader = bytes.NewReader(tarball.Content)
 		tr, err := tarReader(buf, tarball.ContentType)
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
-				"Could not reach version on specified url %s: %s", url, err)
+				"Could not reach version on specified url %s: %s", tarball.URL, err)
 			return nil, err
 		}
 
@@ -1039,12 +1039,12 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 			}
 			if err == io.ErrUnexpectedEOF {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: file is too big %s", url, err)
+					"Could not reach version on specified url %s: file is too big %s", tarball.URL, err)
 				return nil, err
 			}
 			if err != nil {
 				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s", url, err)
+					"Could not reach version on specified url %s: %s", tarball.URL, err)
 				return nil, err
 			}
 
@@ -1084,22 +1084,23 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions, buf *bytes.Reader, url
 }
 
 // SaveTarball saves tarball to swift
-func SaveTarball(space, filepath, contentType string, fileContent io.Reader) error {
+func SaveTarball(space, filepath string, tarball *Tarball) error {
 	// Saving the tar to Swift
+	var content = bytes.NewReader(tarball.Content)
 	conf, err := config.GetConfig()
 	if err != nil {
 		return err
 	}
 	sc := conf.SwiftConnection
 
-	f, err := sc.ObjectCreate(space, filepath, false, "", contentType, nil)
+	f, err := sc.ObjectCreate(space, filepath, false, "", tarball.ContentType, nil)
 	if err != nil {
 		return err
 	}
 
 	defer f.Close()
 
-	_, err = io.Copy(f, fileContent)
+	_, err = io.Copy(f, content)
 	return err
 }
 
@@ -1204,7 +1205,8 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 		PackageVersion:  packVersion,
 		HasPrefix:       hasPrefix,
 		TarPrefix:       tarPrefix,
-		Content:         bytes.NewReader(content.Bytes()),
+		Content:         content.Bytes(),
+		URL:             url,
 	}, nil
 }
 
