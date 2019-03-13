@@ -186,15 +186,14 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	return att, nil
 }
 
-// MoveToGlobalAssetDatabase moves the previous located asset in the global
-// database This function is not intended to stay forever and will be removed
-// when no more assets will be remaining in the app containers.
-// It does the
-// following steps:
+// MoveToGlobalAssetDatabase moves an asset located in the "local" container in
+// the global database. This function is not intended to stay forever and will
+// be removed when no more assets will be remaining in the app containers.
+// It does the following steps:
 // 1. Creating the new asset object in the global database
 // 2. Adds a reference to the asset in the couch version document
 // 3. Removes the old asset location
-func MoveAssetToGlobalDatabase(c *Space, ver *Version, buf *bytes.Reader, filename, contentType string) error {
+func MoveAssetToGlobalDatabase(c *Space, ver *Version, buf io.Reader, filename, contentType string) error {
 	globalFilepath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
 	content, err := ioutil.ReadAll(buf)
@@ -203,7 +202,10 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, buf *bytes.Reader, filena
 	}
 
 	h := md5.New()
-	h.Write(content)
+	_, err = h.Write(content)
+	if err != nil {
+		return err
+	}
 	md5Sum := h.Sum(nil)
 
 	a := &asset.GlobalAsset{

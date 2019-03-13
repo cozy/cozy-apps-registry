@@ -101,8 +101,7 @@ func InitCouchDB(addr, user, pass, prefix string) (*kivik.DB, error) {
 	}
 	if !exists {
 		fmt.Printf("Creating database %q...", assetsStoreDBName)
-		db := client.CreateDB(ctx, assetsStoreDBName)
-		if err = db.Err(); err != nil {
+		if err := client.CreateDB(ctx, assetsStoreDBName); err != nil {
 			return nil, err
 		}
 		fmt.Println("ok.")
@@ -188,21 +187,20 @@ func (a *GlobalAssetStore) RemoveAsset(md5, versionFilepath string) error {
 		updatedVersions = append(updatedVersions, versionfp)
 	}
 
+	// If there still are app versions using the asset, just update the UsedBy
+	// field and return
 	if len(updatedVersions) > 0 {
 		assetDoc.UsedBy = updatedVersions
 		_, err := AssetStore.DB.Put(ctx, md5, assetDoc)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Removing asset from the DB and the FS
-		err := AssetStore.FS.RemoveAsset(md5)
-		if err != nil {
-			return err
-		}
-		_, err = AssetStore.DB.Delete(ctx, md5, assetDoc.Rev)
 		return err
 	}
 
-	return nil
+	// Removing asset from the DB and the FS
+	err = AssetStore.FS.RemoveAsset(md5)
+	if err != nil {
+		return err
+	}
+	_, err = AssetStore.DB.Delete(ctx, md5, assetDoc.Rev)
+	return err
+
 }

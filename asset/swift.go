@@ -21,11 +21,7 @@ func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) error {
 	defer f.Close()
 
 	_, err = io.Copy(f, content)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 
 }
 

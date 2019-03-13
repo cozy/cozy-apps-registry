@@ -588,10 +588,6 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
 	basePath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
-	prefix := c.Prefix
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
 	var atts = map[string]string{}
 
 	for _, att := range attachments {
@@ -606,7 +602,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		}
 		md5sum := h.Sum(nil)
 
-		// Adding asset to the global database
+		// Adding asset to the global asset store
 		a := &asset.GlobalAsset{
 			Name:        att.Filename,
 			MD5:         hex.EncodeToString(md5sum),
@@ -618,7 +614,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 			return err
 		}
 
-		// We are going to use the _attachment field to store a link to the
+		// We are going to use the attachment field to store a link to the
 		// global asset
 		atts[att.Filename] = hex.EncodeToString(md5sum)
 	}
@@ -1163,20 +1159,6 @@ func (v *Version) Delete(c *Space) error {
 	db := c.VersDB()
 	_, err = db.Delete(context.Background(), v.ID, v.Rev)
 	return err
-}
-
-// RemoveAttachment removes one attachment from a version
-func (v *Version) RemoveAttachment(c *Space, filename string) error {
-	prefix := GetPrefixOrDefault(c)
-
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
-	sc := conf.SwiftConnection
-	fp := filepath.Join(v.Slug, v.Version, filename)
-
-	return sc.ObjectDelete(prefix, fp)
 }
 
 // RemoveAllAttachments removes all the attachments of a version
