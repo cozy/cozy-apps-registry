@@ -1012,7 +1012,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 				if isIcon {
 					filename = "icon"
 				} else if isShot {
-					filename = name
+					filename = path.Join("screenshots", name)
 				} else if isPartnershipIcon {
 					filename = "partnership_icon"
 				} else {
