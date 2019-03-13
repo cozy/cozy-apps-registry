@@ -1189,6 +1189,17 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 	}
 	sc := conf.SwiftConnection
 
+	// Dereferences this version from global asset store
+	if v.AttachmentReferences != nil {
+		for _, md5 := range v.AttachmentReferences {
+			key := asset.MarshalAssetKey(prefix, v.Slug, v.Version)
+			err = asset.RemoveAsset(md5, key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	fp := filepath.Join(v.Slug, v.Version)
 	opts := &swift.ObjectsOpts{Prefix: fp + "/"}
 	objs, err := sc.ObjectsAll(prefix, opts)

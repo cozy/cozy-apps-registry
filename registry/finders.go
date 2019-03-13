@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/Masterminds/semver"
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/cache"
@@ -156,11 +158,21 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 		contentType = headers["Content-Type"]
 
 		// We are going to move the asset to the global database and remove it
-		// from the local database for the next times
-		err = MoveAssetToGlobalDatabase(c, ver, bytes.NewReader(fileContent), filename, contentType)
-		if err != nil {
-			return nil, err
-		}
+		// from the local database for the next time
+		go func() {
+			err = MoveAssetToGlobalDatabase(c, ver, bytes.NewReader(fileContent), filename, contentType)
+			if err != nil {
+				log := logrus.WithFields(logrus.Fields{
+					"nspace":    "move_asset",
+					"space":     c.Prefix,
+					"slug":      appSlug,
+					"version":   version,
+					"filename":  filename,
+					"error_msg": err,
+				})
+				log.Error()
+			}
+		}()
 	}
 
 	content := bytes.NewReader(fileContent)
