@@ -111,6 +111,7 @@ func init() {
 	rootCmd.AddCommand(addAppCmd)
 	rootCmd.AddCommand(modifyAppCmd)
 	rootCmd.AddCommand(maintenanceCmd)
+	rootCmd.AddCommand(rmAppVersionCmd)
 	maintenanceCmd.AddCommand(maintenanceActivateAppCmd)
 	maintenanceCmd.AddCommand(maintenanceDeactivateAppCmd)
 	rootCmd.AddCommand(exportCmd)
@@ -144,6 +145,7 @@ func init() {
 		fmt.Printf("Error on marking type flag as required: %s", err)
 	}
 	lsAppsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
+	rmAppVersionCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	fixerCmd.Flags().StringSliceVar(&fixerSpacesFlag, "spaces", nil, "Specify spaces")
 	oldVersionsCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
@@ -972,6 +974,30 @@ var addAppCmd = &cobra.Command{
 		}
 		fmt.Println(string(b))
 		return nil
+	},
+}
+
+var rmAppVersionCmd = &cobra.Command{
+	Use:     "rm-app-version <slug> <version>",
+	Short:   `Deletes an app version`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 2 {
+			return cmd.Help()
+		}
+		space, ok := registry.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		slug := args[0]
+		version := args[1]
+
+		ver, err := registry.FindVersion(space, slug, version)
+		if err != nil {
+			return err
+		}
+		return ver.Delete(space)
 	},
 }
 
