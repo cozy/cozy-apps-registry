@@ -20,7 +20,7 @@ func AddAsset(asset *GlobalAsset, content io.Reader, source string) error {
 	sc := conf.SwiftConnection
 
 	// Creating object to swift
-	f, err := sc.ObjectCreate(assetContainerName, asset.MD5, true, asset.MD5, asset.ContentType, nil)
+	f, err := sc.ObjectCreate(AssetContainerName, asset.MD5, true, asset.MD5, asset.ContentType, nil)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func AddAsset(asset *GlobalAsset, content io.Reader, source string) error {
 	}
 
 	var docRev string
-	// If asset does not exist, create it
+	// If asset does not exist in CouchDB global asset database, create it
 	if kivik.StatusCode(err) == kivik.StatusNotFound {
 		doc = asset
 		doc.ID = asset.MD5

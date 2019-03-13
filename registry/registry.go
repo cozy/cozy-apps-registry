@@ -586,7 +586,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	}
 
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
-	basePath := filepath.Join(ver.Slug, ver.Version)
+	basePath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
 	prefix := c.Prefix
 	if prefix == "" {

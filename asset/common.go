@@ -31,6 +31,7 @@ var ctx context.Context = context.Background()
 var globalAssetStoreDB *kivik.DB
 
 const assetStoreDBSuffix string = "assets"
+const AssetContainerName string = "__assets__"
 
 // InitGlobalAssetStore initializes the global asset store database
 func InitGlobalAssetStore(addr, user, pass, prefix string) (*kivik.DB, error) {
@@ -91,7 +92,7 @@ func InitGlobalAssetStore(addr, user, pass, prefix string) (*kivik.DB, error) {
 	conf, err := config.GetConfig()
 	sc := conf.SwiftConnection
 
-	if err := sc.ContainerCreate(assetContainerName, nil); err != nil {
+	if err := sc.ContainerCreate(AssetContainerName, nil); err != nil {
 		return nil, err
 	}
 
