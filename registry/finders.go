@@ -141,7 +141,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 
 	md5Sum, ok := ver.AttachmentReferences[filename]
 	if ok {
-		contentBuffer, headers, err = asset.GetAsset(md5Sum)
+		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(md5Sum)
 		fileContent, err = ioutil.ReadAll(contentBuffer)
 		if err != nil {
 			return nil, err
@@ -155,7 +155,6 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 		}
 
 		fileContent = contentBuffer.Bytes()
-		contentType = headers["Content-Type"]
 
 		// We are going to move the asset to the global database and remove it
 		// from the local database for the next time
@@ -176,6 +175,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	}
 
 	content := bytes.NewReader(fileContent)
+	contentType = headers["Content-Type"]
 
 	att := &Attachment{
 		ContentType:   contentType,
@@ -213,7 +213,7 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, buf *bytes.Reader, filena
 		ContentType: contentType,
 	}
 
-	err = asset.AddAsset(a, bytes.NewReader(content), globalFilepath)
+	err = asset.AssetStore.AddAsset(a, bytes.NewReader(content), globalFilepath)
 	if err != nil {
 		return err
 	}

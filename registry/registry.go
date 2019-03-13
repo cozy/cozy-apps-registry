@@ -613,7 +613,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 			AppSlug:     app.Slug,
 			ContentType: att.ContentType,
 		}
-		err = asset.AddAsset(a, buf, basePath)
+		err = asset.AssetStore.AddAsset(a, buf, basePath)
 		if err != nil {
 			return err
 		}
@@ -1193,7 +1193,7 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 	if v.AttachmentReferences != nil {
 		for _, md5 := range v.AttachmentReferences {
 			key := asset.MarshalAssetKey(prefix, v.Slug, v.Version)
-			err = asset.RemoveAsset(md5, key)
+			err = asset.AssetStore.RemoveAsset(md5, key)
 			if err != nil {
 				return err
 			}
