@@ -14,13 +14,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/cozy/cozy-apps-registry/asset"
+	"github.com/cozy/swift"
+	"github.com/h2non/filetype"
+	"github.com/sirupsen/logrus"
+	
+        "github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
@@ -713,38 +718,60 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	return release, nil
 }
 
-func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentType string, err error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func downloadRequest(rawURL string, shasum string) (reader *bytes.Reader, contentType string, err error) {
+	url, err := url.Parse(rawURL)
 	if err != nil {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s", url, err)
-		return
-	}
-
-	resp, err := versionClient.Do(req)
-	if err != nil {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s", url, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: server responded with code %d",
-			url, resp.StatusCode)
-		return
+		return nil, "", err
 	}
 
 	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, io.LimitReader(resp.Body, maxApplicationSize))
-	if err != nil {
-		err = errshttp.NewError(http.StatusUnprocessableEntity,
-			"Could not reach version on specified url %s: %s",
-			url, err)
-		return
-	}
 
+	if url.Scheme == "file" {
+		f, err := os.Open(url.EscapedPath())
+		if err != nil {
+			return nil, "", err
+		}
+		_, err = io.Copy(buf, io.LimitReader(f, maxApplicationSize))
+		if err != nil {
+			return nil, "", err
+		}
+
+		// Find the mimetype
+		kind, _ := filetype.Match(buf.Bytes())
+		contentType = kind.MIME.Value
+	} else {
+		req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+		if err != nil {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s", rawURL, err)
+			return nil, "", err
+		}
+
+		resp, err := versionClient.Do(req)
+		if err != nil {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s", rawURL, err)
+			return nil, "", err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: server responded with code %d",
+				rawURL, resp.StatusCode)
+			return nil, "", err
+		}
+
+		_, err = io.Copy(buf, io.LimitReader(resp.Body, maxApplicationSize))
+		if err != nil {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: %s",
+				rawURL, err)
+			return nil, "", err
+		}
+
+		contentType = resp.Header.Get("content-type")
+	}
 	h := sha256.New()
 	if _, err = h.Write(buf.Bytes()); err != nil {
 		return
@@ -756,7 +783,6 @@ func downloadRequest(url string, shasum string) (reader *bytes.Reader, contentTy
 		return
 	}
 
-	contentType = resp.Header.Get("content-type")
 	return bytes.NewReader(buf.Bytes()), contentType, nil
 }
 
