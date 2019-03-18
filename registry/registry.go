@@ -1023,7 +1023,7 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, 
 	screenshotPaths := getScreenshotPaths(parsedManifest, opts)
 
 	// Re-reading tarball content for assets
-	if len(screenshotPaths) == 0 || iconPath == "" || partnershipIconPath == "" {
+	if len(screenshotPaths) == 0 && iconPath == "" && partnershipIconPath == "" {
 		return attachments, nil
 	}
 
