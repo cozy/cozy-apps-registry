@@ -137,7 +137,9 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 
 	// First, we try to get the attachment from the global asset database.
 	ver, err := FindVersion(c, appSlug, version)
-
+	if err != nil {
+		return nil, err
+	}
 	md5Sum, ok := ver.AttachmentReferences[filename]
 	if ok {
 		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(md5Sum)
