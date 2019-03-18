@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
-	"github.com/cozy/cozy-apps-registry/consts"
+	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
 
@@ -134,10 +134,7 @@ func createVersion(c echo.Context) (err error) {
 		return err
 	}
 	space := getSpace(c)
-	prefix := space.Prefix
-	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
-	}
+	prefix := registry.GetPrefixOrDefault(space)
 
 	appSlug := c.Param("app")
 	app, err := registry.FindApp(space, appSlug, registry.Stable)
