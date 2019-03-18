@@ -20,7 +20,7 @@ type GlobalAsset struct {
 	ID          string   `json:"_id,omitempty"`
 	Rev         string   `json:"_rev,omitempty"`
 	Name        string   `json:"name"`
-	MD5         string   `json:"md5"`
+	Shasum      string   `json:"shasum"`
 	AppSlug     string   `json:"appslug,omitempty"`
 	ContentType string   `json:"content_type"`
 	UsedBy      []string `json:"used_by"`
@@ -137,7 +137,7 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 
 	// Handles the CouchDB updates
 	var doc *GlobalAsset
-	row := AssetStore.DB.Get(ctx, asset.MD5, nil)
+	row := AssetStore.DB.Get(ctx, asset.Shasum, nil)
 	err = row.ScanDoc(&doc)
 	if err != nil && kivik.StatusCode(err) != kivik.StatusNotFound {
 		return err
@@ -147,7 +147,7 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 	// If asset does not exist in CouchDB global asset database, create it
 	if kivik.StatusCode(err) == kivik.StatusNotFound {
 		doc = asset
-		doc.ID = asset.MD5
+		doc.ID = asset.Shasum
 		_, docRev, err = AssetStore.DB.CreateDoc(ctx, doc)
 		if err != nil {
 			return err
@@ -170,8 +170,8 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 	return err
 }
 
-func (a *GlobalAssetStore) RemoveAsset(md5, source string) error {
-	row := AssetStore.DB.Get(ctx, md5)
+func (a *GlobalAssetStore) RemoveAsset(shasum, source string) error {
+	row := AssetStore.DB.Get(ctx, shasum)
 
 	var assetDoc *GlobalAsset
 	err := row.ScanDoc(&assetDoc)
@@ -191,16 +191,16 @@ func (a *GlobalAssetStore) RemoveAsset(md5, source string) error {
 	// field and return
 	if len(updatedVersions) > 0 {
 		assetDoc.UsedBy = updatedVersions
-		_, err := AssetStore.DB.Put(ctx, md5, assetDoc)
+		_, err := AssetStore.DB.Put(ctx, shasum, assetDoc)
 		return err
 	}
 
 	// First, removing from CouchDB
-	_, err = AssetStore.DB.Delete(ctx, md5, assetDoc.Rev)
+	_, err = AssetStore.DB.Delete(ctx, shasum, assetDoc.Rev)
 	if err != nil {
 		return err
 	}
 
 	// Then, removing the asset from the FS
-	return AssetStore.FS.RemoveAsset(md5)
+	return AssetStore.FS.RemoveAsset(shasum)
 }

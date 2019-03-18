@@ -3,7 +3,7 @@ package registry
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -122,7 +122,7 @@ func FindAppAttachment(c *Space, appSlug, filename string, channel Channel) (*At
 
 func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attachment, error) {
 	var headers swift.Headers
-	var md5Sum, contentType string
+	var shasum, contentType string
 	var fileContent []byte
 
 	// Return from swift
@@ -142,9 +142,9 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	}
 	// Checks if the asset from the global database is referenced in the Version
 	// document
-	md5Sum, ok := ver.AttachmentReferences[filename]
+	shasum, ok := ver.AttachmentReferences[filename]
 	if ok {
-		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(md5Sum)
+		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(shasum)
 		fileContent, err = ioutil.ReadAll(contentBuffer)
 		if err != nil {
 			return nil, err
@@ -199,16 +199,16 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename, contentType string) error {
 	globalFilepath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
-	h := md5.New()
+	h := sha256.New()
 	_, err := h.Write(content)
 	if err != nil {
 		return err
 	}
-	md5Sum := h.Sum(nil)
+	shasum := h.Sum(nil)
 
 	a := &asset.GlobalAsset{
 		Name:        filename,
-		MD5:         hex.EncodeToString(md5Sum),
+		Shasum:      hex.EncodeToString(shasum),
 		AppSlug:     ver.Slug,
 		ContentType: contentType,
 	}
@@ -222,7 +222,7 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename,
 	if ver.AttachmentReferences == nil {
 		ver.AttachmentReferences = make(map[string]string)
 	}
-	ver.AttachmentReferences[filename] = hex.EncodeToString(md5Sum)
+	ver.AttachmentReferences[filename] = hex.EncodeToString(shasum)
 
 	db := c.VersDB()
 	_, err = db.Put(context.Background(), ver.ID, ver)

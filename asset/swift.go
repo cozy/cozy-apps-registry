@@ -14,7 +14,7 @@ type SwiftFS struct {
 func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) error {
 	// Creating object to swift
 	sc := s.Connection
-	f, err := sc.ObjectCreate(AssetContainerName, asset.MD5, true, asset.MD5, asset.ContentType, nil)
+	f, err := sc.ObjectCreate(AssetContainerName, asset.Shasum, false, "", asset.ContentType, nil)
 	if err != nil {
 		return err
 	}
@@ -25,10 +25,10 @@ func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) error {
 
 }
 
-func (s *SwiftFS) GetAsset(md5 string) (*bytes.Buffer, map[string]string, error) {
+func (s *SwiftFS) GetAsset(shasum string) (*bytes.Buffer, map[string]string, error) {
 	sc := s.Connection
 	buf := new(bytes.Buffer)
-	headers, err := sc.ObjectGet(AssetContainerName, md5, buf, false, nil)
+	headers, err := sc.ObjectGet(AssetContainerName, shasum, buf, false, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -36,14 +36,14 @@ func (s *SwiftFS) GetAsset(md5 string) (*bytes.Buffer, map[string]string, error)
 }
 
 // Remove asset cleans a UsedByEntry and deletes the asset is there are no more app using the asset
-func (s *SwiftFS) RemoveAsset(md5 string) error {
+func (s *SwiftFS) RemoveAsset(shasum string) error {
 	// No more app is using the asset, we are going to clean it from couch
 	// and swift
 	sc := s.Connection
 
 	// Deleting the object from swift. If the object is not found, we should
 	// not crash
-	err := sc.ObjectDelete(AssetContainerName, md5)
+	err := sc.ObjectDelete(AssetContainerName, shasum)
 	if err != nil && err != swift.ObjectNotFound {
 		return err
 	}

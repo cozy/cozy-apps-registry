@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -593,19 +592,19 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	for _, att := range attachments {
 		var buf = new(bytes.Buffer)
 
-		// MD5
-		h := md5.New()
+		// Sha256
+		h := sha256.New()
 		content := io.TeeReader(att.Content, buf)
 		_, err = io.Copy(h, content)
 		if err != nil {
 			return err
 		}
-		md5sum := h.Sum(nil)
+		shasum := h.Sum(nil)
 
 		// Adding asset to the global asset store
 		a := &asset.GlobalAsset{
 			Name:        att.Filename,
-			MD5:         hex.EncodeToString(md5sum),
+			Shasum:      hex.EncodeToString(shasum),
 			AppSlug:     app.Slug,
 			ContentType: att.ContentType,
 		}
@@ -616,7 +615,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 
 		// We are going to use the attachment field to store a link to the
 		// global asset
-		atts[att.Filename] = hex.EncodeToString(md5sum)
+		atts[att.Filename] = hex.EncodeToString(shasum)
 	}
 
 	// Update the version document to add an attachment that references global
@@ -1173,9 +1172,9 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 
 	// Dereferences this version from global asset store
 	if v.AttachmentReferences != nil {
-		for _, md5 := range v.AttachmentReferences {
+		for _, shasum := range v.AttachmentReferences {
 			key := asset.MarshalAssetKey(prefix, v.Slug, v.Version)
-			err = asset.AssetStore.RemoveAsset(md5, key)
+			err = asset.AssetStore.RemoveAsset(shasum, key)
 			if err != nil {
 				return err
 			}
