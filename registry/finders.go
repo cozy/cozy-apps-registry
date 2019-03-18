@@ -13,8 +13,12 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/cozy-apps-registry/consts"
+	"github.com/cozy/swift"
+
 	"github.com/cozy/echo"
 	"github.com/go-kivik/kivik"
 	"github.com/spf13/viper"
@@ -113,19 +117,41 @@ func FindAppAttachment(c *Space, appSlug, filename string, channel Channel) (*At
 }
 
 func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attachment, error) {
+	var headers swift.Headers
 	// Return from swift
 	conf, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 	sc := conf.SwiftConnection
-	var buf bytes.Buffer
+	var buf *bytes.Buffer
 	fp := filepath.Join(appSlug, version, filename)
 	prefix := GetPrefixOrDefault(c)
-	headers, err := sc.ObjectGet(prefix, fp, &buf, false, nil)
+
+	// First, we try to get the attachment from the global asset database.
+	headers, err = sc.ObjectGet(prefix, fp, buf, false, nil)
 	if err != nil {
 		return nil, err
 	}
+	ver, err := FindVersion(c, appSlug, version)
+	if md5, ok := ver.AttachmentReferences[filename]; ok {
+		buf, headers, err = asset.GetAsset(md5)
+	}
+
+	// If we cannot find it, we try from the local database
+	if buf.Len() == 0 {
+		prefix := c.Prefix
+		if prefix == "" {
+			prefix = consts.DefaultSpacePrefix
+		}
+		headers, err = sc.ObjectGet(prefix, fp, buf, false, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// If we find it in the local database, we are going to move it to the global asset database and remove it from the local database
+
 	att := &Attachment{
 		ContentType:   headers["Content-Type"],
 		Content:       bytes.NewReader(buf.Bytes()),

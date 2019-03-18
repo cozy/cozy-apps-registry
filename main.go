@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
@@ -1142,7 +1143,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
 
-	_, err = registry.InitGlobalAssetStore(
+	_, err = asset.InitGlobalAssetStore(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
 		viper.GetString("couchdb.password"),

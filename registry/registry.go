@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,15 +20,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/swift"
-	"github.com/sirupsen/logrus"
-
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/magic"
+	"github.com/cozy/swift"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -76,7 +77,6 @@ const (
 	versDBSuffix        = "versions"
 	pendingVersDBSuffix = "pending"
 	editorsDBSuffix     = "editors"
-	assetStoreDBSuffix  = "assets"
 )
 
 const (
@@ -155,6 +155,9 @@ func (c *Space) VersDB() *kivik.DB {
 
 func (c *Space) PendingVersDB() *kivik.DB {
 	return c.dbPendingVers
+}
+func GlobalAssetStoreDB() *kivik.DB {
+	return globalAssetStoreDB
 }
 
 func (c *Space) dbName(suffix string) (name string) {
@@ -248,16 +251,17 @@ type Version struct {
 	Rev         string                 `json:"_rev,omitempty"`
 	Attachments map[string]interface{} `json:"_attachments,omitempty"`
 
-	Slug      string          `json:"slug"`
-	Editor    string          `json:"editor"`
-	Type      string          `json:"type"`
-	Version   string          `json:"version"`
-	Manifest  json.RawMessage `json:"manifest"`
-	CreatedAt time.Time       `json:"created_at"`
-	URL       string          `json:"url"`
-	Size      int64           `json:"size,string"`
-	Sha256    string          `json:"sha256"`
-	TarPrefix string          `json:"tar_prefix"`
+	AttachmentReferences map[string]string `json:"attachments"`
+	Slug                 string            `json:"slug"`
+	Editor               string            `json:"editor"`
+	Type                 string            `json:"type"`
+	Version              string            `json:"version"`
+	Manifest             json.RawMessage   `json:"manifest"`
+	CreatedAt            time.Time         `json:"created_at"`
+	URL                  string            `json:"url"`
+	Size                 int64             `json:"size,string"`
+	Sha256               string            `json:"sha256"`
+	TarPrefix            string            `json:"tar_prefix"`
 }
 
 type Partnership struct {
@@ -333,29 +337,6 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	editorsDB = globalEditorsDB
 
 	return
-}
-
-// InitGlobalAssetStore initializes the global asset store database
-func InitGlobalAssetStore(addr, user, pass, prefix string) (*kivik.DB, error) {
-	assetsStoreDBName := dbName(assetStoreDBSuffix)
-	exists, err := client.DBExists(ctx, assetsStoreDBName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		fmt.Printf("Creating database %q...", assetsStoreDBName)
-		if _, err = client.CreateDB(ctx, assetsStoreDBName); err != nil {
-			return nil, err
-		}
-		fmt.Println("ok.")
-	}
-
-	globalAssetStoreDB, err = client.DB(ctx, assetsStoreDBName)
-	if err != nil {
-		return nil, err
-	}
-
-	return globalAssetStoreDB, nil
 }
 
 func RegisterSpace(name string) error {
@@ -573,12 +554,6 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		return ErrVersionSlugMismatch
 	}
 
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
-	sc := conf.SwiftConnection
-
 	if ensureVersion {
 		_, err := FindVersion(c, ver.Slug, ver.Version)
 		if err == nil {
@@ -593,7 +568,8 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	ver.Type = app.Type
 	ver.Editor = app.Editor
 
-	_, ver.Rev, err = db.CreateDoc(ctx, ver)
+	var verID string
+	verID, ver.Rev, err = db.CreateDoc(ctx, ver)
 	if err != nil {
 		return err
 	}
@@ -612,21 +588,46 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
 	basePath := filepath.Join(ver.Slug, ver.Version)
 
-	prefix := GetPrefixOrDefault(c)
+	prefix := c.Prefix
+	if prefix == "" {
+		prefix = consts.DefaultSpacePrefix
+	}
+	var atts = map[string]string{}
 
 	for _, att := range attachments {
-		f, err := sc.ObjectCreate(prefix, filepath.Join(basePath, att.Filename), false, "", att.ContentType, nil)
+		var buf = new(bytes.Buffer)
+
+		// MD5
+		h := md5.New()
+		content := io.TeeReader(att.Content, buf)
+		_, err = io.Copy(h, content)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		_, err = io.Copy(f, att.Content)
+		md5sum := h.Sum(nil)
+
+		// Adding asset to the global database
+		a := &asset.GlobalAsset{
+			Name:        att.Filename,
+			MD5:         hex.EncodeToString(md5sum),
+			AppSlug:     app.Slug,
+			ContentType: att.ContentType,
+		}
+		err = asset.AddAsset(a, buf, basePath)
 		if err != nil {
 			return err
 		}
+
+		// We are going to use the _attachment field to store a link to the
+		// global asset
+		atts[att.Filename] = hex.EncodeToString(md5sum)
 	}
 
-	return nil
+	// Update the version document to add an attachment that references global
+	// database
+	ver.AttachmentReferences = atts
+	_, err = db.Put(ctx, verID, ver, nil)
+	return err
 }
 
 func CreatePendingVersion(c *Space, ver *Version, attachments []*kivik.Attachment, app *App) error {
