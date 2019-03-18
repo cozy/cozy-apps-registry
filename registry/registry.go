@@ -862,7 +862,8 @@ func downloadTarball(opts *VersionOptions, url string) (*Tarball, error) {
 	return tarball, nil
 }
 
-func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.Attachment, err error) {
+func downloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error) {
+	var err *multierror.Error
 	url := opts.URL
 
 	tarball, errd := downloadTarball(opts, url)
@@ -901,7 +902,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 		manifest["parameters"] = opts.Parameters
 		manifestContent, errm = json.Marshal(manifest)
 		if errm != nil {
-			return nil, nil, err
+			return nil, nil, errm
 		}
 	}
 
@@ -912,13 +913,13 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	filepath := filepath.Join(parsedManifest.Slug, parsedManifest.Version, filename)
 
 	// Saving app tarball
-	err = SaveTarball(opts.Space, filepath, tarball)
+	errt := SaveTarball(opts.Space, filepath, tarball)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errt
 	}
 
 	// Creating version
-	ver = new(Version)
+	ver := new(Version)
 	ver.ID = getVersionID(parsedManifest.Slug, opts.Version)
 	ver.Slug = parsedManifest.Slug
 	ver.Version = opts.Version
@@ -932,7 +933,7 @@ func downloadVersion(opts *VersionOptions) (ver *Version, attachments []*kivik.A
 	ver.Size = tarball.Size
 	ver.TarPrefix = tarball.TarPrefix
 	ver.CreatedAt = time.Now().UTC()
-	return
+	return ver, attachments, nil
 }
 
 func getIconPath(parsedManifest *Manifest, opts *VersionOptions) string {
@@ -1014,7 +1015,7 @@ func getAssetFilename(iconPath, partnershipIconPath, name string, screenshotPath
 // HandleAssets handles all the assets of the app tarball (icon, partnership
 // icon, screenshots). Appened to attachments
 func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, error) {
-	var attachments []*kivik.Attachment
+	var attachments = []*kivik.Attachment{}
 	parsedManifest := tarball.Manifest
 
 	iconPath := getIconPath(parsedManifest, opts)
@@ -1022,64 +1023,67 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, 
 	screenshotPaths := getScreenshotPaths(parsedManifest, opts)
 
 	// Re-reading tarball content for assets
-	if len(screenshotPaths) > 0 || iconPath != "" || partnershipIconPath != "" {
-		var buf io.Reader = bytes.NewReader(tarball.Content)
-		tr, err := tarReader(buf, tarball.ContentType)
+	if len(screenshotPaths) == 0 || iconPath == "" || partnershipIconPath == "" {
+		return attachments, nil
+	}
+
+	var buf io.Reader = bytes.NewReader(tarball.Content)
+	tr, err := tarReader(buf, tarball.ContentType)
+	if err != nil {
+		err = errshttp.NewError(http.StatusUnprocessableEntity,
+			"Could not reach version on specified url %s: %s", tarball.URL, err)
+		return nil, err
+	}
+
+	for {
+		var hdr *tar.Header
+		hdr, err = tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err == io.ErrUnexpectedEOF {
+			err = errshttp.NewError(http.StatusUnprocessableEntity,
+				"Could not reach version on specified url %s: file is too big %s", tarball.URL, err)
+			return nil, err
+		}
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s", tarball.URL, err)
 			return nil, err
 		}
 
-		for {
-			var hdr *tar.Header
-			hdr, err = tr.Next()
-			if err == io.EOF {
-				break
-			}
-			if err == io.ErrUnexpectedEOF {
-				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: file is too big %s", tarball.URL, err)
-				return nil, err
-			}
-			if err != nil {
-				err = errshttp.NewError(http.StatusUnprocessableEntity,
-					"Could not reach version on specified url %s: %s", tarball.URL, err)
-				return nil, err
-			}
-
-			if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
-				continue
-			}
-
-			name := path.Join("/", hdr.Name)
-			if tarball.TarPrefix != "" {
-				name = path.Join("/", strings.TrimPrefix(name, tarball.TarPrefix))
-			}
-			if name == "/" {
-				continue
-			}
-
-			filename := getAssetFilename(iconPath, partnershipIconPath, name, screenshotPaths)
-			if filename == "" {
-				continue
-			}
-			var data []byte
-			data, err = ioutil.ReadAll(tr)
-			if err != nil {
-				return nil, err
-			}
-
-			mime := magic.MIMEType(name, data)
-			body := ioutil.NopCloser(bytes.NewReader(data))
-			attachments = append(attachments, &kivik.Attachment{
-				Content:     body,
-				Size:        int64(len(data)),
-				Filename:    filename,
-				ContentType: mime,
-			})
+		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
+			continue
 		}
+
+		name := path.Join("/", hdr.Name)
+		if tarball.TarPrefix != "" {
+			name = path.Join("/", strings.TrimPrefix(name, tarball.TarPrefix))
+		}
+		if name == "/" {
+			continue
+		}
+
+		filename := getAssetFilename(iconPath, partnershipIconPath, name, screenshotPaths)
+		if filename == "" {
+			continue
+		}
+		var data []byte
+		data, err = ioutil.ReadAll(tr)
+		if err != nil {
+			return nil, err
+		}
+
+		mime := magic.MIMEType(name, data)
+		body := ioutil.NopCloser(bytes.NewReader(data))
+		attachments = append(attachments, &kivik.Attachment{
+			Content:     body,
+			Size:        int64(len(data)),
+			Filename:    filename,
+			ContentType: mime,
+		})
 	}
+
 	return attachments, nil
 }
 
