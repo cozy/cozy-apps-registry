@@ -135,11 +135,13 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	var contentBuffer = new(bytes.Buffer)
 	fp := filepath.Join(appSlug, version, filename)
 
-	// First, we try to get the attachment from the global asset database.
+	// First, we try to get the version from CouchDB
 	ver, err := FindVersion(c, appSlug, version)
 	if err != nil {
 		return nil, err
 	}
+	// Checks if the asset from the global database is referenced in the Version
+	// document
 	md5Sum, ok := ver.AttachmentReferences[filename]
 	if ok {
 		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(md5Sum)
@@ -160,7 +162,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 		// We are going to move the asset to the global database and remove it
 		// from the local database for the next time
 		go func() {
-			err = MoveAssetToGlobalDatabase(c, ver, bytes.NewReader(fileContent), filename, contentType)
+			err = MoveAssetToGlobalDatabase(c, ver, fileContent, filename, contentType)
 			if err != nil {
 				log := logrus.WithFields(logrus.Fields{
 					"nspace":    "move_asset",
@@ -194,16 +196,11 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 // 1. Creating the new asset object in the global database
 // 2. Adds a reference to the asset in the couch version document
 // 3. Removes the old asset location
-func MoveAssetToGlobalDatabase(c *Space, ver *Version, buf io.Reader, filename, contentType string) error {
+func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename, contentType string) error {
 	globalFilepath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
-	content, err := ioutil.ReadAll(buf)
-	if err != nil {
-		return err
-	}
-
 	h := md5.New()
-	_, err = h.Write(content)
+	_, err := h.Write(content)
 	if err != nil {
 		return err
 	}
