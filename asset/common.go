@@ -195,12 +195,12 @@ func (a *GlobalAssetStore) RemoveAsset(md5, source string) error {
 		return err
 	}
 
-	// Removing asset from the DB and the FS
-	err = AssetStore.FS.RemoveAsset(md5)
+	// First, removing from CouchDB
+	_, err = AssetStore.DB.Delete(ctx, md5, assetDoc.Rev)
 	if err != nil {
 		return err
 	}
-	_, err = AssetStore.DB.Delete(ctx, md5, assetDoc.Rev)
-	return err
 
+	// Then, removing the asset from the FS
+	return AssetStore.FS.RemoveAsset(md5)
 }
