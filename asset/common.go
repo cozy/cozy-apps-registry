@@ -116,10 +116,7 @@ func InitCouchDB(addr, user, pass, prefix string) (*kivik.DB, error) {
 }
 
 func InitSwift() (*swift.Connection, error) {
-	conf, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 
 	if err := sc.ContainerCreate(AssetContainerName, nil); err != nil {

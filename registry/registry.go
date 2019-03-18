@@ -643,10 +643,7 @@ func (version *Version) Clone() *Version {
 }
 
 func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, error) {
-	conf, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	conf := config.GetConfig()
 	db := c.PendingVersDB()
 
 	release := pending.Clone()
@@ -666,7 +663,7 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 
 	// We need to skip version check, because we don't drop pending
 	// version until the end to avoid data loss in case of error
-	err = CreateReleaseVersion(c, release, attachments, app, false)
+	err := CreateReleaseVersion(c, release, attachments, app, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1162,12 +1159,10 @@ func (v *Version) Delete(c *Space) error {
 
 // RemoveAllAttachments removes all the attachments of a version
 func (v *Version) RemoveAllAttachments(c *Space) error {
+	var err error
 	prefix := GetPrefixOrDefault(c)
 
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
+	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 
 	// Dereferences this version from global asset store

@@ -126,10 +126,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	var fileContent []byte
 
 	// Return from swift
-	conf, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 
 	var contentBuffer = new(bytes.Buffer)
@@ -230,10 +227,7 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename,
 		return err
 	}
 	// Remove the old object
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
+	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 	fp := filepath.Join(GetPrefixOrDefault(c), ver.Slug, ver.Version)
 	return sc.ObjectDelete(fp, filename)

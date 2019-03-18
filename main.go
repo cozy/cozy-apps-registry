@@ -212,6 +212,11 @@ func useConfig(cmd *cobra.Command) (err error) {
 			cfgFile, err)
 	}
 
+	err = config.Init()
+	if err != nil {
+		return err
+	}
+
 	// Create cache
 	if redisURL := viper.GetString("redis.addrs"); redisURL != "" {
 		optsLatest := &redis.UniversalOptions{
@@ -356,10 +361,7 @@ var assetsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var spacePrefix string
 
-		conf, err := config.GetConfig()
-		if err != nil {
-			return err
-		}
+		conf := config.GetConfig()
 		sc := conf.SwiftConnection
 
 		var spaces []string
