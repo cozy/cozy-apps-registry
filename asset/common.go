@@ -179,7 +179,7 @@ func (a *GlobalAssetStore) RemoveAsset(md5, source string) error {
 		return err
 	}
 
-	var updatedVersions []string
+	updatedVersions := assetDoc.UsedBy[:0]
 	for _, versionfp := range assetDoc.UsedBy {
 		if versionfp == source {
 			continue
