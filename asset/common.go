@@ -143,16 +143,10 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 		return err
 	}
 
-	var docRev string
 	// If asset does not exist in CouchDB global asset database, create it
 	if kivik.StatusCode(err) == kivik.StatusNotFound {
 		doc = asset
 		doc.ID = asset.Shasum
-		_, docRev, err = AssetStore.DB.CreateDoc(ctx, doc)
-		if err != nil {
-			return err
-		}
-		doc.Rev = docRev
 	}
 
 	// Updating the UsedBy field to add the new app version
@@ -166,7 +160,15 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 	if !found {
 		doc.UsedBy = append(doc.UsedBy, source)
 	}
-	_, err = AssetStore.DB.Put(ctx, doc.ID, doc, nil)
+	if doc.Rev == "" {
+		_, _, err = AssetStore.DB.CreateDoc(ctx, doc)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = AssetStore.DB.Put(ctx, doc.ID, doc, nil)
+	}
+
 	return err
 }
 
