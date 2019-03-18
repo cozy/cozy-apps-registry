@@ -50,6 +50,7 @@ func TestCreateAppBadType(t *testing.T) {
 func TestMain(m *testing.M) {
 	var err error
 	// Ensure kivik is launched
+	viper.SetDefault("couchdb.url", "http://localhost:5984")
 	configFile, ok := config.FindConfigFile("cozy-registry-test")
 	if ok {
 		viper.SetConfigFile(configFile)
