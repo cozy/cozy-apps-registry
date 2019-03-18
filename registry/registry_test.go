@@ -58,7 +58,8 @@ func TestFindPreviousMajorNotExisting(t *testing.T) {
 
 func TestDownloadVersion(t *testing.T) {
 	manifest := defaultManifest()
-	tmpFile, shasum := generateTarball(&manifest, defaultPackage())
+	tmpFile, shasum, err := generateTarball(&manifest, defaultPackage())
+	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
 	opts := &VersionOptions{
@@ -78,7 +79,8 @@ func TestDownloadVersionWithoutEditor(t *testing.T) {
 	manifest := defaultManifest()
 	manifest.Editor = ""
 
-	tmpFile, shasum := generateTarball(&manifest, defaultPackage())
+	tmpFile, shasum, err := generateTarball(&manifest, defaultPackage())
+	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
 	opts := &VersionOptions{
@@ -87,7 +89,7 @@ func TestDownloadVersionWithoutEditor(t *testing.T) {
 		Version: "1.0.0",
 	}
 
-	_, _, err := DownloadVersion(opts)
+	_, _, err = DownloadVersion(opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "\"editor\" field is empty")
 }
@@ -96,7 +98,8 @@ func TestDownloadVersionWithVersionsNotMatching(t *testing.T) {
 	// Generating a tarball with not matching expected and downloaded
 	// versions
 	manifest := defaultManifest()
-	tmpFile, shasum := generateTarball(&manifest, defaultPackage())
+	tmpFile, shasum, err := generateTarball(&manifest, defaultPackage())
+	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
 	opts := &VersionOptions{
@@ -105,7 +108,7 @@ func TestDownloadVersionWithVersionsNotMatching(t *testing.T) {
 		Version: "2.0.0",
 	}
 
-	_, _, err := DownloadVersion(opts)
+	_, _, err = DownloadVersion(opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match")
 }
@@ -136,13 +139,16 @@ func TestDownloadVersioNoManifest(t *testing.T) {
 		Mode: 777,
 	}
 
-	tarWriter.WriteHeader(packageHeaders)
-	tarWriter.Write(packageContent)
+	err = tarWriter.WriteHeader(packageHeaders)
+	assert.NoError(t, err)
+	_, err = tarWriter.Write(packageContent)
+	assert.NoError(t, err)
 	tarWriter.Flush()
 
 	h := sha256.New()
 	fileContent, _ := ioutil.ReadFile(missingManifestFile.Name())
-	h.Write(fileContent)
+	_, err = h.Write(fileContent)
+	assert.NoError(t, err)
 
 	// Generating a bad tarball with a missing editor in the manifest
 	opts := &VersionOptions{
@@ -158,7 +164,7 @@ func TestDownloadVersioNoManifest(t *testing.T) {
 
 // Helpers
 //
-func generatePackageJSON(tw *tar.Writer, content map[string]interface{}) {
+func generatePackageJSON(tw *tar.Writer, content map[string]interface{}) error {
 	packageContent, _ := json.Marshal(content)
 	packageHeaders := &tar.Header{
 		Name: "package.json",
@@ -166,12 +172,19 @@ func generatePackageJSON(tw *tar.Writer, content map[string]interface{}) {
 		Mode: 777,
 	}
 
-	tw.WriteHeader(packageHeaders)
-	tw.Write(packageContent)
+	err := tw.WriteHeader(packageHeaders)
+	if err != nil {
+		return err
+	}
+	_, err = tw.Write(packageContent)
+	if err != nil {
+		return err
+	}
 	tw.Flush()
+	return nil
 }
 
-func generateManifestJSON(tw *tar.Writer, manifest *Manifest) {
+func generateManifestJSON(tw *tar.Writer, manifest *Manifest) error {
 	manifestContent, _ := json.Marshal(manifest)
 	manifestHeaders := &tar.Header{
 		Name: "manifest.webapp",
@@ -179,19 +192,33 @@ func generateManifestJSON(tw *tar.Writer, manifest *Manifest) {
 		Mode: 777,
 	}
 
-	tw.WriteHeader(manifestHeaders)
-	tw.Write(manifestContent)
+	err := tw.WriteHeader(manifestHeaders)
+	if err != nil {
+		return err
+	}
+	_, err = tw.Write(manifestContent)
+	if err != nil {
+		return err
+	}
 	tw.Flush()
+	return nil
 }
 
-func generateTarball(manifestContent *Manifest, packageContent map[string]interface{}) (filepath string, shasum string) {
+func generateTarball(manifestContent *Manifest, packageContent map[string]interface{}) (string, string, error) {
+	var err error
 	// Creating a test tarball
 	tmpFile, _ := ioutil.TempFile(os.TempDir(), "cozy-registry-test")
 	tarWriter := tar.NewWriter(tmpFile)
 	defer tarWriter.Close()
 
-	generatePackageJSON(tarWriter, packageContent)
-	generateManifestJSON(tarWriter, manifestContent)
+	err = generatePackageJSON(tarWriter, packageContent)
+	if err != nil {
+		return "", "", err
+	}
+	err = generateManifestJSON(tarWriter, manifestContent)
+	if err != nil {
+		return "", "", err
+	}
 
 	tmpFile.Close()
 
@@ -199,9 +226,12 @@ func generateTarball(manifestContent *Manifest, packageContent map[string]interf
 	h := sha256.New()
 	filename := tmpFile.Name()
 	fileContent, _ := ioutil.ReadFile(filename)
-	h.Write(fileContent)
+	_, err = h.Write(fileContent)
+	if err != nil {
+		return "", "", err
+	}
 
-	return filename, hex.EncodeToString(h.Sum(nil))
+	return filename, hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // Return a simple validated manifest

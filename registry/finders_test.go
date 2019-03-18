@@ -7,15 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-kivik/kivik"
-
 	"github.com/spf13/viper"
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/config"
 )
 
-var db *kivik.DB
 var testSpaceName = "test-space"
 var editor *auth.Editor
 var app *App
@@ -54,7 +51,10 @@ func TestMain(m *testing.M) {
 	configFile, ok := config.FindConfigFile("cozy-registry-test")
 	if ok {
 		viper.SetConfigFile(configFile)
-		viper.ReadInConfig()
+		err := viper.ReadInConfig()
+		if err != nil {
+			fmt.Println("Errorwhile parsing viper config:", err)
+		}
 	}
 	url := viper.GetString("couchdb.url")
 	user := viper.GetString("couchdb.user")
@@ -81,6 +81,9 @@ func TestMain(m *testing.M) {
 	// Creating a default editor
 	vault := auth.NewCouchDBVault(editorsDB)
 	editorRegistry, err := auth.NewEditorRegistry(vault)
+	if err != nil {
+		fmt.Println("Error while creating editor:", err)
+	}
 	editor, _ = editorRegistry.CreateEditorWithoutPublicKey("cozytesteditor", true)
 
 	os.Exit(m.Run())
