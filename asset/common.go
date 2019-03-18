@@ -170,18 +170,18 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 	return err
 }
 
-func (a *GlobalAssetStore) RemoveAsset(md5, versionFilepath string) error {
+func (a *GlobalAssetStore) RemoveAsset(md5, source string) error {
 	row := AssetStore.DB.Get(ctx, md5)
 
 	var assetDoc *GlobalAsset
 	err := row.ScanDoc(&assetDoc)
-	if err != nil && kivik.StatusCode(err) != kivik.StatusNotFound {
+	if err != nil {
 		return err
 	}
 
 	var updatedVersions []string
 	for _, versionfp := range assetDoc.UsedBy {
-		if versionfp == versionFilepath {
+		if versionfp == source {
 			continue
 		}
 		updatedVersions = append(updatedVersions, versionfp)
