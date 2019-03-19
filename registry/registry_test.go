@@ -273,6 +273,25 @@ func TestDeactivateAppMaintenance(t *testing.T) {
 	assert.False(t, app.MaintenanceActivated)
 }
 
+// Finders
+func TestFindApp(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	app, err := FindApp(s, "app-test", Stable)
+	assert.NoError(t, err)
+	assert.Equal(t, app.LatestVersion.Version, "2.0.0")
+}
+
+func TestFindAppAttachment(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	att, err := FindAppAttachment(s, "app-test", "myfile1", Stable)
+	assert.NoError(t, err)
+	assert.Equal(t, "text/plain", att.ContentType)
+
+	content, err := ioutil.ReadAll(att.Content)
+	assert.NoError(t, err)
+	assert.Equal(t, "this is the file content of attachment 1", string(content))
+}
+
 func TestDeleteVersion(t *testing.T) {
 	s, _ := GetSpace(testSpaceName)
 	// Version 2.0.0 is the only to have an attachment
