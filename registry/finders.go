@@ -187,7 +187,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	return att, nil
 }
 
-// MoveToGlobalAssetDatabase moves an asset located in the "local" container in
+// MoveAssetToGlobalDatabase moves an asset located in the "local" container in
 // the global database. This function is not intended to stay forever and will
 // be removed when no more assets will be remaining in the app containers.
 // It does the following steps:

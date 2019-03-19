@@ -26,16 +26,16 @@ import (
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/magic"
-	"github.com/cozy/swift"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-
-	multierror "github.com/hashicorp/go-multierror"
-
 	"github.com/cozy/echo"
+	"github.com/cozy/swift"
+
 	_ "github.com/go-kivik/couchdb" // for couchdb
 	"github.com/go-kivik/couchdb/chttp"
 	"github.com/go-kivik/kivik"
+
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
@@ -334,7 +334,6 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	}
 
 	editorsDB = globalEditorsDB
-
 	return
 }
 
