@@ -2,7 +2,10 @@ package asset
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"io"
+	"io/ioutil"
 
 	"github.com/cozy/swift"
 )
@@ -12,15 +15,26 @@ type SwiftFS struct {
 }
 
 func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) error {
-	// Creating object to swift
+	// Creating object in swift
 	sc := s.Connection
-	f, err := sc.ObjectCreate(AssetContainerName, asset.Shasum, false, "", asset.ContentType, nil)
+
+	buf, err := ioutil.ReadAll(content)
+	if err != nil {
+		return err
+	}
+
+	// Calculating md5sum for swift insertion
+	md5sum := md5.New()
+	md5sum.Write(buf)
+	sum := md5sum.Sum(nil)
+
+	f, err := sc.ObjectCreate(AssetContainerName, asset.Shasum, true, hex.EncodeToString(sum), asset.ContentType, nil)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, content)
+	_, err = f.Write(buf)
 	return err
 
 }
@@ -37,8 +51,6 @@ func (s *SwiftFS) GetAsset(shasum string) (*bytes.Buffer, map[string]string, err
 
 // Remove asset cleans a UsedByEntry and deletes the asset is there are no more app using the asset
 func (s *SwiftFS) RemoveAsset(shasum string) error {
-	// No more app is using the asset, we are going to clean it from couch
-	// and swift
 	sc := s.Connection
 
 	// Deleting the object from swift. If the object is not found, we should

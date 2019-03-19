@@ -159,9 +159,6 @@ func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, sourc
 	}
 	if doc.Rev == "" {
 		_, _, err = AssetStore.DB.CreateDoc(ctx, doc)
-		if err != nil {
-			return err
-		}
 	} else {
 		_, err = AssetStore.DB.Put(ctx, doc.ID, doc, nil)
 	}

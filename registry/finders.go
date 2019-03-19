@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -137,12 +136,13 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	if err != nil {
 		return nil, err
 	}
+
 	// Checks if the asset from the global database is referenced in the Version
 	// document
 	shasum, ok := ver.AttachmentReferences[filename]
+
 	if ok {
 		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(shasum)
-		fileContent, err = ioutil.ReadAll(contentBuffer)
 		if err != nil {
 			return nil, err
 		}
@@ -153,11 +153,13 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 		if err != nil {
 			return nil, err
 		}
+	}
+	fileContent = contentBuffer.Bytes()
+	contentType = headers["Content-Type"]
 
-		fileContent = contentBuffer.Bytes()
-
-		// We are going to move the asset to the global database and remove it
-		// from the local database for the next time
+	// If the asset was not found in the global database, move it for the next
+	// time.
+	if !ok {
 		go func() {
 			err = MoveAssetToGlobalDatabase(c, ver, fileContent, filename, contentType)
 			if err != nil {
@@ -175,7 +177,6 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	}
 
 	content := bytes.NewReader(fileContent)
-	contentType = headers["Content-Type"]
 
 	att := &Attachment{
 		ContentType:   contentType,
@@ -226,6 +227,7 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename,
 	if err != nil {
 		return err
 	}
+
 	// Remove the old object
 	conf := config.GetConfig()
 	sc := conf.SwiftConnection
