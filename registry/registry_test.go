@@ -313,6 +313,63 @@ func TestGetAppsList(t *testing.T) {
 	assert.Equal(t, 2, len(apps))
 }
 
+func TestLastNVersions(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+
+	// We want to get the last major version (1.0.0)
+	versions, err := FindLastNVersions(s, "app-test", "stable", 1, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(versions))
+	assert.Equal(t, "2.0.0", versions[0].Version)
+
+	// We want to get the lasts two major versions (1.0.0 & 2.0.0)
+	versions, err = FindLastNVersions(s, "app-test", "stable", 2, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(versions))
+	assert.Equal(t, "2.0.0", versions[0].Version)
+	assert.Equal(t, "1.0.0", versions[1].Version)
+
+	versions, err = FindLastNVersions(s, "app-test", "stable", 2, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(versions))
+	assert.Equal(t, "2.0.0", versions[0].Version)
+	assert.Equal(t, "1.0.0", versions[1].Version)
+
+	// Create new minors versions
+	db := s.VersDB()
+	app, err := FindApp(s, "app-test", Stable)
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Version = "1.0.1"
+	ver.Slug = "app-test"
+	ver.ID = getVersionID(ver.Slug, ver.Version)
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, app, true)
+	assert.NoError(t, err)
+
+	ver = new(Version)
+	ver.Version = "2.3.0"
+	ver.Slug = "app-test"
+	ver.ID = getVersionID(ver.Slug, ver.Version)
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, app, true)
+	assert.NoError(t, err)
+
+	versions, err = FindLastNVersions(s, "app-test", "stable", 2, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(versions))
+	assert.Equal(t, "2.3.0", versions[0].Version)
+	assert.Equal(t, "2.0.0", versions[1].Version)
+	assert.Equal(t, "1.0.1", versions[2].Version)
+	assert.Equal(t, "1.0.0", versions[3].Version)
+
+	versions, err = FindLastNVersions(s, "app-test", "stable", 1, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(versions))
+	assert.Equal(t, "2.3.0", versions[0].Version)
+	assert.Equal(t, "2.0.0", versions[1].Version)
+
+}
+
 func TestDeleteVersion(t *testing.T) {
 	s, _ := GetSpace(testSpaceName)
 	// Version 2.0.0 is the only to have an attachment
