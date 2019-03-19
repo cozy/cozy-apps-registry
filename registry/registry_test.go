@@ -17,6 +17,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/swift"
 	"github.com/cozy/swift/swifttest"
 	"github.com/go-kivik/kivik"
 	"github.com/spf13/viper"
@@ -227,7 +228,7 @@ func TestCreateVersionWithAttachment(t *testing.T) {
 	ver := new(Version)
 	ver.Version = "2.0.0"
 	ver.Slug = "app-test"
-
+	ver.ID = getVersionID(ver.Slug, ver.Version)
 	att1Content := ioutil.NopCloser(strings.NewReader("this is the file content of attachment 1"))
 	attachments := []*kivik.Attachment{{
 		Filename:    "myfile1",
@@ -270,6 +271,32 @@ func TestDeactivateAppMaintenance(t *testing.T) {
 	app, err := findApp(s, "app-test")
 	assert.NoError(t, err)
 	assert.False(t, app.MaintenanceActivated)
+}
+
+func TestDeleteVersion(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	// Version 2.0.0 is the only to have an attachment
+	ver, err := findVersion("app-test", "2.0.0", s.VersDB())
+	assert.NoError(t, err)
+	assert.NotNil(t, ver)
+
+	// Check the file is still here
+	conf, err := config.GetConfig()
+	sc := conf.SwiftConnection
+
+	var buf = new(bytes.Buffer)
+	prefix := GetPrefixOrDefault(s)
+
+	fp := filepath.Join(ver.Slug, ver.Version, "myfile1")
+	_, err = sc.ObjectGet(prefix, fp, buf, false, nil)
+	assert.NoError(t, err)
+
+	// Delete the version and try to get the (normally) deleted object
+	err = ver.Delete(s)
+	assert.NoError(t, err)
+	_, err = sc.ObjectGet(prefix, fp, buf, false, nil)
+	assert.Equal(t, swift.ObjectNotFound, err)
+
 }
 
 // Download version
