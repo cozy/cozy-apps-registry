@@ -370,6 +370,29 @@ func TestLastNVersions(t *testing.T) {
 
 }
 
+func TestFindLastsVersionsSince(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	db := s.VersDB()
+	app, err := FindApp(s, "app-test", Stable)
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Version = "3.0.0"
+	ver.Slug = "app-test"
+	// This version was created yersterday
+	ver.CreatedAt = time.Now().AddDate(0, 0, -1)
+	ver.ID = getVersionID(ver.Slug, ver.Version)
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, app, true)
+	assert.NoError(t, err)
+
+	// Find the versions since last month
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	vers, err := FindLastsVersionsSince(s, "app-test", "stable", lastMonth)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(vers))
+	assert.Equal(t, "3.0.0", vers[0].Version)
+}
+
 func TestDeleteVersion(t *testing.T) {
 	s, _ := GetSpace(testSpaceName)
 	// Version 2.0.0 is the only to have an attachment
