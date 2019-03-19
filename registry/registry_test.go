@@ -240,6 +240,7 @@ func TestCreateVersionWithAttachment(t *testing.T) {
 	assert.NoError(t, err)
 
 	conf, err := config.GetConfig()
+	assert.NoError(t, err)
 	sc := conf.SwiftConnection
 
 	var buf = new(bytes.Buffer)
@@ -402,6 +403,7 @@ func TestDeleteVersion(t *testing.T) {
 
 	// Check the file is still here
 	conf, err := config.GetConfig()
+	assert.NoError(t, err)
 	sc := conf.SwiftConnection
 
 	var buf = new(bytes.Buffer)
@@ -541,13 +543,6 @@ func TestMain(m *testing.M) {
 	viper.Set("cacheVersionsList", cache.NewLRUCache(256, 5*time.Minute))
 
 	out := m.Run()
-
-	// Delete test app
-	defer func() {
-		appsDB := s.AppsDB()
-		appsDB.Delete(ctx, app.ID, app.Rev)
-	}()
-
 	os.Exit(out)
 }
 
