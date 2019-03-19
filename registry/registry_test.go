@@ -290,6 +290,26 @@ func TestDownloadVersioNoManifest(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not contain a manifest")
 }
 
+func TestIsValidVersion(t *testing.T) {
+	ver := &VersionOptions{
+		Version: "1.0.0",
+		URL:     "http://foobar.com",
+		Sha256:  "D5AFEAF17396050E17C40E640DBD26DD2B103B5FBC1BB97D3306ED6254322481",
+	}
+	assert.NoError(t, IsValidVersion(ver))
+}
+
+func TestIsValidVersionBadVersion(t *testing.T) {
+	ver := &VersionOptions{
+		Version: "abc",
+		URL:     "",
+		Sha256:  "azerty",
+	}
+	res := IsValidVersion(ver)
+	assert.Error(t, res)
+	assert.Contains(t, res.Error(), "version", "sha256", "url")
+}
+
 func TestMain(m *testing.M) {
 	var err error
 	// Ensure kivik is launched
