@@ -5,12 +5,26 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/cache"
+	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/swift/swifttest"
+	"github.com/go-kivik/kivik"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
+
+const testSpaceName = "test-space"
+
+var editor *auth.Editor
+var app *App
+var err error
 
 func TestFindPreviousMinorExisting(t *testing.T) {
 	ver := "1.2.0"
@@ -94,6 +108,32 @@ func TestDownloadVersionWithoutEditor(t *testing.T) {
 	assert.Contains(t, err.Error(), "\"editor\" field is empty")
 }
 
+// Apps
+func TestCreateApp(t *testing.T) {
+	space, _ := GetSpace(testSpaceName)
+	opts := &AppOptions{
+		Editor: "cozy",
+		Slug:   "app-test",
+		Type:   "webapp",
+	}
+
+	app, err = CreateApp(space, opts, editor)
+	assert.NoError(t, err)
+}
+
+func TestCreateAppBadType(t *testing.T) {
+	space, _ := GetSpace(testSpaceName)
+	opts := &AppOptions{
+		Editor: "cozy",
+		Slug:   "app-test",
+		Type:   "foobar",
+	}
+
+	_, err := CreateApp(space, opts, editor)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "got type")
+}
+
 func TestDownloadVersionWithVersionsNotMatching(t *testing.T) {
 	// Generating a tarball with not matching expected and downloaded
 	// versions
@@ -124,6 +164,55 @@ func TestDownloadVersionBadURL(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "version on specified url foobar")
 }
+
+func TestCreateVersion(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	db := s.VersDB()
+
+	// Create the test app
+	testApp, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Version = "1.0.0"
+	ver.Slug = "app-test"
+	ver.ID = getVersionID(ver.Slug, ver.Version)
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, testApp, true)
+	assert.NoError(t, err)
+}
+
+func TestCreateVersionBadSlug(t *testing.T) {
+	// Should fail because slugs are not matching
+	s, _ := GetSpace(testSpaceName)
+	db := s.VersDB()
+
+	testApp, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Slug = "foobar"
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, testApp, true)
+	assert.Error(t, err)
+	assert.Equal(t, ErrVersionSlugMismatch, err)
+}
+
+func TestCreateVersionAlreadyExists(t *testing.T) {
+	// Try to create the same version, should fail because the version already
+	// exists
+	s, _ := GetSpace(testSpaceName)
+	db := s.VersDB()
+
+	testApp, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Version = "1.0.0"
+	ver.Slug = "app-test"
+	err = createVersion(s, db, ver, []*kivik.Attachment{}, testApp, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+}
+
 func TestDownloadVersioNoManifest(t *testing.T) {
 	missingManifestFile, _ := ioutil.TempFile(os.TempDir(), "cozy-registry-test")
 	tarWriter := tar.NewWriter(missingManifestFile)
@@ -160,6 +249,78 @@ func TestDownloadVersioNoManifest(t *testing.T) {
 	_, _, err = DownloadVersion(opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not contain a manifest")
+}
+
+func TestMain(m *testing.M) {
+	var err error
+	// Ensure kivik is launched
+	viper.SetDefault("couchdb.url", "http://localhost:5984")
+	configFile, ok := config.FindConfigFile("cozy-registry-test")
+	if ok {
+		viper.SetConfigFile(configFile)
+		err := viper.ReadInConfig()
+		if err != nil {
+			fmt.Println("Errorwhile parsing viper config:", err)
+		}
+	}
+	url := viper.GetString("couchdb.url")
+	user := viper.GetString("couchdb.user")
+	pass := viper.GetString("couchdb.password")
+	prefix := viper.GetString("couchdb.prefix")
+	editorsDB, err := InitGlobalClient(url, user, pass, prefix)
+	if err != nil {
+		fmt.Println("Error accessing CouchDB:", err)
+	}
+
+	// Preparing test space
+	if err := RegisterSpace(testSpaceName); err != nil {
+		fmt.Println("Error registering space:", err)
+	}
+
+	s, ok := GetSpace(testSpaceName)
+	if ok {
+		db := s.VersDB()
+		if err := CreateVersionsDateView(db); err != nil {
+			fmt.Println("Error creating views:", err)
+		}
+	}
+
+	// Creating a default editor
+	vault := auth.NewCouchDBVault(editorsDB)
+	editorRegistry, err := auth.NewEditorRegistry(vault)
+	if err != nil {
+		fmt.Println("Error while creating editor:", err)
+	}
+	editor, _ = editorRegistry.CreateEditorWithoutPublicKey("cozytesteditor", true)
+
+	// Mocking a Swift in memory for versions creation tests
+	swiftSrv, err := swifttest.NewSwiftServer("localhost")
+	if err != nil {
+		fmt.Printf("failed to create swift server %s", err)
+	}
+
+	viper.Set("swift.username", "swifttest")
+	viper.Set("swift.api_key", "swifttest")
+	viper.Set("swift.auth_url", swiftSrv.AuthURL)
+
+	_, err = config.New()
+	if err != nil {
+		fmt.Printf("Error while creating config %s ", err)
+	}
+
+	// Forcing in-memory cache
+	viper.Set("cacheVersionsLatest", cache.NewLRUCache(256, 5*time.Minute))
+	viper.Set("cacheVersionsList", cache.NewLRUCache(256, 5*time.Minute))
+
+	out := m.Run()
+
+	// Delete test app
+	defer func() {
+		appsDB := s.AppsDB()
+		appsDB.Delete(ctx, app.ID, app.Rev)
+	}()
+
+	os.Exit(out)
 }
 
 // Helpers
