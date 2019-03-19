@@ -2,12 +2,15 @@ package registry
 
 import (
 	"archive/tar"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -211,6 +214,42 @@ func TestCreateVersionAlreadyExists(t *testing.T) {
 	err = createVersion(s, db, ver, []*kivik.Attachment{}, testApp, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
+}
+
+func TestCreateVersionWithAttachment(t *testing.T) {
+	// Create a Version with attachment and check it is created
+	s, _ := GetSpace(testSpaceName)
+	db := s.VersDB()
+
+	testApp, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+
+	ver := new(Version)
+	ver.Version = "2.0.0"
+	ver.Slug = "app-test"
+
+	att1Content := ioutil.NopCloser(strings.NewReader("this is the file content of attachment 1"))
+	attachments := []*kivik.Attachment{{
+		Filename:    "myfile1",
+		ContentType: "text/plain",
+		Content:     att1Content,
+	}}
+
+	err = createVersion(s, db, ver, attachments, testApp, true)
+	assert.NoError(t, err)
+
+	conf, err := config.GetConfig()
+	sc := conf.SwiftConnection
+
+	var buf = new(bytes.Buffer)
+	prefix := GetPrefixOrDefault(s)
+	fp := filepath.Join(ver.Slug, ver.Version, "myfile1")
+	headers, err := sc.ObjectGet(prefix, fp, buf, false, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "text/plain", headers["Content-Type"])
+	content, err := ioutil.ReadAll(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, "this is the file content of attachment 1", string(content))
 }
 
 func TestDownloadVersioNoManifest(t *testing.T) {
