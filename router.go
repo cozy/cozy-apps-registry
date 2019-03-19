@@ -487,7 +487,7 @@ func getAppPartnershipIcon(c echo.Context) error {
 }
 
 func getAppScreenshot(c echo.Context) error {
-	filename := path.Join("/", "screenshots", c.Param("*"))
+	filename := path.Join("screenshots", c.Param("*"))
 	err := getAppAttachment(c, filename)
 	if err != nil {
 		if errh, ok := err.(*echo.HTTPError); ok && errh.Code == http.StatusNotFound {
@@ -555,7 +555,7 @@ func getVersionPartnershipIcon(c echo.Context) error {
 }
 
 func getVersionScreenshot(c echo.Context) error {
-	filename := path.Join("/", "screenshots", c.Param("*"))
+	filename := path.Join("screenshots", c.Param("*"))
 	err := getVersionAttachment(c, filename)
 	if err != nil {
 		if errh, ok := err.(*echo.HTTPError); ok && errh.Code == http.StatusNotFound {
