@@ -292,6 +292,27 @@ func TestFindAppAttachment(t *testing.T) {
 	assert.Equal(t, "this is the file content of attachment 1", string(content))
 }
 
+func TestGetAppsList(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	opts := &AppOptions{
+		Editor: "cozy",
+		Slug:   "app-test2",
+		Type:   "konnector",
+	}
+
+	app, err = CreateApp(s, opts, editor)
+	assert.NoError(t, err)
+
+	cursor, apps, err := GetAppsList(s, &AppsListOptions{
+		Limit:                10,
+		LatestVersionChannel: Stable,
+		VersionsChannel:      Dev,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, -1, cursor) // No error if the cursor == -1
+	assert.Equal(t, 2, len(apps))
+}
+
 func TestDeleteVersion(t *testing.T) {
 	s, _ := GetSpace(testSpaceName)
 	// Version 2.0.0 is the only to have an attachment
