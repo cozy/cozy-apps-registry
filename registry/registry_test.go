@@ -252,6 +252,28 @@ func TestCreateVersionWithAttachment(t *testing.T) {
 	assert.Equal(t, "this is the file content of attachment 1", string(content))
 }
 
+func TestActivateAppMaintenance(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	err := ActivateMaintenanceApp(s, "app-test", MaintenanceOptions{FlagInfraMaintenance: true})
+	assert.NoError(t, err)
+
+	app, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+	assert.True(t, app.MaintenanceActivated)
+}
+
+func TestDeactivateAppMaintenance(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	err := DeactivateMaintenanceApp(s, "app-test")
+	assert.NoError(t, err)
+
+	app, err := findApp(s, "app-test")
+	assert.NoError(t, err)
+	assert.False(t, app.MaintenanceActivated)
+}
+
+// Download version
+
 func TestDownloadVersioNoManifest(t *testing.T) {
 	missingManifestFile, _ := ioutil.TempFile(os.TempDir(), "cozy-registry-test")
 	tarWriter := tar.NewWriter(missingManifestFile)
