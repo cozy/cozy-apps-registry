@@ -126,24 +126,25 @@ func InitSwift() (*swift.Connection, error) {
 }
 
 func (a *GlobalAssetStore) AddAsset(asset *GlobalAsset, content io.Reader, source string) error {
-	// Creating the asset in the FS
-	err := a.FS.AddAsset(asset, content)
-	if err != nil {
-		return err
-	}
-
 	// Handles the CouchDB updates
 	var doc *GlobalAsset
 	row := AssetStore.DB.Get(ctx, asset.Shasum, nil)
-	err = row.ScanDoc(&doc)
+	err := row.ScanDoc(&doc)
 	if err != nil && kivik.StatusCode(err) != kivik.StatusNotFound {
 		return err
 	}
 
-	// If asset does not exist in CouchDB global asset database, create it
+	// If asset does not exist in CouchDB global asset database, initializes it
 	if kivik.StatusCode(err) == kivik.StatusNotFound {
 		doc = asset
 		doc.ID = asset.Shasum
+
+		// Creating the asset in the FS
+		err := a.FS.AddAsset(asset, content)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	// Updating the UsedBy field to add the new app version
