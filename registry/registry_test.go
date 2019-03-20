@@ -562,6 +562,38 @@ func TestMain(m *testing.M) {
 
 	out := m.Run()
 
+	// Databases cleaning
+	appDB := s.AppsDB()
+	client := appDB.Client()
+
+	err = client.DestroyDB(ctx, appDB.Name())
+	if err != nil {
+		fmt.Println("Cannot remove test app DB")
+	}
+	err = client.DestroyDB(ctx, s.PendingVersDB().Name())
+	if err != nil {
+		fmt.Println("Cannot remove test pending version DB")
+	}
+	err = client.DestroyDB(ctx, s.VersDB().Name())
+	if err != nil {
+		fmt.Println("Cannot remove test version DB")
+	}
+
+	type editor struct {
+		ID  string `json:"_id,omitempty"`
+		Rev string `json:"_rev,omitempty"`
+	}
+	row := editorsDB.Get(ctx, "cozytesteditor")
+	var doc editor
+	err = row.ScanDoc(&doc)
+	if err != nil {
+		fmt.Println("Cannot remove test editor ")
+	}
+	_, err = editorsDB.Delete(ctx, doc.ID, doc.Rev)
+	if err != nil {
+		fmt.Println("Cannot remove test editor DB")
+	}
+
 	os.Exit(out)
 }
 
