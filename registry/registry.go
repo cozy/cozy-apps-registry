@@ -21,11 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cozy/swift"
-	"github.com/h2non/filetype"
-	"github.com/sirupsen/logrus"
-	
-        "github.com/cozy/cozy-apps-registry/asset"
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
@@ -39,6 +35,7 @@ import (
 	"github.com/go-kivik/couchdb/chttp"
 	"github.com/go-kivik/kivik"
 
+	"github.com/h2non/filetype"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -1135,10 +1132,7 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, 
 func SaveTarball(space, filepath string, tarball *Tarball) error {
 	// Saving the tar to Swift
 	var content = bytes.NewReader(tarball.Content)
-	conf, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
+	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 
 	f, err := sc.ObjectCreate(space, filepath, false, "", tarball.ContentType, nil)
@@ -1245,6 +1239,11 @@ func ReadTarballVersion(reader io.Reader, contentType, url string) (*Tarball, er
 		}
 
 	}
+
+	if manifest == nil {
+		return nil, fmt.Errorf("Tarball does not contain a manifest")
+	}
+
 	return &Tarball{
 		Manifest:        manifest,
 		ManifestMap:     manifestmap,

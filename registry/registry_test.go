@@ -8,12 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
@@ -29,6 +30,7 @@ const testSpaceName = "test-space"
 var editor *auth.Editor
 var app *App
 var err error
+var globalAssetStore *asset.GlobalAssetStore
 
 func TestFindPreviousMinorExisting(t *testing.T) {
 	ver := "1.2.0"
@@ -80,10 +82,16 @@ func TestDownloadVersion(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
+	buildedURL := &url.URL{
+		Scheme: "http",
+		Host:   "foobar.com",
+		Path:   "/registry/",
+	}
 	opts := &VersionOptions{
-		URL:     "file://" + tmpFile,
-		Sha256:  shasum,
-		Version: "1.0.0",
+		URL:         "file://" + tmpFile,
+		Sha256:      shasum,
+		Version:     "1.0.0",
+		RegistryURL: buildedURL,
 	}
 
 	ver, att, err := DownloadVersion(opts)
@@ -239,19 +247,23 @@ func TestCreateVersionWithAttachment(t *testing.T) {
 	err = createVersion(s, db, ver, attachments, testApp, true)
 	assert.NoError(t, err)
 
-	conf, err := config.GetConfig()
+	v, err := findVersion("app-test", "2.0.0", s.VersDB())
 	assert.NoError(t, err)
-	sc := conf.SwiftConnection
+	assert.NotNil(t, v.AttachmentReferences)
 
-	var buf = new(bytes.Buffer)
-	prefix := GetPrefixOrDefault(s)
-	fp := filepath.Join(ver.Slug, ver.Version, "myfile1")
-	headers, err := sc.ObjectGet(prefix, fp, buf, false, nil)
+	sum := v.AttachmentReferences["myfile1"]
+	assert.NotEmpty(t, sum)
+
+	conf := config.GetConfig()
+	sc := conf.SwiftConnection
+	buf := new(bytes.Buffer)
+	headers, err := sc.ObjectGet(asset.AssetContainerName, sum, buf, false, nil)
+	assert.NoError(t, err)
 	assert.NoError(t, err)
 	assert.Equal(t, "text/plain", headers["Content-Type"])
-	content, err := ioutil.ReadAll(buf)
-	assert.NoError(t, err)
-	assert.Equal(t, "this is the file content of attachment 1", string(content))
+
+	content := buf.String()
+	assert.Equal(t, "this is the file content of attachment 1", content)
 }
 
 func TestActivateAppMaintenance(t *testing.T) {
@@ -402,21 +414,19 @@ func TestDeleteVersion(t *testing.T) {
 	assert.NotNil(t, ver)
 
 	// Check the file is still here
-	conf, err := config.GetConfig()
+	conf := config.GetConfig()
 	assert.NoError(t, err)
 	sc := conf.SwiftConnection
 
 	var buf = new(bytes.Buffer)
-	prefix := GetPrefixOrDefault(s)
 
-	fp := filepath.Join(ver.Slug, ver.Version, "myfile1")
-	_, err = sc.ObjectGet(prefix, fp, buf, false, nil)
+	_, err = sc.ObjectGet(asset.AssetContainerName, ver.AttachmentReferences["myfile1"], buf, false, nil)
 	assert.NoError(t, err)
 
 	// Delete the version and try to get the (normally) deleted object
 	err = ver.Delete(s)
 	assert.NoError(t, err)
-	_, err = sc.ObjectGet(prefix, fp, buf, false, nil)
+	_, err = sc.ObjectGet(asset.AssetContainerName, ver.AttachmentReferences["myfile1"], buf, false, nil)
 	assert.Equal(t, swift.ObjectNotFound, err)
 
 }
@@ -485,12 +495,14 @@ func TestMain(m *testing.M) {
 	var err error
 	// Ensure kivik is launched
 	viper.SetDefault("couchdb.url", "http://localhost:5984")
+	viper.SetDefault("spaces", "__default__ "+testSpaceName)
+
 	configFile, ok := config.FindConfigFile("cozy-registry-test")
 	if ok {
 		viper.SetConfigFile(configFile)
 		err := viper.ReadInConfig()
 		if err != nil {
-			fmt.Println("Errorwhile parsing viper config:", err)
+			fmt.Println("Error while parsing viper config:", err)
 		}
 	}
 	url := viper.GetString("couchdb.url")
@@ -533,16 +545,23 @@ func TestMain(m *testing.M) {
 	viper.Set("swift.api_key", "swifttest")
 	viper.Set("swift.auth_url", swiftSrv.AuthURL)
 
-	_, err = config.New()
-	if err != nil {
-		fmt.Printf("Error while creating config %s ", err)
-	}
-
 	// Forcing in-memory cache
 	viper.Set("cacheVersionsLatest", cache.NewLRUCache(256, 5*time.Minute))
 	viper.Set("cacheVersionsList", cache.NewLRUCache(256, 5*time.Minute))
 
+	err = config.Init()
+	if err != nil {
+		fmt.Printf("Error while creating config %s ", err)
+	}
+
+	// Global asset store
+	globalAssetStore, err = asset.InitGlobalAssetStore(url, user, pass, prefix)
+	if err != nil {
+		fmt.Printf("Could not reach CouchDB: %s", err)
+	}
+
 	out := m.Run()
+
 	os.Exit(out)
 }
 
