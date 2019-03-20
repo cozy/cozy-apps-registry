@@ -2,8 +2,6 @@ package asset
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/hex"
 	"io"
 	"io/ioutil"
 
@@ -23,15 +21,7 @@ func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) error {
 		return err
 	}
 
-	// Calculating md5sum for swift insertion
-	md5sum := md5.New()
-	_, err = md5sum.Write(buf)
-	if err != nil {
-		return err
-	}
-	sum := md5sum.Sum(nil)
-
-	f, err := sc.ObjectCreate(AssetContainerName, asset.Shasum, true, hex.EncodeToString(sum), asset.ContentType, nil)
+	f, err := sc.ObjectCreate(AssetContainerName, asset.Shasum, true, "", asset.ContentType, nil)
 	if err != nil {
 		return err
 	}
