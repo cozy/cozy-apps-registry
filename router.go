@@ -289,6 +289,22 @@ func getMaintenanceApps(c echo.Context) error {
 	return writeJSON(c, apps)
 }
 
+func filterGetMaintenanceApps(virtual *config.VirtualSpace) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		apps, err := registry.GetMaintainanceApps(getSpace(c))
+		if err != nil {
+			return err
+		}
+		filtered := apps[:0]
+		for _, app := range apps {
+			if virtual.AcceptApp(app.Slug) {
+				filtered = append(filtered, app)
+			}
+		}
+		return writeJSON(c, filtered)
+	}
+}
+
 func activateMaintenanceApp(c echo.Context) (err error) {
 	if err = checkAuthorized(c); err != nil {
 		return
@@ -881,6 +897,15 @@ func writeJSON(c echo.Context, doc interface{}) error {
 	return c.JSON(http.StatusOK, doc)
 }
 
+func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSpace) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if !virtual.AcceptApp(c.Param("app")) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return handler(c)
+	}
+}
+
 func Router(addr string) *echo.Echo {
 	err := initAssets()
 	if err != nil {
@@ -951,6 +976,56 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/screenshots/*", getVersionScreenshot)
 		g.HEAD("/:app/:version/tarball/:tarball", getVersionTarball)
 		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
+	}
+
+	virtuals := config.GetConfig().VirtualSpaces
+	for name, virtual := range virtuals {
+		groupName := fmt.Sprintf("/%s/registry", url.PathEscape(name))
+		g := e.Group(groupName, ensureSpace(virtual.Source))
+
+		// TODO
+		g.GET("", getAppsList, jsonEndpoint, middleware.Gzip())
+
+		filteredGetMaintenanceApps := filterGetMaintenanceApps(&virtual)
+		g.GET("/maintenance", filteredGetMaintenanceApps, jsonEndpoint, middleware.Gzip())
+
+		filteredGetApp := filterAppInVirtualSpace(getApp, &virtual)
+		filteredGetAppVersions := filterAppInVirtualSpace(getAppVersions, &virtual)
+		filteredGetVersion := filterAppInVirtualSpace(getVersion, &virtual)
+		filteredGetLatestVersion := filterAppInVirtualSpace(getLatestVersion, &virtual)
+		g.HEAD("/:app", filteredGetApp, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app", filteredGetApp, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/versions", filteredGetAppVersions, jsonEndpoint, middleware.Gzip())
+		g.HEAD("/:app/:version", filteredGetVersion, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/:version", filteredGetVersion, jsonEndpoint, middleware.Gzip())
+		g.HEAD("/:app/:channel/latest", filteredGetLatestVersion, jsonEndpoint, middleware.Gzip())
+		g.GET("/:app/:channel/latest", filteredGetLatestVersion, jsonEndpoint, middleware.Gzip())
+
+		filteredGetAppIcon := filterAppInVirtualSpace(getAppIcon, &virtual)
+		filteredGetAppPartnershipIcon := filterAppInVirtualSpace(getAppPartnershipIcon, &virtual)
+		filteredGetAppScreenshot := filterAppInVirtualSpace(getAppScreenshot, &virtual)
+		filteredGetVersionIcon := filterAppInVirtualSpace(getVersionIcon, &virtual)
+		filteredGetVersionPartnershipIcon := filterAppInVirtualSpace(getVersionPartnershipIcon, &virtual)
+		filteredGetVersionScreenshot := filterAppInVirtualSpace(getVersionScreenshot, &virtual)
+		filteredGetVersionTarball := filterAppInVirtualSpace(getVersionTarball, &virtual)
+		g.GET("/:app/icon", filteredGetAppIcon)
+		g.HEAD("/:app/icon", filteredGetAppIcon)
+		g.GET("/:app/partnership_icon", filteredGetAppPartnershipIcon)
+		g.HEAD("/:app/partnership_icon", filteredGetAppPartnershipIcon)
+		g.GET("/:app/screenshots/*", filteredGetAppScreenshot)
+		g.HEAD("/:app/screenshots/*", filteredGetAppScreenshot)
+		g.GET("/:app/:channel/latest/icon", filteredGetAppIcon)
+		g.HEAD("/:app/:channel/latest/icon", filteredGetAppIcon)
+		g.HEAD("/:app/:channel/latest/screenshots/*", filteredGetAppScreenshot)
+		g.GET("/:app/:channel/latest/screenshots/*", filteredGetAppScreenshot)
+		g.HEAD("/:app/:version/icon", filteredGetVersionIcon)
+		g.GET("/:app/:version/icon", filteredGetVersionIcon)
+		g.HEAD("/:app/:version/partnership_icon", filteredGetVersionPartnershipIcon)
+		g.GET("/:app/:version/partnership_icon", filteredGetVersionPartnershipIcon)
+		g.HEAD("/:app/:version/screenshots/*", filteredGetVersionScreenshot)
+		g.GET("/:app/:version/screenshots/*", filteredGetVersionScreenshot)
+		g.HEAD("/:app/:version/tarball/:tarball", filteredGetVersionTarball)
+		g.GET("/:app/:version/tarball/:tarball", filteredGetVersionTarball)
 	}
 
 	e.GET("/editors", getEditorsList, jsonEndpoint, middleware.Gzip())
