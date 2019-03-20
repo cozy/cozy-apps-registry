@@ -921,9 +921,9 @@ func Router(addr string) *echo.Echo {
 		g.GET("/pending", getPendingVersions, jsonEndpoint, middleware.Gzip())
 		g.PUT("/pending/:app/:version/approval", approvePendingVersion, middleware.Gzip())
 
-		g.GET("/maintenance", getMaintenanceApps)
+		g.GET("/maintenance", getMaintenanceApps, jsonEndpoint, middleware.Gzip())
 		g.PUT("/maintenance/:app/activate", activateMaintenanceApp, jsonEndpoint, middleware.Gzip())
-		g.PUT("/maintenance/:app/deactivate", deactivateMaintenanceApp, middleware.Gzip())
+		g.PUT("/maintenance/:app/deactivate", deactivateMaintenanceApp, jsonEndpoint, middleware.Gzip())
 
 		g.HEAD("/:app", getApp, jsonEndpoint, middleware.Gzip())
 		g.GET("/:app", getApp, jsonEndpoint, middleware.Gzip())
