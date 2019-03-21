@@ -17,6 +17,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
 
@@ -981,7 +982,12 @@ func Router(addr string) *echo.Echo {
 	virtuals := config.GetConfig().VirtualSpaces
 	for name, virtual := range virtuals {
 		groupName := fmt.Sprintf("/%s/registry", url.PathEscape(name))
-		g := e.Group(groupName, ensureSpace(virtual.Source))
+
+		source := virtual.Source
+		if source == consts.DefaultSpacePrefix {
+			source = ""
+		}
+		g := e.Group(groupName, ensureSpace(source))
 
 		// TODO
 		g.GET("", getAppsList, jsonEndpoint, middleware.Gzip())
