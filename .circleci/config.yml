@@ -6,6 +6,7 @@ jobs:
       # See https://circleci.com/docs/2.0/circleci-images/
       - image: circleci/golang:1.12
       - image: circleci/redis:5.0
+      - image: couchdb:2.3.1
     working_directory: /go/src/github.com/cozy/cozy-apps-registry
     steps:
       - checkout
