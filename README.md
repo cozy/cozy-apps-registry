@@ -37,12 +37,15 @@ The `cozy-apps-registry` is a go project that implements the [registry
 API](https://github.com/cozy/cozy-stack/blob/master/docs/registry.md)
 described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
-It requires Couchdb 2.0 to work properly.
-
+To work properly, it requires:
+- Couchdb >= 2.0
+- Openstack Object Storage (Swift)
 
 ## How to develop with a `cozy-apps-registry` working in local environment
 
 Before starting, you will need to have a couchdb running already. That can be the one used by the local `cozy-stack` if you have one. For this tutorial, couchdb will be running on the default port 5984.
+
+You also must have an OpenStack Object Storage (Swift) up and running. You can follow install instructions on [the official website](https://docs.openstack.org/swift/latest/install/index.html)
 
 ### 1) Install and configure the local `cozy-apps-registry`
 
@@ -83,6 +86,20 @@ couchdb:
   password: ''
   # CouchDB prefix for the registries databases - flag --couchdb-prefix
   prefix: registry1
+
+swift:
+  # Swift auth URL (provided by keystone)
+  auth_url: http://172.28.128.3/identity/v3
+  # Swift username
+  username: admin
+  # Swift password
+  api_key: secret
+  # Endpoint type (public/admin/internal)
+  endpointy_type: public
+  # Project name
+  tenant: demo
+  # Swift domain
+  domain: default
 
 # Path to the session secret file containing the master secret to generate
 # session token.
