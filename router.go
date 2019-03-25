@@ -454,16 +454,22 @@ func getAppsList(c echo.Context) error {
 		}
 	}
 
+	space := getSpace(c)
+
 	// In case of virtual space, forcing the filters
 	if virtual := c.Get("virtual"); virtual != nil {
 		if filter == nil {
 			filter = make(map[string]string)
 		}
-		v := virtual.(*config.VirtualSpace)
+		v := virtual.(config.VirtualSpace)
 		filter[v.Filter] = strings.Join(v.Slugs, ",")
+
+		// Artificially altering the space prefix to force the cache to use a
+		// different key
+		space.Prefix = c.Get("virtual_name").(string)
 	}
 
-	next, apps, err := registry.GetAppsList(getSpace(c), &registry.AppsListOptions{
+	next, apps, err := registry.GetAppsList(space, &registry.AppsListOptions{
 		Filters:              filter,
 		Limit:                limit,
 		Cursor:               cursor,
@@ -907,9 +913,10 @@ func writeJSON(c echo.Context, doc interface{}) error {
 	return c.JSON(http.StatusOK, doc)
 }
 
-func applyVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSpace) echo.HandlerFunc {
+func applyVirtualSpace(handler echo.HandlerFunc, virtual config.VirtualSpace, virtualSpacename string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		c.Set("virtual", virtual)
+		c.Set("virtual_name", virtualSpacename)
 		return handler(c)
 	}
 }
@@ -1005,7 +1012,7 @@ func Router(addr string) *echo.Echo {
 		}
 		g := e.Group(groupName, ensureSpace(source))
 
-		virtualGetAppsList := applyVirtualSpace(getAppsList, &virtual)
+		virtualGetAppsList := applyVirtualSpace(getAppsList, virtual, name)
 		g.GET("", virtualGetAppsList, jsonEndpoint, middleware.Gzip())
 
 		filteredGetMaintenanceApps := filterGetMaintenanceApps(&virtual)
