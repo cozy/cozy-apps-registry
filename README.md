@@ -511,7 +511,7 @@ registry). It is espacially useful for splitting up applications by logical
 topics.
 
 Most of the CLI and API endpoints have a `space` option. You can refer to the
-documentation or CLI help to view all available
+documentation or CLI help to view all available parameters.
 
 #### Virtual Spaces
 
