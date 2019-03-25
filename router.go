@@ -461,7 +461,7 @@ func getAppsList(c echo.Context) error {
 		if filter == nil {
 			filter = make(map[string]string)
 		}
-		v := virtual.(config.VirtualSpace)
+		v := virtual.(*config.VirtualSpace)
 		filter[v.Filter] = strings.Join(v.Slugs, ",")
 
 		// Artificially altering the space prefix to force the cache to use a
@@ -913,7 +913,7 @@ func writeJSON(c echo.Context, doc interface{}) error {
 	return c.JSON(http.StatusOK, doc)
 }
 
-func applyVirtualSpace(handler echo.HandlerFunc, virtual config.VirtualSpace, virtualSpacename string) echo.HandlerFunc {
+func applyVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSpace, virtualSpacename string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		c.Set("virtual", virtual)
 		c.Set("virtual_name", virtualSpacename)
@@ -1012,16 +1012,17 @@ func Router(addr string) *echo.Echo {
 		}
 		g := e.Group(groupName, ensureSpace(source))
 
-		virtualGetAppsList := applyVirtualSpace(getAppsList, virtual, name)
+		v := virtuals[name]
+		virtualGetAppsList := applyVirtualSpace(getAppsList, &v, name)
 		g.GET("", virtualGetAppsList, jsonEndpoint, middleware.Gzip())
 
-		filteredGetMaintenanceApps := filterGetMaintenanceApps(&virtual)
+		filteredGetMaintenanceApps := filterGetMaintenanceApps(&v)
 		g.GET("/maintenance", filteredGetMaintenanceApps, jsonEndpoint, middleware.Gzip())
 
-		filteredGetApp := filterAppInVirtualSpace(getApp, &virtual)
-		filteredGetAppVersions := filterAppInVirtualSpace(getAppVersions, &virtual)
-		filteredGetVersion := filterAppInVirtualSpace(getVersion, &virtual)
-		filteredGetLatestVersion := filterAppInVirtualSpace(getLatestVersion, &virtual)
+		filteredGetApp := filterAppInVirtualSpace(getApp, &v)
+		filteredGetAppVersions := filterAppInVirtualSpace(getAppVersions, &v)
+		filteredGetVersion := filterAppInVirtualSpace(getVersion, &v)
+		filteredGetLatestVersion := filterAppInVirtualSpace(getLatestVersion, &v)
 		g.HEAD("/:app", filteredGetApp, jsonEndpoint, middleware.Gzip())
 		g.GET("/:app", filteredGetApp, jsonEndpoint, middleware.Gzip())
 		g.GET("/:app/versions", filteredGetAppVersions, jsonEndpoint, middleware.Gzip())
@@ -1030,13 +1031,13 @@ func Router(addr string) *echo.Echo {
 		g.HEAD("/:app/:channel/latest", filteredGetLatestVersion, jsonEndpoint, middleware.Gzip())
 		g.GET("/:app/:channel/latest", filteredGetLatestVersion, jsonEndpoint, middleware.Gzip())
 
-		filteredGetAppIcon := filterAppInVirtualSpace(getAppIcon, &virtual)
-		filteredGetAppPartnershipIcon := filterAppInVirtualSpace(getAppPartnershipIcon, &virtual)
-		filteredGetAppScreenshot := filterAppInVirtualSpace(getAppScreenshot, &virtual)
-		filteredGetVersionIcon := filterAppInVirtualSpace(getVersionIcon, &virtual)
-		filteredGetVersionPartnershipIcon := filterAppInVirtualSpace(getVersionPartnershipIcon, &virtual)
-		filteredGetVersionScreenshot := filterAppInVirtualSpace(getVersionScreenshot, &virtual)
-		filteredGetVersionTarball := filterAppInVirtualSpace(getVersionTarball, &virtual)
+		filteredGetAppIcon := filterAppInVirtualSpace(getAppIcon, &v)
+		filteredGetAppPartnershipIcon := filterAppInVirtualSpace(getAppPartnershipIcon, &v)
+		filteredGetAppScreenshot := filterAppInVirtualSpace(getAppScreenshot, &v)
+		filteredGetVersionIcon := filterAppInVirtualSpace(getVersionIcon, &v)
+		filteredGetVersionPartnershipIcon := filterAppInVirtualSpace(getVersionPartnershipIcon, &v)
+		filteredGetVersionScreenshot := filterAppInVirtualSpace(getVersionScreenshot, &v)
+		filteredGetVersionTarball := filterAppInVirtualSpace(getVersionTarball, &v)
 		g.GET("/:app/icon", filteredGetAppIcon)
 		g.HEAD("/:app/icon", filteredGetAppIcon)
 		g.GET("/:app/partnership_icon", filteredGetAppPartnershipIcon)
