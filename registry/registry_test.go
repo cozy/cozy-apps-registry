@@ -519,6 +519,32 @@ func TestIsValidVersionBadVersion(t *testing.T) {
 	assert.Contains(t, res.Error(), "version", "sha256", "url")
 }
 
+func TestRemoveSpace(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+	err := RemoveSpace(s)
+	assert.NoError(t, err)
+
+	// Assert no container
+	conf := config.GetConfig()
+	sc := conf.SwiftConnection
+	_, _, err = sc.Container(s.Prefix)
+	assert.Equal(t, swift.ContainerNotFound, err)
+
+	// Assert no databases
+	client := s.AppsDB().Client()
+	ok, err := client.DBExists(ctx, s.AppsDB().Name())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	ok, err = client.DBExists(ctx, s.PendingVersDB().Name())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	ok, err = client.DBExists(ctx, s.VersDB().Name())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+}
+
 func TestMain(m *testing.M) {
 	var err error
 	// Ensure kivik is launched
