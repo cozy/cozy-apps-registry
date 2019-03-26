@@ -326,6 +326,34 @@ func TestGetAppsList(t *testing.T) {
 	assert.Equal(t, 2, len(apps))
 }
 
+func TestGetAppsListSelectFilter(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+
+	_, apps, err := GetAppsList(s, &AppsListOptions{
+		Limit:                10,
+		LatestVersionChannel: Stable,
+		VersionsChannel:      Dev,
+		Filters:              map[string]string{"select": "app-test"},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(apps))
+	assert.Equal(t, "app-test", apps[0].Slug)
+}
+
+func TestGetAppsListRejectFilter(t *testing.T) {
+	s, _ := GetSpace(testSpaceName)
+
+	_, apps, err := GetAppsList(s, &AppsListOptions{
+		Limit:                10,
+		LatestVersionChannel: Stable,
+		VersionsChannel:      Dev,
+		Filters:              map[string]string{"reject": "app-test"},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(apps))
+	assert.Equal(t, "app-test2", apps[0].Slug)
+}
+
 func TestLastNVersions(t *testing.T) {
 	s, _ := GetSpace(testSpaceName)
 

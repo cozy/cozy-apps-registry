@@ -14,21 +14,39 @@
 
 ## Table of contents
 
-- __[What about this repository?](#what-about-this-repository)__
-- __[Develop with `cozy-apps-registry`](#how-to-develop-with-a-cozy-apps-registry-working-in-local-environment)__
+- [cozy-apps-registry](#cozy-apps-registry)
+    - [What's Cozy?](#whats-cozy)
+  - [Table of contents](#table-of-contents)
+  - [What about this repository?](#what-about-this-repository)
+  - [How to develop with a `cozy-apps-registry` working in local environment](#how-to-develop-with-a-cozy-apps-registry-working-in-local-environment)
     - [1) Install and configure the local `cozy-apps-registry`](#1-install-and-configure-the-local-cozy-apps-registry)
     - [2) Configure the registry with `cozy-registry.yml`](#2-configure-the-registry-with-cozy-registryyml)
     - [3) Run the registry to serve the apps](#3-run-the-registry-to-serve-the-apps)
     - [4) Create an editor](#4-create-an-editor)
     - [5) Configure `cozy-stack` with the registry](#5-configure-cozy-stack-with-the-registry)
-- __[Publish your application on the registry](#publish-your-application-on-the-registry)__
+  - [Publish your application on the registry](#publish-your-application-on-the-registry)
     - [1) Prepare your application](#1-prepare-your-application)
+        - [For an application](#for-an-application)
+        - [For a connector](#for-a-connector)
+        - [Properties meaning (reference)](#properties-meaning-reference)
+        - [Translated manifest fields](#translated-manifest-fields)
+        - [Application terms](#application-terms)
+        - [Konnectors folders handling](#konnectors-folders-handling)
     - [2) Add a new application in the registry](#2-add-a-new-application-in-the-registry)
+      - [Our official apps registry](#our-official-apps-registry)
+      - [Custom registry](#custom-registry)
     - [3) Add a new version of a registered application](#3-add-a-new-version-of-a-registered-application)
+      - [Via [`cozy-app-publish`][cozy-app-publish] (highly recommanded)](#via-cozy-app-publishcozy-app-publish-highly-recommanded)
+      - [Via `curl`](#via-curl)
+    - [Spaces & Virtual Spaces](#spaces--virtual-spaces)
+      - [Spaces](#spaces)
+      - [Virtual Spaces](#virtual-spaces)
     - [Automation (CI)](#automation-ci)
     - [Access to our official apps registry](#access-to-our-official-apps-registry)
-- __[Access control and tokens](#access-control-and-tokens)__
-- __[Community](#community)__
+  - [Access control and tokens](#access-control-and-tokens)
+  - [Maintenance](#maintenance)
+  - [Application confidence grade / labelling](#application-confidence-grade--labelling)
+  - [Community](#community)
 
 
 ## What about this repository?
@@ -305,7 +323,7 @@ Here are all properties meaning for the manifest file (for webapp and konnectors
 Field          | Description
 ---------------|-------------------------------------------------------------
 `aggregator`       | Object containing aggregator data. Typically `{ accountId: 'aggregator-service' }`.
-`categories`       | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
+`categories`       | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
 `data_types`       | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`        | `name` and `url` for the developer
 `editor`           | the editor's name to display on the cozy-bar (__REQUIRED__)
@@ -326,7 +344,7 @@ Field          | Description
 `parameters`       | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
 `partnership`      | an object to provide informations (to display in the Store for example) about a partnership related to the application (`icon` `description`, `name` and `domain`)
 `permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
-`platforms`        | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
+`platforms`        | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
 `routes`           | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details) (__REQUIRED__)
 `screenshots`      | an array of paths to the screenshots of the application (paths in the build)
 `services`         | _(application specific)_ a map of the services associated with the app (see [cozy-stack services doc](https://cozy.github.io/cozy-stack/apps.html#services) for more details)
@@ -424,7 +442,7 @@ Field          | Description
 ---------------|-------------------------------------------------------------
 slug           | your application unique ID
 type           | kind of application (it can be only `webapp` or `konnector`)
-editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
+editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 __:warning: Here the `slug` is the unique ID of the application in the registry, so it can't be changed after the application is already registered.__
 </details>
@@ -491,11 +509,36 @@ url           | the archive source of your application, it will be downloaded an
 sha256        | the sha256 hash of your source archive matching the archive in `url` (see the notice below)
 version       | version of the application, must match the one in the manifest (see the notice below)
 type           | kind of application (it can be only `webapp` or `konnector`)
-editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
+editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 > __:warning: Important notices:__
 > - The version must match the one in the `manifest.webapp` file for stable release. For beta (X.X.X-betaX) or dev releases (X.X.X-dev.hash256), the version before the cyphen must match the one in the `manifest.webapp`.
 > - For better integrity, the `sha256` provided must match the sha256 of the archive provided in `url`. If it's not the case, that will be considered as an error and the version won't be registered.
+
+### Spaces & Virtual Spaces
+
+#### Spaces
+
+You can divide your applications between several isolated places, called
+`spaces`.
+
+When an application and its versions are published in a `space`, they are only
+reachable in that one (you can consider a `space` like a entire sub-part of the
+registry). It is espacially useful for splitting up applications by logical
+topics.
+
+Most of the CLI and API endpoints have a `space` option. You can refer to the
+documentation or CLI help to view all available parameters.
+
+#### Virtual Spaces
+
+A `virtual space` is necessarily built over an existing `space`. It allows to
+filter by selecting or rejecting applications available on the underlying space.
+
+> :warning: Please note that a `virtual space` does not have any database
+> document or associated swift object, it does only enforce filters on a
+> `space`. Therefore, **it is not possible to publish applications or versions
+> on a `virtual space`**.
 
 ### Automation (CI)
 
