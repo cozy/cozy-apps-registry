@@ -1070,6 +1070,9 @@ func Router(addr string) *echo.Echo {
 			"Disallow: /")
 	}, middleware.Gzip())
 
+	// Status routes
+	StatusRoutes(e.Group("/status"))
+
 	return e
 }
 
