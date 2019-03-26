@@ -218,11 +218,9 @@ func RemoveSpace(c *Space) error {
 	if err != nil {
 		return err
 	}
-	for _, obj := range objs {
-		err = sc.ObjectDelete(prefix, obj)
-		if err != nil {
-			continue
-		}
+	_, err = sc.BulkDelete(prefix, objs)
+	if err != nil {
+		return err
 	}
 
 	err = sc.ContainerDelete(prefix)
