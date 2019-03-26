@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -49,6 +50,7 @@ var fixerSpacesFlag []string
 var minorFlag int
 var majorFlag int
 var durationFlag int
+var forceFlag bool
 
 var editorAutoPublicationFlag bool
 
@@ -111,6 +113,7 @@ func init() {
 	rootCmd.AddCommand(modifyAppCmd)
 	rootCmd.AddCommand(maintenanceCmd)
 	rootCmd.AddCommand(rmAppVersionCmd)
+	rootCmd.AddCommand(rmSpaceCmd)
 	maintenanceCmd.AddCommand(maintenanceActivateAppCmd)
 	maintenanceCmd.AddCommand(maintenanceDeactivateAppCmd)
 	rootCmd.AddCommand(exportCmd)
@@ -156,6 +159,7 @@ func init() {
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
 	modifyAppCmd.Flags().StringVar(&appDUCByFlag, "data-usage-commitment-by", "", "Specify the usage commitment author: cozy, editor or none")
 
+	rmSpaceCmd.Flags().BoolVar(&forceFlag, "force", false, "skip confirmation prompt")
 	maintenanceActivateAppCmd.Flags().BoolVar(&flagInfraMaintenance, "infra", false, "specify a maintenance specific to our infra")
 	maintenanceActivateAppCmd.Flags().BoolVar(&flagShortMaintenance, "short", false, "specify a short maintenance")
 	maintenanceActivateAppCmd.Flags().BoolVar(&flagDisallowManualExec, "no-manual-exec", false, "specify a maintenance disallowing manual execution")
@@ -459,6 +463,38 @@ var oldVersionsCmd = &cobra.Command{
 	},
 }
 
+var rmSpaceCmd = &cobra.Command{
+	Use:     "rm-space <space>",
+	Short:   `Removes a space`,
+	Long:    `Removes a space, its applications and versions from the registry`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 1 {
+			return cmd.Usage()
+		}
+		space := args[0]
+		s, ok := registry.GetSpace(space)
+		if !ok {
+			return fmt.Errorf("Cannot find space %s", space)
+		}
+
+		if !forceFlag {
+			fmt.Printf("Warning: You are going to remove space %s and all its applications. This action is irreversible.\nPlease enter the space name to confirm: ", space)
+			var response string
+			_, err := fmt.Scanln(&response)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if response != args[0] {
+				return fmt.Errorf("Error: space names are not identical")
+			}
+		}
+
+		// Removing the space
+		return registry.RemoveSpace(s)
+	},
+}
 var printPublicKeyCmd = &cobra.Command{
 	Use:     "pubkey [editor]",
 	Short:   `Print the PEM encoded public key of the specified editor`,

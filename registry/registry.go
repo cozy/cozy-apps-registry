@@ -170,6 +170,78 @@ func (c *Space) dbName(suffix string) (name string) {
 	return dbName(name)
 }
 
+func RemoveSpace(c *Space) error {
+	var err error
+
+	// Removing the applications versions
+	var cursor int = 0
+	for cursor != -1 {
+		next, apps, err := GetAppsList(c, &AppsListOptions{
+			Limit:                200,
+			Cursor:               cursor,
+			LatestVersionChannel: Stable,
+			VersionsChannel:      Dev,
+		})
+
+		if err != nil {
+			return err
+		}
+		cursor = next
+
+		for _, app := range apps { // Iterate over 200 apps
+			// Skipping app with no versions
+			if !app.Versions.HasVersions {
+				continue
+			}
+
+			for _, version := range app.Versions.GetAll() {
+				v, err := FindVersion(c, app.Slug, version)
+				if err != nil {
+					continue
+				}
+				fmt.Printf("Removing %s/%s\n", v.Slug, v.Version)
+				err = v.Delete(c)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Removing swift container
+	conf := config.GetConfig()
+	sc := conf.SwiftConnection
+	prefix := GetPrefixOrDefault(c)
+
+	// First emptying the container
+	objs, err := sc.ObjectNames(prefix, nil)
+	if err != nil {
+		return err
+	}
+	_, err = sc.BulkDelete(prefix, objs)
+	if err != nil {
+		return err
+	}
+
+	err = sc.ContainerDelete(prefix)
+	if err != nil {
+		return err
+	}
+
+	// Removing databases
+	err = client.DestroyDB(ctx, c.PendingVersDB().Name())
+	if err != nil {
+		return err
+	}
+
+	err = client.DestroyDB(ctx, c.VersDB().Name())
+	if err != nil {
+		return err
+	}
+
+	return client.DestroyDB(ctx, c.AppsDB().Name())
+}
+
 func dbName(name string) string {
 	if globalPrefix != "" {
 		return globalPrefix + "-" + name

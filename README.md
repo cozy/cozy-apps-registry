@@ -40,6 +40,8 @@
       - [Via `curl`](#via-curl)
     - [Spaces & Virtual Spaces](#spaces--virtual-spaces)
       - [Spaces](#spaces)
+        - [Create a space](#create-a-space)
+        - [Remove a space](#remove-a-space)
       - [Virtual Spaces](#virtual-spaces)
     - [Automation (CI)](#automation-ci)
     - [Access to our official apps registry](#access-to-our-official-apps-registry)
@@ -529,6 +531,44 @@ topics.
 
 Most of the CLI and API endpoints have a `space` option. You can refer to the
 documentation or CLI help to view all available parameters.
+
+##### Create a space
+Spaces are defined in the config file and are automatically created during registry
+launching.
+
+Add a `space` entry, followed by your spaces names, and let the registry do the work:
+
+```yaml
+spaces: __default__ myspace foospace
+```
+
+##### Remove a space
+
+To remove a space, you have to clean all the remaining apps & versions before removing the `space` entry name.
+
+A CLI is available for the job:
+
+```bash
+$ cozy-apps-registry rm-space <your-space>
+```
+
+Example:
+```bash
+$ cozy-apps-registry rm-space foobar
+Warning: You are going to remove space foobar and all its applications. This action is irreversible.
+Please enter the space name to confirm: foobar
+Removing app1/0.7.3-dev.f26bf2b8db3da459071a074a1367ce36e78bb34c
+Removing app1/0.7.3-dev.cf1efba4c1b6dd08bb5857f5752790f0d2663d6d
+Removing app1/0.7.3-dev.0bbd57a6ce50af82cfbefb8c231fbfe04516e742
+Removing app1/0.7.3-dev.21338229a0c2317dc0f3b94e92b22a367f84c537
+Removing app1/0.7.3-dev.08ab3624136fb70dc996003aebc3049af51f7438
+Removing app1/0.7.3-dev.4e9d174a3b01acaf8a44b561455efc3f34871142
+Removing app1/0.7.3-dev.b2654bf00be393aa611fcbb7f70a8ef671895a84
+Removing app1/0.7.3-dev.860861868a5dfe294c7120d81fa9feb5387bb57f
+Removing app2/0.1.9-dev.954dac9e12e080d591cb76591c311611fed1bea9
+```
+
+You can now delete the name from your config file.
 
 #### Virtual Spaces
 
