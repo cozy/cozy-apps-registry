@@ -56,6 +56,24 @@ func Status(c echo.Context) error {
 	r := Entry{Status: "ok"}
 	optsLatest := &redis.UniversalOptions{
 		Addrs: viper.GetStringSlice("redis.addrs"),
+
+		// The sentinel master name.
+		// Only failover clients.
+		MasterName: viper.GetString("redis.master"),
+
+		// Enables read only queries on slave nodes.
+		ReadOnly: viper.GetBool("redis.read_only_slave"),
+
+		MaxRetries:         viper.GetInt("redis.max_retries"),
+		Password:           viper.GetString("redis.password"),
+		DialTimeout:        viper.GetDuration("redis.dial_timeout"),
+		ReadTimeout:        viper.GetDuration("redis.read_timeout"),
+		WriteTimeout:       viper.GetDuration("redis.write_timeout"),
+		PoolSize:           viper.GetInt("redis.pool_size"),
+		PoolTimeout:        viper.GetDuration("redis.pool_timeout"),
+		IdleTimeout:        viper.GetDuration("redis.idle_timeout"),
+		IdleCheckFrequency: viper.GetDuration("redis.idle_check_frequency"),
+		DB:                 viper.GetInt("redis.databases.versionsLatest"),
 	}
 	redisCacheVersionsLatest := redis.NewUniversalClient(optsLatest)
 	res := redisCacheVersionsLatest.Ping()
@@ -66,7 +84,7 @@ func Status(c echo.Context) error {
 	}
 	check["redis"] = r
 
-	check["global"] = global
+	check["status"] = global
 	return c.JSON(http.StatusOK, check)
 }
 
