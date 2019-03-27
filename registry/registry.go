@@ -1023,7 +1023,7 @@ func downloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error
 	parsedManifest := tarball.Manifest
 
 	filename := filepath.Base(url)
-	filepath := filepath.Join(parsedManifest.Slug, parsedManifest.Version, filename)
+	filepath := filepath.Join(parsedManifest.Slug, opts.Version, filename)
 
 	// Saving app tarball
 	errt := SaveTarball(opts.Space, filepath, tarball)
