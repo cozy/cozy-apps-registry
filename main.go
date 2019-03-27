@@ -473,6 +473,14 @@ var rmSpaceCmd = &cobra.Command{
 			return cmd.Usage()
 		}
 		space := args[0]
+
+		// Check the space is not a virtual one
+		for _, vkey := range getVspaceKeys(viper.GetStringMap("virtual_spaces")) {
+			if space == vkey {
+				return fmt.Errorf("Warning: \"%s\" is a virtual space, just remove the entry from your config file.", space)
+			}
+		}
+
 		s, ok := registry.GetSpace(space)
 		if !ok {
 			return fmt.Errorf("Cannot find space %s", space)
@@ -1214,12 +1222,37 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func getVspaceKeys(vspaces map[string]interface{}) []string {
+	vspaceKeys := make([]string, 0, len(vspaces))
+	for k := range vspaces {
+		vspaceKeys = append(vspaceKeys, k)
+	}
+	return vspaceKeys
+}
+
+// checkSpaceVspaceOverlap checks if a space and a vspace holds the same name
+func checkSpaceVspaceOverlap(spaces []string, vspaces map[string]interface{}) (bool, string) {
+	// Retreiving vspaces keys
+	vspaceKeys := getVspaceKeys(vspaces)
+	for _, vspace := range vspaceKeys {
+		for _, space := range spaces {
+			if vspace == space {
+				return true, vspace
+			}
+		}
+	}
+	return false, ""
+}
+
 func prepareSpaces(cmd *cobra.Command, args []string) error {
 	spacesNames := viper.GetStringSlice("spaces")
 	if len(spacesNames) == 0 {
 		spacesNames = viper.GetStringSlice("contexts") // retro-compat
 	}
 	if len(spacesNames) > 0 {
+		if ok, name := checkSpaceVspaceOverlap(spacesNames, viper.GetStringMap("virtual_spaces")); ok {
+			return fmt.Errorf("Error: %s is defined as a space and a virtual space. Check your config file.", name)
+		}
 		for _, spaceName := range spacesNames {
 			if err := registry.RegisterSpace(spaceName); err != nil {
 				return err
