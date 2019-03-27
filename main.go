@@ -51,6 +51,7 @@ var minorFlag int
 var majorFlag int
 var durationFlag int
 var forceFlag bool
+var dryRunFlag bool
 
 var editorAutoPublicationFlag bool
 
@@ -154,6 +155,7 @@ func init() {
 	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to keep")
 	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to keep")
 	oldVersionsCmd.Flags().IntVar(&durationFlag, "duration", 2, "number of months to check")
+	oldVersionsCmd.Flags().BoolVar(&dryRunFlag, "no-dry-run", false, "do no dry run and removes the apps")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")
@@ -458,8 +460,11 @@ var oldVersionsCmd = &cobra.Command{
 		channel := args[0]
 		appSlug := args[1]
 		space, _ := registry.GetSpace(appSpaceFlag)
-
-		return registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag)
+		noDryRun := dryRunFlag
+		if !noDryRun {
+			fmt.Println("Info: This is a dry run, the apps will not be removed")
+		}
+		return registry.CleanOldVersions(space, appSlug, channel, durationFlag, majorFlag, minorFlag, !noDryRun)
 	},
 }
 

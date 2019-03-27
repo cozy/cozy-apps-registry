@@ -768,21 +768,24 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	channel := GetVersionChannel(release.Version)
 
 	channelString := ChannelToStr(channel)
-	// Cleaning the old versions
-	go func() {
-		err := CleanOldVersions(c, release.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
-		if err != nil {
-			log := logrus.WithFields(logrus.Fields{
-				"nspace":    "clean_version",
-				"space":     c.Prefix,
-				"slug":      release.Slug,
-				"version":   release.Version,
-				"channel":   channelString,
-				"error_msg": err,
-			})
-			log.Error()
-		}
-	}()
+
+	if conf.CleanEnabled {
+		// Cleaning the old versions
+		go func() {
+			err := CleanOldVersions(c, release.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions, false)
+			if err != nil {
+				log := logrus.WithFields(logrus.Fields{
+					"nspace":    "clean_version",
+					"space":     c.Prefix,
+					"slug":      release.Slug,
+					"version":   release.Version,
+					"channel":   channelString,
+					"error_msg": err,
+				})
+				log.Error()
+			}
+		}()
+	}
 
 	return release, nil
 }
