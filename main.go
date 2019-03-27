@@ -369,7 +369,7 @@ var assetsCmd = &cobra.Command{
 
 			spacePrefix = registry.GetPrefixOrDefault(s)
 
-			fmt.Println("Working on space ", spacePrefix)
+			log.Println("Working on space ", spacePrefix)
 			// Create container if not exists
 			if _, _, err := sc.Container(spacePrefix); err != nil {
 				err = sc.ContainerCreate(spacePrefix, nil)
@@ -391,7 +391,7 @@ var assetsCmd = &cobra.Command{
 				cursor = next
 
 				for _, app := range apps { // Iterate over 200 apps
-					fmt.Println("Working on app", app.Slug)
+					log.Println("Working on app", app.Slug)
 					// Skipping app with no versions
 					if !app.Versions.HasVersions {
 						continue
@@ -401,7 +401,7 @@ var assetsCmd = &cobra.Command{
 						if err != nil {
 							return err
 						}
-						fmt.Println("Retreiving attachments for", app.Slug+"/"+version)
+						log.Println("Retreiving attachments for", app.Slug+"/"+version)
 
 						versionRev := v.Rev
 
