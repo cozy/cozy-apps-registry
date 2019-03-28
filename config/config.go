@@ -40,6 +40,8 @@ func (v *VirtualSpace) AcceptApp(slug string) bool {
 
 type Config struct {
 	SwiftConnection *swift.Connection
+	// Specifies if the app cleaning task is enabled or not
+	CleanEnabled bool
 	// Specifies how many major versions should be kept for app cleaning tasks
 	CleanNbMajorVersions int
 	// For each major version, specifies how many minor versions should be kept for app cleaning tasks
@@ -51,6 +53,7 @@ type Config struct {
 }
 
 func New() (*Config, error) {
+	viper.SetDefault("conservation.enable_background_cleaning", false)
 	viper.SetDefault("conservation.major", 2)
 	viper.SetDefault("conservation.minor", 2)
 	viper.SetDefault("conservation.month", 2)
@@ -64,6 +67,7 @@ func New() (*Config, error) {
 	}
 	return &Config{
 		SwiftConnection:      sc,
+		CleanEnabled:         viper.GetBool("conservation.enable_background_cleaning"),
 		CleanNbMajorVersions: viper.GetInt("conservation.major"),
 		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
 		CleanNbMonths:        viper.GetInt("conservation.month"),

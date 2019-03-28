@@ -189,20 +189,22 @@ func createVersion(c echo.Context) (err error) {
 
 		// Cleaning the old versions
 		channelString := registry.ChannelToStr(channel)
-		go func() {
-			err := registry.CleanOldVersions(space, ver.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions)
-			if err != nil {
-				log := logrus.WithFields(logrus.Fields{
-					"nspace":    "clean_version",
-					"space":     space.Prefix,
-					"slug":      ver.Slug,
-					"version":   ver.Version,
-					"channel":   channelString,
-					"error_msg": err,
-				})
-				log.Error()
-			}
-		}()
+		if conf.CleanEnabled {
+			go func() {
+				err := registry.CleanOldVersions(space, ver.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions, false)
+				if err != nil {
+					log := logrus.WithFields(logrus.Fields{
+						"nspace":    "clean_version",
+						"space":     space.Prefix,
+						"slug":      ver.Slug,
+						"version":   ver.Version,
+						"channel":   channelString,
+						"error_msg": err,
+					})
+					log.Error()
+				}
+			}()
+		}
 
 	} else {
 		err = registry.CreatePendingVersion(getSpace(c), ver, attachments, app)
