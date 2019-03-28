@@ -1118,7 +1118,7 @@ func getAssetFilename(iconPath, partnershipIconPath, name string, screenshotPath
 	if isIcon {
 		filename = "icon"
 	} else if isShot {
-		filename = name
+		filename = path.Join("screenshots", name)
 	} else if isPartnershipIcon {
 		filename = "partnership_icon"
 	} else {
