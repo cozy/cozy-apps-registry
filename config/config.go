@@ -53,7 +53,7 @@ type Config struct {
 }
 
 func New() (*Config, error) {
-	viper.SetDefault("conservation.enabled", false)
+	viper.SetDefault("conservation.enable_background_cleaning", false)
 	viper.SetDefault("conservation.major", 2)
 	viper.SetDefault("conservation.minor", 2)
 	viper.SetDefault("conservation.month", 2)
@@ -67,7 +67,7 @@ func New() (*Config, error) {
 	}
 	return &Config{
 		SwiftConnection:      sc,
-		CleanEnabled:         viper.GetBool("conservation.enabled"),
+		CleanEnabled:         viper.GetBool("conservation.enable_background_cleaning"),
 		CleanNbMajorVersions: viper.GetInt("conservation.major"),
 		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
 		CleanNbMonths:        viper.GetInt("conservation.month"),
