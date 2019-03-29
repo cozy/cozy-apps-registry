@@ -147,6 +147,20 @@ type Space struct {
 	dbPendingVers *kivik.DB
 }
 
+// Clone takes an optionnal prefix parameter
+// If empty, use the original space prefix
+func (c *Space) Clone(prefix string) Space {
+	if prefix == "" {
+		prefix = c.Prefix
+	}
+	return Space{
+		Prefix:        prefix,
+		dbApps:        c.dbApps,
+		dbVers:        c.dbVers,
+		dbPendingVers: c.dbPendingVers,
+	}
+}
+
 func (c *Space) AppsDB() *kivik.DB {
 	return c.dbApps
 }

@@ -468,7 +468,8 @@ func getAppsList(c echo.Context) error {
 
 		// Artificially altering the space prefix to force the cache to use a
 		// different key
-		space.Prefix = c.Get("virtual_name").(string)
+		clone := space.Clone(c.Get("virtual_name").(string))
+		space = &clone
 	}
 
 	next, apps, err := registry.GetAppsList(space, &registry.AppsListOptions{
