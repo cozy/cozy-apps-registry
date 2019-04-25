@@ -50,6 +50,7 @@ type Config struct {
 	CleanNbMonths int
 	// List of virtual spaces: name -> virtual space
 	VirtualSpaces  map[string]VirtualSpace
+	DomainSpaces   map[string]string
 	TrustedDomains map[string][]string
 }
 
@@ -73,6 +74,7 @@ func New() (*Config, error) {
 		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
 		CleanNbMonths:        viper.GetInt("conservation.month"),
 		VirtualSpaces:        virtuals,
+		DomainSpaces:         viper.GetStringMapString("domain_space"),
 		TrustedDomains:       viper.GetStringMapStringSlice("trusted_domains"),
 	}, nil
 }

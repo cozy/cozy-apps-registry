@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,6 +31,8 @@ const RegistryVersion = "0.1.0"
 
 const authTokenScheme = "Token "
 const spaceKey = "space"
+
+var ErrSpaceNotFound = errors.New("Cannot find space")
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
@@ -715,7 +718,10 @@ func getLatestVersion(c echo.Context) error {
 }
 
 func universalLink(c echo.Context) error {
-	space := getSpace(c)
+	space, err := getSpaceFromHost(c)
+	if err != nil {
+		return err
+	}
 	spacePrefix := registry.GetPrefixOrDefault(space)
 
 	filename := c.Param("filename")
@@ -734,7 +740,10 @@ func universalLink(c echo.Context) error {
 }
 
 func universalLinkRedirect(c echo.Context) error {
-	space := getSpace(c)
+	space, err := getSpaceFromHost(c)
+	if err != nil {
+		return err
+	}
 	spacePrefix := registry.GetPrefixOrDefault(space)
 	fallback := c.QueryParam("fallback")
 	if fallback == "" {
@@ -820,6 +829,23 @@ func ensureSpace(spaceName string) echo.MiddlewareFunc {
 
 func getSpace(c echo.Context) *registry.Space {
 	return c.Get(spaceKey).(*registry.Space)
+}
+
+func getSpaceFromHost(c echo.Context) (*registry.Space, error) {
+	host := strings.Split(c.Request().Host, ":")[0]
+
+	conf := config.GetConfig()
+
+	if spaceName, ok := conf.DomainSpaces[host]; ok {
+		if spaceName == consts.DefaultSpacePrefix {
+			spaceName = ""
+		}
+		if space, ok := registry.GetSpace(spaceName); ok {
+			return space, nil
+		}
+	}
+
+	return nil, ErrSpaceNotFound
 }
 
 func getVersionsChannel(c echo.Context, defaultChannel registry.Channel) registry.Channel {
@@ -999,16 +1025,13 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Recover())
 
 	for _, c := range registry.GetSpacesNames() {
-		var groupName, universalGroup string
+		var groupName string
 		if c == "" {
 			groupName = "/registry"
-			universalGroup = "/universallink"
 		} else {
 			groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
-			universalGroup = fmt.Sprintf("/%s/universallink", url.PathEscape(c))
 		}
 		g := e.Group(groupName, ensureSpace(c))
-		ug := e.Group(universalGroup, ensureSpace(c))
 
 		g.POST("", createApp, jsonEndpoint, middleware.Gzip())
 		g.PATCH("/:app", patchApp, jsonEndpoint, middleware.Gzip())
@@ -1050,9 +1073,6 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/screenshots/*", getVersionScreenshot)
 		g.HEAD("/:app/:version/tarball/:tarball", getVersionTarball)
 		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
-
-		ug.GET("/.well-known/:filename", universalLink, middleware.Gzip())
-		ug.GET("/:slug", universalLinkRedirect)
 	}
 
 	virtuals := config.GetConfig().VirtualSpaces
@@ -1114,6 +1134,9 @@ func Router(addr string) *echo.Echo {
 	e.GET("/editors", getEditorsList, jsonEndpoint, middleware.Gzip())
 	e.HEAD("/editors/:editor", getEditor, jsonEndpoint, middleware.Gzip())
 	e.GET("/editors/:editor", getEditor, jsonEndpoint, middleware.Gzip())
+
+	e.GET("/.well-known/:filename", universalLink, middleware.Gzip())
+	e.GET("/:slug", universalLinkRedirect)
 
 	e.GET("/favicon.ico", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "image/png", faviconBytes)
