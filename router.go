@@ -32,6 +32,9 @@ const RegistryVersion = "0.1.0"
 const authTokenScheme = "Token "
 const spaceKey = "space"
 
+// FS folder name containing the universal link files
+const universalLinkFolder = "universallink"
+
 var ErrSpaceNotFound = errors.New("Cannot find space")
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
@@ -723,8 +726,7 @@ func universalLink(c echo.Context) error {
 		return err
 	}
 	spacePrefix := registry.GetPrefixOrDefault(space)
-
-	filename := c.Param("filename")
+	filename := filepath.Join(universalLinkFolder, c.Param("filename"))
 	conf := config.GetConfig()
 	conn := conf.SwiftConnection
 
