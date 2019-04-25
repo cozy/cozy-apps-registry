@@ -714,6 +714,25 @@ func getLatestVersion(c echo.Context) error {
 	return writeJSON(c, version)
 }
 
+func universalLink(c echo.Context) error {
+	space := getSpace(c)
+	spacePrefix := registry.GetPrefixOrDefault(space)
+
+	filename := c.Param("filename")
+	conf := config.GetConfig()
+	conn := conf.SwiftConnection
+
+	content := new(bytes.Buffer)
+
+	hdrs, err := conn.ObjectGet(spacePrefix, filename, content, true, nil)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	c.Response().Header().Set(echo.HeaderContentType, hdrs["Content-Type"])
+	return c.String(http.StatusOK, content.String())
+}
+
 func getEditor(c echo.Context) error {
 	editorName := c.Param("editor")
 	editor, err := editorRegistry.GetEditor(editorName)
@@ -955,13 +974,16 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.Recover())
 
 	for _, c := range registry.GetSpacesNames() {
-		var groupName string
+		var groupName, universalGroup string
 		if c == "" {
 			groupName = "/registry"
+			universalGroup = "/universallink"
 		} else {
 			groupName = fmt.Sprintf("/%s/registry", url.PathEscape(c))
+			universalGroup = fmt.Sprintf("/%s/universallink", url.PathEscape(c))
 		}
 		g := e.Group(groupName, ensureSpace(c))
+		ug := e.Group(universalGroup, ensureSpace(c))
 
 		g.POST("", createApp, jsonEndpoint, middleware.Gzip())
 		g.PATCH("/:app", patchApp, jsonEndpoint, middleware.Gzip())
@@ -1003,6 +1025,8 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/screenshots/*", getVersionScreenshot)
 		g.HEAD("/:app/:version/tarball/:tarball", getVersionTarball)
 		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
+
+		ug.GET("/.well-known/:filename", universalLink, middleware.Gzip())
 	}
 
 	virtuals := config.GetConfig().VirtualSpaces
