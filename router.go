@@ -733,6 +733,14 @@ func universalLink(c echo.Context) error {
 	return c.String(http.StatusOK, content.String())
 }
 
+func universalLinkRedirect(c echo.Context) error {
+	fallback := c.QueryParam("fallback")
+	if fallback == "" {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+	return c.Redirect(http.StatusSeeOther, fallback)
+}
+
 func getEditor(c echo.Context) error {
 	editorName := c.Param("editor")
 	editor, err := editorRegistry.GetEditor(editorName)
@@ -1027,6 +1035,7 @@ func Router(addr string) *echo.Echo {
 		g.GET("/:app/:version/tarball/:tarball", getVersionTarball)
 
 		ug.GET("/.well-known/:filename", universalLink, middleware.Gzip())
+		ug.GET("/:slug", universalLinkRedirect)
 	}
 
 	virtuals := config.GetConfig().VirtualSpaces
