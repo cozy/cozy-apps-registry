@@ -734,11 +734,28 @@ func universalLink(c echo.Context) error {
 }
 
 func universalLinkRedirect(c echo.Context) error {
+	space := getSpace(c)
+	spacePrefix := registry.GetPrefixOrDefault(space)
 	fallback := c.QueryParam("fallback")
 	if fallback == "" {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
-	return c.Redirect(http.StatusSeeOther, fallback)
+
+	// Disallow redirection for untrusted domains
+	parsedRedirect, err := url.Parse(fallback)
+	if err != nil {
+		return err
+	}
+
+	spaceTrustedDomains := config.GetConfig().TrustedDomains
+	if domains, ok := spaceTrustedDomains[spacePrefix]; ok {
+		for _, domain := range domains {
+			if strings.Contains(parsedRedirect.Host, domain) {
+				return c.Redirect(http.StatusSeeOther, fallback)
+			}
+		}
+	}
+	return echo.NewHTTPError(http.StatusBadRequest, "This domain is not allowed to be redirected")
 }
 
 func getEditor(c echo.Context) error {

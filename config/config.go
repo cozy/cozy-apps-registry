@@ -49,7 +49,8 @@ type Config struct {
 	// Specifies how many months to look up for app versions cleaning tasks
 	CleanNbMonths int
 	// List of virtual spaces: name -> virtual space
-	VirtualSpaces map[string]VirtualSpace
+	VirtualSpaces  map[string]VirtualSpace
+	TrustedDomains map[string][]string
 }
 
 func New() (*Config, error) {
@@ -72,6 +73,7 @@ func New() (*Config, error) {
 		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
 		CleanNbMonths:        viper.GetInt("conservation.month"),
 		VirtualSpaces:        virtuals,
+		TrustedDomains:       viper.GetStringMapStringSlice("trusted_domains"),
 	}, nil
 }
 
