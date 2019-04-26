@@ -48,6 +48,11 @@
   - [Access control and tokens](#access-control-and-tokens)
   - [Maintenance](#maintenance)
   - [Application confidence grade / labelling](#application-confidence-grade--labelling)
+  - [Universal links](#universal-links)
+    - [Configuration](#configuration)
+      - [Config file](#config-file)
+      - [Files](#files)
+    - [Usage](#usage)
   - [Community](#community)
 
 
@@ -766,6 +771,57 @@ curl -XPATCH \
   -H"Content-Type: application/json" \
   -d'{"data_usage_commitment": "user_reserved", "data_usage_commitment_by": "editor"}
   https://apps-registry.cozycloud.cc/my_space/registry/banks
+```
+
+## Universal links
+
+The registry can manage [Universal links](https://developer.apple.com/ios/universal-links/
+).
+
+### Configuration
+
+#### Config file
+Each space holds its own files. The space determination is based on the request host, so you must bind a domain to a space in the config file.
+
+```yaml
+domain_space:
+  mycloud.com: "__default__"
+  cloud.foobar.com: "foobar"
+```
+
+#### Files
+Place your files (e.g `apple-app-site-association`) in the space container. The file must be prepended with `universallink/`
+
+> For the `foobar` space and file `apple-app-site-association`, the file has to be named
+`universallink/apple-app-site-association` and placed in the `foobar` container
+
+### Usage
+The following endpoint is available to get any file:
+> `http://<yourdomain>/.well-known/:filename`
+
+You can now query your endpoint to get your file:
+
+```bash
+curl -X GET http://cloud.foobar.com/.well-known/apple-app-site-association
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "3AKXFMV43J.io.cozy.drive.mobile",
+        "paths": ["/drive"]
+      },
+      {
+        "appID": "3AKXFMV43J.io.cozy.banks.mobile",
+        "paths": ["/banks"]
+      },
+      {
+        "appID": "3AKXFMV43J.io.cozy.photos.mobile",
+        "paths": ["/photos"]
+      }
+    ]
+  }
+}
 ```
 
 ## Community
