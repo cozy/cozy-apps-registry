@@ -797,12 +797,12 @@ Place your files (e.g `apple-app-site-association`) in the space container. The 
 
 ### Usage
 The following endpoint is available to get any file:
-> `http://yourdomain.com/.well-known/:filename`
+> `http://<yourdomain>/.well-known/:filename`
 
 You can now query your endpoint to get your file:
 
 ```bash
-curl -X GET http://foobar.com/.well-known/apple-app-site-association
+curl -X GET http://cloud.foobar.com/.well-known/apple-app-site-association
 {
   "applinks": {
     "apps": [],
