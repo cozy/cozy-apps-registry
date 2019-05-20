@@ -502,6 +502,20 @@ func FindLastNVersions(c *Space, appSlug string, channelStr string, nMajor, nMin
 }
 
 func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, error) {
+	// Try to get the latest version from the cache
+	key := cache.Key(c.Prefix + "/" + appSlug + "/" + ChannelToStr(channel))
+	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
+	if data, ok := cacheVersionsLatest.Get(key); ok {
+		var latestVersion *Version
+		if err := json.Unmarshal(data, &latestVersion); err == nil {
+			return latestVersion, nil
+		}
+	}
+
+	return FindLatestVersionCacheMiss(c, appSlug, channel)
+}
+
+func FindLatestVersionCacheMiss(c *Space, appSlug string, channel Channel) (*Version, error) {
 	if !validSlugReg.MatchString(appSlug) {
 		return nil, ErrAppSlugInvalid
 	}
@@ -535,6 +549,12 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 	latestVersion.Rev = ""
 	latestVersion.Attachments = nil
 
+	// Update the cache by using a goroutine to avoid waiting for the latency
+	// between the app server and redis.
+	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
+	key := cache.Key(c.Prefix + "/" + appSlug + "/" + channelStr)
+	go cacheVersionsLatest.Add(key, cache.Value(data))
+
 	return latestVersion, nil
 }
 
@@ -542,6 +562,20 @@ func FindLatestVersion(c *Space, appSlug string, channel Channel) (*Version, err
 // concatenate stable & beta versions in dev list, and stable versions in beta
 // list
 func FindAppVersions(c *Space, appSlug string, channel Channel, concat ConcatChannels) (*AppVersions, error) {
+	// Try to get the app versions from the cache
+	key := cache.Key(c.Prefix + "/" + appSlug + "/" + ChannelToStr(channel))
+	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
+	if data, ok := cacheVersionsList.Get(key); ok {
+		var versions *AppVersions
+		if err := json.Unmarshal(data, &versions); err == nil {
+			return versions, nil
+		}
+	}
+
+	return FindAppVersionsCacheMiss(c, appSlug, channel, concat)
+}
+
+func FindAppVersionsCacheMiss(c *Space, appSlug string, channel Channel, concat ConcatChannels) (*AppVersions, error) {
 	db := c.VersDB()
 
 	rows, err := versionViewQuery(c, db, appSlug, "dev", map[string]interface{}{
@@ -603,6 +637,14 @@ func FindAppVersions(c *Space, appSlug string, channel Channel, concat ConcatCha
 		Stable:      stable,
 		Beta:        beta,
 		Dev:         dev,
+	}
+
+	// Update the cache by using a goroutine to avoid waiting for the latency
+	// between the app server and redis.
+	if data, err := json.Marshal(versions); err == nil {
+		cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
+		key := cache.Key(c.Prefix + "/" + appSlug + "/" + ChannelToStr(channel))
+		go cacheVersionsList.Add(key, data)
 	}
 
 	return versions, nil
@@ -772,96 +814,35 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	// about the versions of each app. It would be better to avoid the n+1
 	// requests, but as a quick hack to limit the latency, we are using a pool
 	// of goroutines to parallelize the work.
-	type VersionsRes struct {
-		AppSlug     string
-		AppVersions *AppVersions
-	}
-
-	type LatestRes struct {
-		AppSlug       string
-		LatestVersion *Version
-	}
-
 	const parallelVersionFinder = 8
 	done := make(chan error)
-	apps := make(chan *App)
+	work := make(chan *appVersionEntry)
 	stop := make(chan struct{})
-	stopCache := make(chan struct{})
-	versions := make(chan VersionsRes)
-	latests := make(chan LatestRes)
-
-	var ok bool
-	var versionsCache map[string]*AppVersions
-	var latestCache map[string]*Version
-	if versionsCache, ok = GetVersionsListFromCache(c, ChannelToStr(opts.VersionsChannel)); !ok {
-		versionsCache = map[string]*AppVersions{}
-	}
-	if latestCache, ok = GetVersionsLatestFromCache(c, ChannelToStr(opts.LatestVersionChannel)); !ok {
-		latestCache = map[string]*Version{}
-	}
 
 	for i := 0; i < parallelVersionFinder; i++ {
-		go func(versionsCache map[string]*AppVersions, latestCache map[string]*Version) {
+		go func() {
 			for {
-				var app *App
-				var err error
 				select {
-				case app = <-apps:
-					// do work
+				case app := <-work:
+					done <- fillAppVersions(c, opts, app)
 				case <-stop:
 					return
 				}
-				app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
-
-				if versionsList, ok := versionsCache[app.Slug]; !ok {
-					app.Versions, err = FindAppVersions(c, app.Slug, opts.VersionsChannel, Concatenated)
-					if err != nil {
-						done <- err
-						continue
-					}
-					versions <- VersionsRes{AppSlug: app.Slug, AppVersions: app.Versions}
-				} else {
-					app.Versions = versionsList
-				}
-
-				if lastVersion, ok := latestCache[app.Slug]; !ok {
-					app.LatestVersion, err = FindLatestVersion(c, app.Slug, opts.LatestVersionChannel)
-					if err != nil && err != ErrVersionNotFound {
-						done <- err
-						continue
-					}
-					latests <- LatestRes{AppSlug: app.Slug, LatestVersion: app.LatestVersion}
-				} else {
-					app.LatestVersion = lastVersion
-				}
-				app.Label = calculateAppLabel(app, app.LatestVersion)
-				done <- nil
 			}
-		}(versionsCache, latestCache)
+		}()
 	}
 
-	for _, app := range res {
-		go func(app *App) {
-			apps <- app
-		}(app)
-	}
-
-	// Alter the cache if there are modifications
-	var updateVersions, updateLatest bool
-	go func() {
-		for {
-			select {
-			case v := <-versions:
-				versionsCache[v.AppSlug] = v.AppVersions
-				updateVersions = true
-			case l := <-latests:
-				latestCache[l.AppSlug] = l.LatestVersion
-				updateLatest = true
-			case <-stopCache:
-				return
+	versionsCache := GetVersionsListFromCache(c, ChannelToStr(opts.VersionsChannel), res)
+	latestCache := GetVersionsLatestFromCache(c, ChannelToStr(opts.LatestVersionChannel), res)
+	for i, app := range res {
+		go func(app *App, cachedVersions *AppVersions, cachedLatest *Version) {
+			work <- &appVersionEntry{
+				app,
+				cachedVersions,
+				cachedLatest,
 			}
-		}
-	}()
+		}(app, versionsCache[i], latestCache[i])
+	}
 
 	for range res {
 		if e := <-done; e != nil {
@@ -872,77 +853,87 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
 	for i := 0; i < parallelVersionFinder; i++ {
 		stop <- struct{}{}
 	}
-	stopCache <- struct{}{}
 
 	if err != nil {
 		return 0, nil, err
 	}
 
-	// Updating the cache
-	if updateLatest {
-		SetVersionsLatestToCache(c, ChannelToStr(opts.LatestVersionChannel), latestCache)
-	}
-	if updateVersions {
-		SetVersionsListToCache(c, ChannelToStr(opts.VersionsChannel), versionsCache)
-	}
-
 	return cursor, res, nil
 }
 
-func SetVersionsListToCache(c *Space, channel string, versionsList map[string]*AppVersions) {
-	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
-	key := strings.Join([]string{GetPrefixOrDefault(c), channel, "list"}, "/")
-	cacheKey := cache.Key(key)
-
-	list, _ := json.Marshal(versionsList)
-	cacheVersionsList.Add(cacheKey, list)
+type appVersionEntry struct {
+	app            *App
+	cachedVersions *AppVersions
+	cachedLatest   *Version
 }
 
-func SetVersionsLatestToCache(c *Space, channel string, versionsLatest map[string]*Version) {
-	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
-	key := strings.Join([]string{GetPrefixOrDefault(c), channel, "latests"}, "/")
-	cacheKey := cache.Key(key)
+func fillAppVersions(c *Space, opts *AppsListOptions, entry *appVersionEntry) error {
+	var err error
+	app := entry.app
 
-	latests, _ := json.Marshal(versionsLatest)
-	cacheVersionsLatest.Add(cacheKey, latests)
-}
-
-func GetVersionsListFromCache(c *Space, channel string) (map[string]*AppVersions, bool) {
-	versionsList := map[string]*AppVersions{}
-
-	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
-	key := strings.Join([]string{GetPrefixOrDefault(c), channel, "list"}, "/")
-	cacheKey := cache.Key(key)
-
-	if cachedList, ok := cacheVersionsList.Get(cacheKey); ok {
-		versionsReader := bytes.NewReader(cachedList)
-		err := json.NewDecoder(versionsReader).Decode(&versionsList)
+	app.Versions = entry.cachedVersions
+	if app.Versions == nil {
+		app.Versions, err = FindAppVersionsCacheMiss(c, app.Slug, opts.VersionsChannel, Concatenated)
 		if err != nil {
-			return nil, false
+			return err
 		}
-		return versionsList, true
 	}
 
-	return nil, false
-}
-
-func GetVersionsLatestFromCache(c *Space, channel string) (map[string]*Version, bool) {
-	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
-	key := strings.Join([]string{GetPrefixOrDefault(c), channel, "latests"}, "/")
-	cacheKey := cache.Key(key)
-
-	if cached, ok := cacheVersionsLatest.Get(cacheKey); ok {
-		latestsVersions := map[string]*Version{}
-
-		versionsReader := bytes.NewReader(cached)
-		err := json.NewDecoder(versionsReader).Decode(&latestsVersions)
-		if err != nil {
-			return nil, false
+	app.LatestVersion = entry.cachedLatest
+	if app.LatestVersion == nil {
+		app.LatestVersion, err = FindLatestVersionCacheMiss(c, app.Slug, opts.LatestVersionChannel)
+		if err != nil && err != ErrVersionNotFound {
+			return err
 		}
-		return latestsVersions, true
 	}
 
-	return nil, false
+	app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, nil)
+	app.Label = calculateAppLabel(app, app.LatestVersion)
+	return nil
+}
+
+func GetVersionsListFromCache(c *Space, channelStr string, apps []*App) []*AppVersions {
+	cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
+	keys := make([]cache.Key, len(apps))
+	for i, app := range apps {
+		keys[i] = cache.Key(c.Prefix + "/" + app.Slug + "/" + channelStr)
+	}
+
+	cachedList := cacheVersionsList.MGet(keys)
+	versionsList := make([]*AppVersions, len(apps))
+	for i, entry := range cachedList {
+		if entry != nil {
+			var versions *AppVersions
+			versionsReader := bytes.NewReader(entry.([]byte))
+			if err := json.NewDecoder(versionsReader).Decode(&versions); err == nil {
+				versionsList[i] = versions
+			}
+		}
+	}
+
+	return versionsList
+}
+
+func GetVersionsLatestFromCache(c *Space, channelStr string, apps []*App) []*Version {
+	cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
+	keys := make([]cache.Key, len(apps))
+	for i, app := range apps {
+		keys[i] = cache.Key(c.Prefix + "/" + app.Slug + "/" + channelStr)
+	}
+
+	cachedList := cacheVersionsLatest.MGet(keys)
+	latestList := make([]*Version, len(apps))
+	for i, entry := range cachedList {
+		if entry != nil {
+			var latest *Version
+			latestReader := bytes.NewReader(entry.([]byte))
+			if err := json.NewDecoder(latestReader).Decode(&latest); err == nil {
+				latestList[i] = latest
+			}
+		}
+	}
+
+	return latestList
 }
 
 func GetMaintainanceApps(c *Space) ([]*App, error) {
