@@ -42,6 +42,15 @@ func (c *RedisCache) MGet(keys []Key) []interface{} {
 		strs[i] = k.String()
 	}
 	if values, err := c.cache.MGet(strs...).Result(); err == nil {
+		for i, v := range values {
+			if s, ok := v.(string); ok {
+				if s == "" {
+					values[i] = nil
+				} else {
+					values[i] = []byte(s)
+				}
+			}
+		}
 		return values
 	}
 	return make([]interface{}, len(keys))
