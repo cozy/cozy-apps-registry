@@ -19,7 +19,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/cozy/echo"
+	"github.com/labstack/echo"
 	"github.com/cozy/swift"
 	"github.com/sirupsen/logrus"
 
