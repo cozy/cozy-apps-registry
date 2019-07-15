@@ -1,4 +1,4 @@
-How to contribute to the Cozy Regsitry v3?
+How to contribute to the Cozy Registry v3?
 ==========================================
 
 Thank you for your interest in contributing to Cozy! There are many ways to
@@ -48,12 +48,11 @@ there.
 
 #### Step 1: Fork
 
-Fork the project on GitHub and [check out your copy
-locally](http://blog.campoy.cat/2014/03/github-and-go-forking-pull-requests-and.html).
+Fork the project on GitHub and check out your copy locally:
 
 ```
-$ go get -u github.com/cozy/cozy-apps-registry.git
-$ cd $GOPATH/src/github.com/cozy/cozy-apps-registry
+$ git clone https://github.com/cozy/cozy-apps-registry.git
+$ cd cozy-apps-registry
 $ git remote add fork git://github.com/username/cozy-apps-registry.git
 ```
 
@@ -87,11 +86,11 @@ is important. A commit message should describe what changed and why.
 
 #### Step 6: Rebase
 
-Use `git rebase` (not `git merge`) to sync your work from time to time.
+Use `git pull --rebase`, or `git rebase` (but not `git merge`), to sync your
+work from time to time:
 
 ```
-$ git fetch origin
-$ git rebase origin/master
+$ git pull origin master --rebase
 ```
 
 #### Step 7: Push
@@ -105,8 +104,6 @@ Go to https://github.com/username/cozy-apps-registry and select your branch. Cli
 
 Pull requests are usually reviewed within a few days. If there are comments to
 address, apply your changes in a separate commit and push that to your branch.
-Post a comment in the pull request afterwards; GitHub does not send out
-notifications when you add commits.
 
 
 Community
