@@ -10,7 +10,7 @@ require (
 	github.com/go-kivik/couchdb v2.0.0-pre1+incompatible
 	github.com/go-kivik/kivik v2.0.0-pre1+incompatible
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
-	github.com/go-redis/redis v6.15.2+incompatible
+	github.com/go-redis/redis v6.15.4+incompatible
 	github.com/gopherjs/gopherjs v0.0.0-20190819073809-5d271430af9f // indirect
 	github.com/h2non/filetype v1.0.10
 	github.com/hashicorp/go-multierror v1.0.0
@@ -18,8 +18,6 @@ require (
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/labstack/echo/v4 v4.1.10
 	github.com/ncw/swift v1.0.49
-	github.com/onsi/ginkgo v1.8.0 // indirect
-	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.4.0
