@@ -12,7 +12,7 @@ require (
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/gopherjs/gopherjs v0.0.0-20190430165422-3e4dfb77656c // indirect
-	github.com/h2non/filetype v1.0.9
+	github.com/h2non/filetype v1.0.10
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/imdario/mergo v0.3.7 // indirect
