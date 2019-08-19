@@ -191,7 +191,7 @@ Now restart your local `cozy-stack` to take this new configuration in considerat
 
 ## Publish your application on the registry
 
-If you need more details about the registry you can go to [the official registry documentation](https://cozy.github.io/cozy-stack/registry.html)
+If you need more details about the registry you can go to [the official registry documentation](https://docs.cozy.io/en/cozy-stack/registry/)
 
 __:warning: Important:__ In this whole documentation, by the term `application`, we mean a web application or a konnector. Indeed, for the registry, all entities are applications and they can be either `webapp` or `konnector` type.
 
@@ -338,7 +338,7 @@ Field          | Description
 `folders`           | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
 `frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default : `weekly`.
 `icon`             | path to the icon for the home (path in the build)
-`intents`          | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://cozy.github.io/cozy-stack/intents.html) for more details)
+`intents`          | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://docs.cozy.io/en/cozy-stack/intents/) for more details)
 `langs`            | Languages available in your app (can be different from locales)
 `language`         | _(konnector specific)_ the konnector development language used (ex: `node`)
 `license`          | [the SPDX license identifier](https://spdx.org/licenses/)
@@ -350,11 +350,11 @@ Field          | Description
 `oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
 `parameters`       | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
 `partnership`      | an object to provide informations (to display in the Store for example) about a partnership related to the application (`icon` `description`, `name` and `domain`)
-`permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://cozy.github.io/cozy-stack/permissions.html) for more details)
+`permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://docs.cozy.io/en/cozy-stack/permissions/) for more details)
 `platforms`        | _(application specific)_ List of objects for platform native applications. For now there are only two properties: `type` (i.e. `'ios'` or `'linux'`) and the optional `url` to reach this application page.
-`routes`           | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://cozy.github.io/cozy-stack/apps.html#routes) for more details) (__REQUIRED__)
+`routes`           | _(application specific)_ a map of routes for the app (see [cozy-stack routes doc](https://docs.cozy.io/en/cozy-stack/apps/#routes) for more details) (__REQUIRED__)
 `screenshots`      | an array of paths to the screenshots of the application (paths in the build)
-`services`         | _(application specific)_ a map of the services associated with the app (see [cozy-stack services doc](https://cozy.github.io/cozy-stack/apps.html#services) for more details)
+`services`         | _(application specific)_ a map of the services associated with the app (see [cozy-stack services doc](https://docs.cozy.io/en/cozy-stack/apps/#services) for more details)
 `slug`             | the default slug that should never change (alpha-numeric lowercase) (__REQUIRED__)
 `source`           | where the files of the app can be downloaded (by default it will look for the branch `build`)
 `tags`             | a list a tags describing your application and features (useful for indexing and search)
