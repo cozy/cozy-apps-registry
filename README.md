@@ -26,12 +26,12 @@
     - [5) Configure `cozy-stack` with the registry](#5-configure-cozy-stack-with-the-registry)
   - [Publish your application on the registry](#publish-your-application-on-the-registry)
     - [1) Prepare your application](#1-prepare-your-application)
-        - [For an application](#for-an-application)
-        - [For a connector](#for-a-connector)
-        - [Properties meaning (reference)](#properties-meaning-reference)
-        - [Translated manifest fields](#translated-manifest-fields)
-        - [Application terms](#application-terms)
-        - [Konnectors folders handling](#konnectors-folders-handling)
+      - [For an application](#for-an-application)
+      - [For a connector](#for-a-connector)
+      - [Properties meaning (reference)](#properties-meaning-reference)
+      - [Translated manifest fields](#translated-manifest-fields)
+      - [Application terms](#application-terms)
+      - [Konnectors folders handling](#konnectors-folders-handling)
     - [2) Add a new application in the registry](#2-add-a-new-application-in-the-registry)
       - [Our official apps registry](#our-official-apps-registry)
       - [Custom registry](#custom-registry)
@@ -63,6 +63,7 @@ API](https://github.com/cozy/cozy-stack/blob/master/docs/registry.md)
 described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
 To work properly, it requires:
+
 - Couchdb >= 2.0
 - Openstack Object Storage (Swift)
 
@@ -136,6 +137,7 @@ session-secret: sessionsecret.key
 Feel free to change it if some configurations change in your case (the couchdb user, the server parameters or the databases prefix for example).
 
 > __Notices :__
+>
 > - Here the generated session token (step 1) is stored in the `sessionsecret.key` file of the working directory, this is so the value of the property `session-secret` at the end of the configuration file.
 > - By default, the local couchdb allow all admin accesses without creating users, so there is no user and password here. But if an admin user has been created, you have to use the properties `user` and `password` in the `couchdb` part to provide these informations.
 
@@ -365,6 +367,7 @@ Field          | Description
 `vendor_link`      | _(konnector specific)_ URL to editor or service website
 
 > __Notices:__
+>
 > - All images paths (`icon`, `partnership.icon` and `screenshots`) should be relative to the build directory. For example, here, the `icon.svg` is stored in the build root directory and all `screenshots` are store in a folder `screenshots` in the build directory. Therefore, if you use a bundler (like webpack) be sure to know exactly where the bundler will store these assets in the build directory (and change it in the manifest if needed).
 > - All properties in `locales` objects will override the matched property of the main `manifest.webapp` body, if a property is not found in `locales` it will fallback to the main body one.
 > - We use to have the `en` locale as default one if the one wanted by the user doesn't exist. Be sure to have, at least, that locale complete with the name and all descriptions.
@@ -461,6 +464,7 @@ __:warning: Here the `slug` is the unique ID of the application in the registry,
 __Here we will show the classical way to add a version using the manual mode of [`cozy-app-publish`][cozy-app-publish] as reference. But you may need to look at  the [Automation CI part](#automation-ci) of this documentation instead.__
 
 > __Prequisites__:
+>
 > - For this step, you will need your editor token access generated when you created your editor (see [below](#4-create-an-editor)). You have to replace all `{{EDITOR_TOKEN}}` in this documentation by this token.
 > - Don't forget to build your application first (run `yarn build`), `cozy-app-publish` will read the manifest from your build
 
@@ -519,6 +523,7 @@ type           | kind of application (it can be only `webapp` or `konnector`)
 editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 > __:warning: Important notices:__
+>
 > - The version must match the one in the `manifest.webapp` file for stable release. For beta (X.X.X-betaX) or dev releases (X.X.X-dev.hash256), the version before the cyphen must match the one in the `manifest.webapp`.
 > - For better integrity, the `sha256` provided must match the sha256 of the archive provided in `url`. If it's not the case, that will be considered as an error and the version won't be registered.
 
@@ -643,6 +648,7 @@ deploy:
 ```
 
 > __Important notices:__
+>
 > - A commit push to the branch master will publish your application in the `dev` channel of the registry.
 > - A tag push (Github release) will publish a stable version (ex: `1.0.0`) or a beta version (ex: `1.0.1-beta2`) to the registry (automatically handled by the registry).
 > - [`cozy-app-publish`][cozy-app-publish] will use the github archive URL computing to get the application tarball. If your applicaiton is not on Github, you may need to use the manual mode of the command.
@@ -654,6 +660,7 @@ Official registry URL: `https://apps-registry.cozycloud.cc`
 In order to use our official repository, you need a token for a specific
 editor. To do so, contact us directly at the address contact@cozycloud.cc
 with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
+
 - `slug` of your application
 - `editor` name that you want
 
@@ -775,8 +782,7 @@ curl -XPATCH \
 
 ## Universal links
 
-The registry can manage [Universal links](https://developer.apple.com/ios/universal-links/
-).
+The registry can manage [Universal links](https://developer.apple.com/ios/universal-links/).
 
 ### Configuration
 
