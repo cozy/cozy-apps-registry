@@ -10,7 +10,7 @@ require (
 	github.com/go-kivik/couchdb v2.0.0-pre3+incompatible
 	github.com/go-kivik/kivik v2.0.0-pre2+incompatible
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
-	github.com/go-redis/redis/v7 v7.0.0-beta.3
+	github.com/go-redis/redis/v7 v7.0.0-beta.4
 	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
 	github.com/h2non/filetype v1.0.10
 	github.com/hashicorp/go-multierror v1.0.0
