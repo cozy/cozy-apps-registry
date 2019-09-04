@@ -136,7 +136,7 @@ session-secret: sessionsecret.key
 
 Feel free to change it if some configurations change in your case (the couchdb user, the server parameters or the databases prefix for example).
 
-> __Notices :__
+> __Notices:__
 >
 > - Here the generated session token (step 1) is stored in the `sessionsecret.key` file of the working directory, this is so the value of the property `session-secret` at the end of the configuration file.
 > - By default, the local couchdb allow all admin accesses without creating users, so there is no user and password here. But if an admin user has been created, you have to use the properties `user` and `password` in the `couchdb` part to provide these informations.
@@ -338,7 +338,7 @@ Field          | Description
 `editor`           | the editor's name to display on the cozy-bar (__REQUIRED__)
 `fields`           | _(konnector specific)_ JSON object describing the fields need by the konnector (__except folder path__). Used to generate a form. See [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#fields-property)
 `folders`           | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
-`frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default : `weekly`.
+`frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default: `weekly`.
 `icon`             | path to the icon for the home (path in the build)
 `intents`          | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://docs.cozy.io/en/cozy-stack/intents/) for more details)
 `langs`            | Languages available in your app (can be different from locales)
@@ -375,7 +375,7 @@ Field          | Description
 
 ##### Translated manifest fields
 
-Here are the properties that you can override using `locales` (we recommand to automatically build these properties according to your locales files if you're using a translating tool like `transifex`) :
+Here are the properties that you can override using `locales` (we recommand to automatically build these properties according to your locales files if you're using a translating tool like `transifex`):
 
 - `name`
 - `short_description`
