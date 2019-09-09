@@ -11,7 +11,7 @@ require (
 	github.com/go-kivik/kivik v2.0.0-pre2+incompatible
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
 	github.com/go-redis/redis/v7 v7.0.0-beta.4
-	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20190909024252-1852f3ae2951 // indirect
 	github.com/h2non/filetype v1.0.10
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
