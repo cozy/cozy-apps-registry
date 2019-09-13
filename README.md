@@ -199,130 +199,11 @@ __:warning: Important:__ In this whole documentation, by the term `application`,
 
 ### 1) Prepare your application
 
-##### For an application
+To be publishable, your application requires some informations in its `manifest.webapp`, the manifest of a Cozy application. 
 
-To be publishable, your application requires some informations in its `manifest.webapp`, the manifest of a Cozy application. Here is an example for the application Drive:
+You can find an example of manifest for an application [in Cozy-Drive](https://github.com/cozy/cozy-drive/blob/master/src/drive/targets/manifest.webapp) and one for a konnector [in cozy-konnector-trainline](https://github.com/konnectors/cozy-konnector-trainline/blob/master/manifest.konnector).
 
-<details>
-
-```json
-{
-  "name": "Drive",
-  "name_prefix": "Cozy",
-  "slug": "drive",
-  "icon": "drive.svg",
-  "type": "webapp",
-  "locales": {
-    "en": {
-      "name": "Drive",
-      "short_description": "The drive application, files manager for Cozy.",
-      "long_description": "Drive allows you to manage all your files on your Cozy in a an easy way. You can add/upload new files, remove, rename or share them. You can also sort all your files in folders in a way as easy as on your computer.",
-      "changes": "## New features\n\nNow you can __share__ your files using a specific link or a cozy email :tada:"
-    },
-    "fr": {
-      "name": "Drive",
-      "short_description": "L'application drive, gestionnaire de fichier pour Cozy.",
-      "long_description": "Drive vous permets de gérer très facilement tous vos fichiers sur votre Cozy. Vous pouvez ajouter/télécharger de nouveaux fichiers, les supprimer, les renommer ou encore les partager. Vous pouvez aussi les triers dans dans des fichiers aussi simplement que sur votre ordinateur.",
-      "changes": "## Nouvelle fonctionnalités\n\nMaintenant vous pouvez partager vos fichiers par lien ou par e-mail Cozy :tada:"
-    }
-  },
-  "langs": ["en", "fr"],
-  "platforms": [
-    {
-      "type": "ios",
-      "url": "#"
-    },
-    {
-      "type": "android",
-      "url": "#"
-    }
-  ],
-  "categories": ["cozy"],
-  "source": "https://github.com/cozy/cozy-drive.git@build",
-  "editor": "Cozy",
-  "developer": {
-    "name": "Cozy",
-    "url": "https://cozy.io"
-  },
-  "version": "1.0.0",
-  "licence": "AGPL-3.0",
-  "screenshots": ["screenshots/screenshot1.png", "screenshots/screenshot2.png", "screenshots/screenshot3.png", "screenshots/screenshot4.png"],
-  "tags": [
-    "share",
-    "folder",
-    "files",
-    "filesystem"
-  ],
-  "permissions": {...},
-  "services": {...},
-  "routes": {...},
-  "intents": {...}
-}
-```
-
-</details>
-
-##### For a connector
-
-To be publishable, your konnector requires some informations in its `manifest.konnector`, the manifest of a Cozy konnector. Here is an example for the konnector `cozy-konnector-trainline`:
-
-<details>
-
-```json
-{
-  "version": "0.1.0",
-  "name": "Trainline",
-  "type": "konnector",
-  "language": "node",
-  "icon": "icon.svg",
-  "slug": "trainline",
-  "source": "git://github.com/konnectors/cozy-konnector-trainline.git#build",
-  "editor": "Cozy",
-  "vendorLink": "www.trainline.fr",
-  "categories": ["transport"],
-  "screenshots": ["screenshots/screenshot.png"],
-  "fields": {
-    "login": {
-      "type": "text"
-    },
-    "password": {
-      "type": "password"
-    },
-    "advancedFields": {
-      "myoption": {
-        "type": "text"
-      }
-    }
-  },
-  "folders": [
-    {
-      "defaultDir": "$administrative"
-    }
-  ],
-  "data_types": [
-    "bill"
-  ],
-  "permissions": {...},
-  "developer": {
-    "name": "Cozy",
-    "url": "https://cozy.io"
-  },
-  "langs": ["fr", "en"],
-  "locales": {
-    "fr": {
-      "short_description": "Récupérer vos données Trainline dans votre Cozy",
-      "long_description": "Ce fournisseur vous permettra de récupérer l'ensemble de vos factures Trainline dans votre Cozy."
-    },
-    "en": {
-      "short_description": "Fetch your Trainline data in your Cozy",
-      "long_description": "This provider will allow you to fetch all your Trainline bills in your Cozy."
-    }
-},
-  "manifest_version": "2"
-}
-```
-
-</details>
+Most properties are common to both applications and konnectors but platforms, screenshots, services, routes and intents are only used in applications. Properties oauth, data_types, doctypes, fields, frequency, language, messages, parameters, time_interval, uuid and vendor_link ar only used in konnectors.
 
 
 ##### Properties meaning (reference)
@@ -336,7 +217,7 @@ Field          | Description
 `data_types`       | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`        | `name` and `url` for the developer
 `editor`           | the editor's name to display on the cozy-bar (__REQUIRED__)
-`fields`           | _(konnector specific)_ JSON object describing the fields need by the konnector (__except folder path__). Used to generate a form. See [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#fields-property)
+`fields`           | _(konnector specific)_ JSON object describing the fields need by the konnector (__except folder path__). Used to generate a form. See [below](#konnectors-fields-property)
 `folders`           | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
 `frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default: `weekly`.
 `icon`             | path to the icon for the home (path in the build)
@@ -346,7 +227,7 @@ Field          | Description
 `license`          | [the SPDX license identifier](https://spdx.org/licenses/)
 `locales`          | an object with language slug as property, each name property is an object of localized informations (see the second part below)
 `manifest_version` | The current manifest version used. This is a versioning for the manifest and allow better retrocompatiblity when processing app manifest
-`messages`         | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See example in [collect documentation](https://github.com/cozy/cozy-collect/blob/master/docs/konnector-manifest.md#messages-example).
+`messages`         | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See [example below](#konnectors-message-property).
 `name`             | the name to display on the home (__REQUIRED__)
 `name_prefix`      | the prefix to display with the name
 `oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector.
@@ -377,12 +258,42 @@ Field          | Description
 
 Here are the properties that you can override using `locales` (we recommand to automatically build these properties according to your locales files if you're using a translating tool like `transifex`):
 
-- `name`
-- `short_description`
-- `long_description`
-- `changes`
+- `name`, the app's name
+- `short_description`, short description of what the app do
+- `long_description`, longer and more complete description of the app behaviour
+- `changes`, description of your new version of the konnector or all changes since the last version
+- `fields`, An object containing translations for fields.
 - `screenshots`
 - `folders`
+
+
+```json
+{
+  "fields": {
+    "email": {
+      "type": "email"
+    }
+  },
+  "locales": {
+    "en": {
+      "short_description": "Collect your Orange's bills",
+      "fields": {
+        "email": {
+          "label": "Identifier (your email)"
+        }
+      }
+    },
+    "fr": {
+      "short_description": "Récupère vos factures Orange",
+      "fields": {
+        "email": {
+          "label": "Identifiant (votre adresse mail)"
+        }
+      }
+    }
+  }
+}
+```
 
 ##### Application terms
 
@@ -402,6 +313,110 @@ The `folders ` property is a list of objects with these following properties:
     - `$konnector`: The name of the konnector
 
     > :warning: All paths provided using `defaultDir` will be the root directory, not the final folder which will receive the files. For example, if you set `$photos`, the final folder will be `$photos/$konnector/$account` in order to keep them always sorted by konnectors and accounts.
+
+##### Konnectors fields property
+
+The `fields` property is a JSON object describing the input fields needed to generate the konnector's configuration form. A typical example will be:
+
+```JSON
+{
+  "fields": {
+    "identifier": {
+      "type": "text"
+    },
+    "secret": {
+      "type": "password"
+    }
+  }
+}
+```
+
+The keys of the `fields` object are the name/id of the fields. They will be passed as parameters to the konnector at every run.
+
+Each fields may also have the following properties:
+
+Property        | Description
+----------------|---------------------------------------------------------------
+advanced        | Indicates if the field should be displayed in the "advanced" area of the form (default: `false`)
+default         | Default value. It can a string for a text field, or an object for a select field (`"default": {"value": "foo","name": "bar"},`)
+description     | Field description, as a locale key.
+label           | Predefined label. This value must match a locale key provided by Cozy-Home. Example: With `label: "identifier"`, Cozy-Home will use the locale key `account.form.label.identifier`. Translations for these fields use the `locales` property in the manifest.
+max             | Maximum length of the value (number of characters)
+min             | Minimum length of the value (number of characters)
+options         | When the field is a dropdown, list of available options
+pattern         | Define a regex used to validate the field.
+isRequired      | Boolean indicating if the field is required or not (default `true`)
+type            | *Required*. Field type from `dropdown`, `email`, `hidden`, `password`, `text`, `checkbox`.
+
+
+##### Konnectors message property
+
+Messages are a common way to provide custom information to display in application. An app like cozy-home should have some specific area to display custom messages provided by the konnector.
+
+Example:
+```jsx
+  // The final example will be available after the implementation of the whole mechanism,
+  // but here is the global idea:
+  {installSuccess &&
+    <p>{t('home.konnector.install.success.message')}</p>
+  }
+  {installSuccess && konnector.manifest.messages.includes('success_message') &&
+    <p>{t('konnector.manifest.locales.messages.success_message')}
+  }
+```
+
+##### Categories and Data types
+
+Categories are slugs from the following list:
+* `energy`
+* `insurance`
+* `isp`
+* `shopping`
+* `telecom`
+* `transport`
+* `banking`
+* `health`
+* `host_provider`
+* `online_services`
+* `partners`
+* `press`
+* `productivity`
+* `public_service`
+* `social`
+
+Data types are slugs from the following list:
+* `activity`
+* `appointment`
+* `bankTransactions`
+* `bankAccounts`
+* `bill`
+* `bloodPressure`
+* `calendar`
+* `certificate`
+* `commit`
+* `consumption`
+* `contact`
+* `contract`
+* `courseMaterial`
+* `document`
+* `event`
+* `family`
+* `geopoint`
+* `heartbeat`
+* `home`
+* `phonecommunicationlog`
+* `podcast`
+* `profile`
+* `refund`
+* `sinister`
+* `sleepTime`
+* `stepsNumber`
+* `temperature`
+* `travelDate`
+* `tweet`
+* `videostream`
+* `weight`
+
 
 ### 2) Add a new application in the registry
 
