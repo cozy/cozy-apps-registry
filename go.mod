@@ -14,7 +14,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20190909024252-1852f3ae2951 // indirect
 	github.com/h2non/filetype v1.0.10
 	github.com/hashicorp/go-multierror v1.0.0
-	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
+	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/labstack/echo/v4 v4.1.10
 	github.com/ncw/swift v1.0.49
