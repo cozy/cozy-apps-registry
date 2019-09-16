@@ -18,7 +18,7 @@ require (
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/labstack/echo/v4 v4.1.10
 	github.com/ncw/swift v1.0.49
-	github.com/otiai10/copy v1.0.1 // indirect
+	github.com/otiai10/copy v1.0.2 // indirect
 	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
