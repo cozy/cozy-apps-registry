@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/labstack/echo/v4 v4.1.10
+	github.com/labstack/echo/v4 v4.1.11
 	github.com/ncw/swift v1.0.49
 	github.com/otiai10/copy v1.0.2 // indirect
 	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
