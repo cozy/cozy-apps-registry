@@ -25,6 +25,6 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.4.0
 	gitlab.com/flimzy/testy v0.0.0-20190816103046-aca1ef5ffe7e // indirect
-	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
+	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
 )
