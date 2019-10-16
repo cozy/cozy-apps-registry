@@ -1,3 +1,4 @@
 *.key
+/bin
 cozy-registry.yml
 /cozy-apps-registry*
