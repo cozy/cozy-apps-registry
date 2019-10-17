@@ -3,10 +3,10 @@ package registry
 import (
 	"archive/tar"
 	"bufio"
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"github.com/cozy/cozy-apps-registry/asset"
 	"io"
 	"io/ioutil"
 	"path"
@@ -15,240 +15,161 @@ import (
 	"github.com/go-kivik/kivik"
 )
 
-func Export(out io.Writer) (err error) {
-	buf := bufio.NewWriter(out)
-	defer func() {
-		if err == nil {
-			err = buf.Flush()
-		}
-	}()
-
-	zw := gzip.NewWriter(buf)
-	defer func() {
-		if err == nil {
-			err = zw.Close()
-		}
-	}()
-
-	tw := tar.NewWriter(zw)
-	defer func() {
-		if err == nil {
-			err = tw.Close()
-		}
-	}()
-
-	for _, c := range spaces {
-		if err = writeDocs(c.AppsDB(), tw); err != nil {
-			return
-		}
-		if err = writeDocs(c.VersDB(), tw); err != nil {
-			return
-		}
+func writeFile(writer *tar.Writer, path string, content []byte) error {
+	header := &tar.Header{
+		Name: path,
+		Mode: 0600,
+		Size: int64(len(content)),
 	}
-
-	err = writeDocs(globalEditorsDB, tw)
-	return
-}
-
-func writeDocs(db *kivik.DB, tw *tar.Writer) error {
-	rows, err := db.AllDocs(ctx, map[string]interface{}{
-		"include_docs": true,
-		"limit":        2000,
-	})
-	if err != nil {
+	if err := writer.WriteHeader(header); err != nil {
 		return err
 	}
-
-	type attachment struct {
-		docID string
-		name  string
+	if _, err := writer.Write(content); err != nil {
+		return err
 	}
-
-	dbName := db.Name()
-
-	var atts []*attachment
-	for rows.Next() {
-		if strings.HasPrefix(rows.ID(), "_design") {
-			continue
-		}
-
-		var v map[string]interface{}
-		if err = rows.ScanDoc(&v); err != nil {
-			return err
-		}
-
-		if attachments, ok := v["_attachments"].(map[string]interface{}); ok {
-			for name := range attachments {
-				atts = append(atts, &attachment{docID: rows.ID(), name: name})
-			}
-			delete(v, "_attachments")
-		}
-
-		delete(v, "_rev")
-
-		var data []byte
-		data, err = json.Marshal(v)
-		if err != nil {
-			return err
-		}
-
-		hdr := &tar.Header{
-			Name:     path.Join(dbName, rows.ID()),
-			Size:     int64(len(data)),
-			Mode:     0640,
-			Typeflag: tar.TypeReg,
-		}
-		if err = tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-
-		fmt.Printf(`Writing document "%s/%s"... `, db.Name(), rows.ID())
-		_, err = io.Copy(tw, bytes.NewReader(data))
-		if err != nil {
-			return err
-		}
-		fmt.Println("ok.")
-	}
-
-	for _, att := range atts {
-		fmt.Printf(`Writing attachment "%s/%s/%s"... `, db.Name(), att.docID, att.name)
-		if err = writeAttachment(db, tw, dbName, att.docID, att.name); err != nil {
-			return fmt.Errorf(`Could not write attachment "%s/%s/%s": %s`, db.Name(), att.docID, att.name, err)
-		}
-		fmt.Println("ok.")
-	}
-
 	return nil
 }
 
-func writeAttachment(db *kivik.DB, tw *tar.Writer, dbName, docID, filename string) error {
-	att, err := db.GetAttachment(ctx, docID, filename)
+func exportCouchAttachment(writer *tar.Writer, prefix string, db *kivik.DB, id string, filename string) error {
+	file := path.Join(prefix, filename)
+	fmt.Printf("      Exporting %s.%s.%s attachment…\n", db.Name(), id, filename)
+	att, err := db.GetAttachment(ctx, id, filename)
 	if err != nil {
 		return err
 	}
 	defer att.Content.Close()
 
-	var body io.Reader
-	size := att.Size
-	if size < 0 {
-		var b []byte
-		b, err = ioutil.ReadAll(att.Content)
-		if err != nil {
-			return err
-		}
-		size = int64(len(b))
-		body = bytes.NewReader(b)
-	} else {
-		body = att.Content
-	}
-
-	hdr := &tar.Header{
-		Name:     path.Join(dbName, docID, filename),
-		Size:     size,
-		Mode:     0640,
-		Typeflag: tar.TypeReg,
-		Xattrs: map[string]string{
-			"content-type":     att.ContentType,
-			"content-encoding": att.ContentEncoding,
-		},
-	}
-	if err = tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-
-	_, err = io.Copy(tw, body)
-	return err
-}
-
-func Import(in io.Reader) (err error) {
-	zr, err := gzip.NewReader(in)
+	content, err := ioutil.ReadAll(att.Content)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err == nil {
-			err = zr.Close()
-		}
-	}()
+	if err = writeFile(writer, file, content); err != nil {
+		return err
+	}
 
-	docs := make(map[string]string) // id -> rev of created documents
+	return nil
+}
 
-	tr := tar.NewReader(zr)
-	for {
-		var hdr *tar.Header
-		hdr, err = tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return
-		}
-
-		parts := strings.SplitN(hdr.Name, "/", 3)
-		if len(parts) < 2 {
-			continue
-		}
-
-		dbName := parts[0]
-		docID := parts[1]
-
-		var ok bool
-		ok, err = client.DBExists(ctx, dbName)
-		if err != nil {
-			return
-		}
-		if !ok {
-			if err := client.CreateDB(ctx, dbName); err != nil {
+func exportCouchAttachments(writer *tar.Writer, prefix string, db *kivik.DB, id string, value map[string]interface{}) error {
+	if attachments, ok := value["_attachments"].(map[string]interface{}); ok {
+		prefix = path.Join(prefix, id)
+		fmt.Printf("    Exporting %s attachments…\n", id)
+		for name := range attachments {
+			if err := exportCouchAttachment(writer, prefix, db, id, name); err != nil {
 				return err
 			}
 		}
+		delete(value, "_attachments")
+	}
+	return nil
+}
 
-		db := client.DB(ctx, dbName)
-		if err = db.Err(); err != nil {
-			return
-		}
+func exportCouchDoc(writer *tar.Writer, prefix string, db *kivik.DB, rows *kivik.Rows) error {
+	id := rows.ID()
+	if strings.HasPrefix(id, "_design") {
+		return nil
+	}
 
-		if len(parts) == 3 {
-			attName := parts[2]
-			attLong := fmt.Sprintf("%s/%s/%s", dbName, docID, attName)
-			rev, ok := docs[docID]
-			if !ok {
-				return fmt.Errorf("Could not create attachment %q: document was not created",
-					attLong)
-			}
+	file := path.Join(prefix, fmt.Sprintf("%s.json", id))
+	fmt.Printf("    Exporting %s…\n", id)
 
-			fmt.Printf("Creating attachment %q...", attLong)
-			a := &kivik.Attachment{
-				Content:         ioutil.NopCloser(tr),
-				Size:            hdr.Size,
-				Filename:        attName,
-				ContentType:     hdr.PAXRecords["SCHILY.xattr.content-type"],
-				ContentEncoding: hdr.PAXRecords["SCHILY.xattr.content-encoding"],
-			}
-			rev, err = db.PutAttachment(ctx, docID, rev, a)
-			if err != nil {
-				return fmt.Errorf("Could not create attachment %q: %s",
-					attLong, err)
-			}
-			fmt.Println("ok.")
+	var value map[string]interface{}
+	if err := rows.ScanDoc(&value); err != nil {
+		return err
+	}
 
-			docs[docID] = rev
-			continue
-		}
+	delete(value, "_rev")
+	if err := exportCouchAttachments(writer, prefix, db, id, value); err != nil {
+		return err
+	}
 
-		var v json.RawMessage
-		if err = json.NewDecoder(tr).Decode(&v); err != nil {
-			return err
-		}
-		fmt.Printf("Creating document %q...", fmt.Sprintf("%s/%s", dbName, docID))
-		id, rev, err := db.CreateDoc(ctx, v)
+	var data []byte
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	if err = writeFile(writer, file, data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
+	name := db.Name()
+	prefix = path.Join(prefix, name)
+	fmt.Printf("  Exporting %s…\n", name)
+
+	skip := 0
+	for {
+		rows, err := db.AllDocs(ctx, map[string]interface{}{
+			"include_docs": true,
+			"limit":        1000,
+			"skip":         skip,
+		})
 		if err != nil {
 			return err
 		}
-		fmt.Println("ok.")
-
-		docs[id] = rev
+		noContent := true
+		for rows.Next() {
+			noContent = false
+			skip += 1
+			if err := exportCouchDoc(writer, prefix, db, rows); err != nil {
+				return err
+			}
+		}
+		if noContent {
+			break
+		}
 	}
 
+	return nil
+}
+
+func exportCouch(writer *tar.Writer, prefix string) error {
+	fmt.Printf("  Exporting CouchDB…\n")
+
+	prefix = path.Join(prefix, "couchdb")
+
+	dbs := []*kivik.DB{asset.AssetStore.DB}
+	for _, c := range spaces {
+		dbs = append(dbs, c.DBs()...)
+	}
+
+	for _, db := range dbs {
+		if err := exportCouchDb(writer, prefix, db); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func exportSwift(writer *tar.Writer, prefix string) error {
+	return nil
+}
+
+func Export(writer io.Writer) error {
+	buf := bufio.NewWriter(writer)
+	defer buf.Flush()
+	zw := gzip.NewWriter(writer)
+	defer zw.Close()
+	tw := tar.NewWriter(zw)
+	defer tw.Close()
+
+	prefix := "registry"
+
+	if err := exportCouch(tw, prefix); err != nil {
+		return err
+	}
+	if err := exportSwift(tw, prefix); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Import(reader io.Reader) error {
 	return nil
 }

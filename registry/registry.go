@@ -172,8 +172,9 @@ func (c *Space) VersDB() *kivik.DB {
 func (c *Space) PendingVersDB() *kivik.DB {
 	return c.dbPendingVers
 }
-func GlobalAssetStoreDB() *kivik.DB {
-	return globalAssetStoreDB
+
+func (c *Space) DBs() []*kivik.DB {
+	return []*kivik.DB{c.AppsDB(), c.VersDB(), c.PendingVersDB()}
 }
 
 func (c *Space) dbName(suffix string) (name string) {
