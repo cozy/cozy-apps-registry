@@ -54,25 +54,3 @@ func (s *SwiftFS) RemoveAsset(shasum string) error {
 
 	return nil
 }
-
-func (s *SwiftFS) EmptyThenDeleteContainer(name string) error {
-	sc := s.Connection
-
-	// First emptying the container
-	objs, err := sc.ObjectNames(name, nil)
-	if err != nil {
-		return err
-	}
-
-	_, err = sc.BulkDelete(name, objs)
-	if err != nil {
-		for _, obj := range objs {
-			err = sc.ObjectDelete(name, obj)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return sc.ContainerDelete(name)
-}
