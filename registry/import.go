@@ -97,12 +97,16 @@ func importSwift(reader io.Reader, header *tar.Header, parts []string) error {
 	return err
 }
 
-func Import(reader io.Reader, drop bool) error {
+func Import(reader io.Reader, drop bool) (err error) {
 	zw, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
-	defer zw.Close()
+	defer func() {
+		if e := zw.Close(); e != nil {
+			err = e
+		}
+	}()
 	tw := tar.NewReader(zw)
 
 	if drop {
@@ -145,5 +149,5 @@ func Import(reader io.Reader, drop bool) error {
 
 	}
 
-	return nil
+	return err
 }

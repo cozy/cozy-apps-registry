@@ -233,13 +233,25 @@ func exportSwift(writer *tar.Writer, prefix string) error {
 	return nil
 }
 
-func Export(writer io.Writer) error {
+func Export(writer io.Writer) (err error) {
 	buf := bufio.NewWriter(writer)
-	defer buf.Flush()
+	defer func() {
+		if e := buf.Flush(); e != nil {
+			err = e
+		}
+	}()
 	zw := gzip.NewWriter(writer)
-	defer zw.Close()
+	defer func() {
+		if e := zw.Close(); e != nil {
+			err = e
+		}
+	}()
 	tw := tar.NewWriter(zw)
-	defer tw.Close()
+	defer func() {
+		if e := tw.Close(); e != nil {
+			err = e
+		}
+	}()
 
 	if err := exportCouch(tw, rootPrefix); err != nil {
 		return err
@@ -248,5 +260,5 @@ func Export(writer io.Writer) error {
 		return err
 	}
 
-	return nil
+	return err
 }
