@@ -192,13 +192,17 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, connection *swift.C
 			fmt.Printf("      Exporting %s\n", name)
 
 			buffer := new(bytes.Buffer)
-			connection.ObjectGet(container, name, buffer, false, nil)
+			if _, err := connection.ObjectGet(container, name, buffer, false, nil); err != nil {
+				return nil, err
+			}
 
 			file := path.Join(prefix, name)
 			metadata := map[string]string{
 				contentTypeAttr: object.ContentType,
 			}
-			writeReaderFile(writer, file, buffer, metadata)
+			if err := writeReaderFile(writer, file, buffer, metadata); err != nil {
+				return nil, err
+			}
 		}
 		return objects, nil
 	})

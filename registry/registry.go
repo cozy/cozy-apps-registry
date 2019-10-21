@@ -103,9 +103,8 @@ var (
 	clientURL *url.URL
 	spaces    map[string]*Space
 
-	globalPrefix       string
-	globalEditorsDB    *kivik.DB
-	globalAssetStoreDB *kivik.DB
+	globalPrefix    string
+	globalEditorsDB *kivik.DB
 
 	ctx = context.Background()
 
