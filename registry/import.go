@@ -103,7 +103,7 @@ func Import(reader io.Reader, drop bool) (err error) {
 		return err
 	}
 	defer func() {
-		if e := zw.Close(); e != nil {
+		if e := zw.Close(); e != nil && err == nil {
 			err = e
 		}
 	}()
