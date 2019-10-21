@@ -54,6 +54,7 @@ var forceFlag bool
 var dryRunFlag bool
 
 var editorAutoPublicationFlag bool
+var importDrop bool
 
 var flagInfraMaintenance bool
 var flagShortMaintenance bool
@@ -170,6 +171,8 @@ func init() {
 	maintenanceDeactivateAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 
 	addEditorCmd.Flags().BoolVar(&editorAutoPublicationFlag, "auto-publication", false, "activate auto-publication of version for this editor")
+
+	importCmd.Flags().BoolVarP(&importDrop, "drop", "d", false, "drop couchdb database & swift container before import")
 }
 
 func useConfig(cmd *cobra.Command) (err error) {
@@ -1147,22 +1150,12 @@ var exportCmd = &cobra.Command{
 		var out io.Writer
 		if len(args) > 0 {
 			filename := args[0]
-			var f *os.File
-			f, err = os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0440)
+			file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if errc := f.Close(); err == nil && errc != nil {
-					err = errc
-				}
-				if err != nil {
-					os.Remove(filename)
-				} else {
-					fmt.Printf("Export finished successfully in file %q.\n", filename)
-				}
-			}()
-			out = f
+			defer file.Close()
+			out = file
 		} else {
 			out = os.Stdout
 		}
@@ -1177,21 +1170,17 @@ var importCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		var in io.Reader
 		if len(args) > 0 {
-			var f *os.File
-			f, err = os.Open(args[0])
+			filename := args[0]
+			file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if errc := f.Close(); err == nil && errc != nil {
-					err = errc
-				}
-			}()
-			in = f
+			defer file.Close()
+			in = file
 		} else {
 			in = os.Stdin
 		}
-		if err = registry.Import(in); err != nil {
+		if err = registry.Import(in, importDrop); err != nil {
 			return err
 		}
 		fmt.Println("Import finished successfully.")
