@@ -149,5 +149,5 @@ func Import(reader io.Reader, drop bool) (err error) {
 
 	}
 
-	return err
+	return nil
 }
