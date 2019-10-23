@@ -50,46 +50,6 @@ func writeReaderFile(writer *tar.Writer, path string, reader io.Reader, attrs ma
 	return writeFile(writer, path, content, attrs)
 }
 
-func exportCouchAttachment(writer *tar.Writer, prefix string, db *kivik.DB, id string, filename string) error {
-	file := path.Join(prefix, filename)
-	fmt.Printf("      Exporting %s.%s.%s attachment\n", db.Name(), id, filename)
-	att, err := db.GetAttachment(ctx, id, filename)
-	if err != nil {
-		return err
-	}
-	defer att.Content.Close()
-
-	content, err := ioutil.ReadAll(att.Content)
-	if err != nil {
-		return err
-	}
-	metadata := map[string]string{
-		contentTypeAttr:     att.ContentType,
-		contentEncodingAttr: att.ContentEncoding,
-	}
-	if err = writeFile(writer, file, content, metadata); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func exportCouchAttachments(writer *tar.Writer, prefix string, db *kivik.DB, id string, attachments map[string]interface{}) error {
-	if attachments == nil {
-		return nil
-	}
-
-	prefix = path.Join(prefix, id)
-	fmt.Printf("    Exporting %s attachments\n", id)
-	for name := range attachments {
-		if err := exportCouchAttachment(writer, prefix, db, id, name); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *kivik.Rows) error {
 	id := rows.ID()
 	if strings.HasPrefix(id, "_design") {

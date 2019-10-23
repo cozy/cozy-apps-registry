@@ -26,7 +26,7 @@ func (s *SwiftFS) AddAsset(asset *GlobalAsset, content io.Reader) (err error) {
 		return err
 	}
 	defer func() {
-		if e := f.Close(); e != nil {
+		if e := f.Close(); e != nil && err == nil {
 			err = e
 		}
 	}()

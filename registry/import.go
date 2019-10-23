@@ -20,6 +20,9 @@ type couchDbs map[string]*couchDb
 
 func (db *couchDb) bulkImport() error {
 	docs := db.documents
+	if len(docs) == 0 {
+		return nil
+	}
 	fmt.Printf("Bulk import %d CouchDB documents into %s\n", len(docs), db.db)
 
 	c := client.DB(ctx, db.db)
@@ -27,7 +30,7 @@ func (db *couchDb) bulkImport() error {
 	if err != nil {
 		return err
 	}
-	db.documents = make([]interface{}, 0)
+	db.documents = db.documents[:0]
 	return nil
 }
 
@@ -113,7 +116,14 @@ func importSwift(reader io.Reader, header *tar.Header, parts []string) error {
 	return err
 }
 
-func Import(reader io.Reader, drop bool) (err error) {
+func drop() error {
+	if err := cleanCouch(); err != nil {
+		return err
+	}
+	return cleanSwift()
+}
+
+func Import(reader io.Reader, delete bool) (err error) {
 	zw, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
@@ -125,11 +135,8 @@ func Import(reader io.Reader, drop bool) (err error) {
 	}()
 	tw := tar.NewReader(zw)
 
-	if drop {
-		if err := cleanCouch(); err != nil {
-			return err
-		}
-		if err := cleanSwift(); err != nil {
+	if delete {
+		if err := drop(); err != nil {
 			return err
 		}
 	}
@@ -171,9 +178,5 @@ func Import(reader io.Reader, drop bool) (err error) {
 			}
 		}
 	}
-	if err := dbs.flush(); err != nil {
-		return err
-	}
-
-	return nil
+	return dbs.flush()
 }
