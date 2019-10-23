@@ -1175,7 +1175,11 @@ var importCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() {
+				if e := file.Close(); e != nil && err == nil {
+					err = e
+				}
+			}()
 			in = file
 		} else {
 			in = os.Stdin
