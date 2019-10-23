@@ -105,7 +105,7 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 	}
 
 	delete(value, "_rev")
-	attachments, _ := value["_attachments"].(map[string]interface{})
+	//attachments, _ := value["_attachments"].(map[string]interface{})
 	delete(value, "_attachments")
 
 	var data []byte
@@ -117,10 +117,10 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 		return err
 	}
 
-	// Only export after document, else import will fail
-	if err := exportCouchAttachments(writer, prefix, db, id, attachments); err != nil {
-		return err
-	}
+	//// Only export after document, else import will fail
+	//if err := exportCouchAttachments(writer, prefix, db, id, attachments); err != nil {
+	//	return err
+	//}
 
 	return nil
 }
