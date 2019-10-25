@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/pbenner/threadpool"
 	"io"
+	"io/ioutil"
 	"path"
 	"strings"
 )
@@ -105,16 +107,21 @@ func cleanSwift() error {
 	return nil
 }
 
-func importSwift(reader io.Reader, header *tar.Header, parts []string) error {
+func importSwift(reader io.Reader, header *tar.Header, parts []string, pool threadpool.ThreadPool, group int) error {
 	container, parts := parts[0], parts[1:]
 	path := path.Join(parts...)
 	fmt.Printf("Import Swift document %s.%s\n", container, path)
 
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
 	contentType := header.PAXRecords[contentTypeAttr]
 
 	connection := config.GetConfig().SwiftConnection
-	_, err := connection.ObjectPut(container, path, reader, false, "", contentType, nil)
-	return err
+	return pool.AddJob(group, func(pool threadpool.ThreadPool, erf func() error) error {
+		return connection.ObjectPutBytes(container, path, data, contentType)
+	})
 }
 
 func Drop() error {
@@ -135,6 +142,9 @@ func Import(reader io.Reader) (err error) {
 		}
 	}()
 	tw := tar.NewReader(zw)
+
+	pool := threadpool.New(10, 100)
+	s := pool.NewJobGroup()
 
 	dbs := couchDbs{}
 	for {
@@ -168,10 +178,15 @@ func Import(reader io.Reader) (err error) {
 				return err
 			}
 		case swiftPrefix:
-			if err = importSwift(tw, header, parts); err != nil {
+			if err := importSwift(tw, header, parts, pool, s); err != nil {
 				return err
 			}
 		}
 	}
+
+	if err := pool.Wait(s); err != nil {
+		return err
+	}
+
 	return dbs.flush()
 }
