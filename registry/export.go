@@ -23,23 +23,20 @@ const couchPrefix = "couchdb"
 const swiftPrefix = "swift"
 const documentSuffix = ".json"
 const contentTypeAttr = "COZY.content-type"
-const contentEncodingAttr = "COZY.content-encoding"
 
 func writeFile(writer *tar.Writer, path string, content []byte, attrs map[string]string) error {
 	header := &tar.Header{
 		Typeflag:   tar.TypeReg,
 		Name:       path,
-		Mode:       0600,
+		Mode:       0640,
 		Size:       int64(len(content)),
 		PAXRecords: attrs,
 	}
 	if err := writer.WriteHeader(header); err != nil {
 		return err
 	}
-	if _, err := writer.Write(content); err != nil {
-		return err
-	}
-	return nil
+	_, err := writer.Write(content)
+	return err
 }
 
 func writeReaderFile(writer *tar.Writer, path string, reader io.Reader, attrs map[string]string) error {
@@ -65,7 +62,6 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 	}
 
 	delete(value, "_rev")
-	//attachments, _ := value["_attachments"].(map[string]interface{})
 	delete(value, "_attachments")
 
 	var data []byte
@@ -73,16 +69,7 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 	if err != nil {
 		return err
 	}
-	if err = writeFile(writer, file, data, nil); err != nil {
-		return err
-	}
-
-	//// Only export after document, else import will fail
-	//if err := exportCouchAttachments(writer, prefix, db, id, attachments); err != nil {
-	//	return err
-	//}
-
-	return nil
+	return writeFile(writer, file, data, nil)
 }
 
 func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
@@ -221,9 +208,5 @@ func Export(writer io.Writer) (err error) {
 	if err := exportCouch(tw, rootPrefix); err != nil {
 		return err
 	}
-	if err := exportSwift(tw, rootPrefix); err != nil {
-		return err
-	}
-
-	return nil
+	return exportSwift(tw, rootPrefix)
 }

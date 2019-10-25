@@ -767,9 +767,6 @@ CouchDB & Swift can be exported into a single archive with `cozy-apps-registry e
 Registry data are exported as below:
 
  * `registry/couchdb/{db}/{uuid}.json`: CouchDB document exported as JSON
- * `registry/couchdb/{uuid}/{file/path}`: CouchDB attachment data, with the following tar custom metadata
-    * `COZY.content-type`: associated content type
-    * `COZY.content-encoding`: associated content encoding
  * `registry/swift/{file/path}`: Swift document, with the following tar custom metadata
     * `COZY.content-type`: associated content type
 

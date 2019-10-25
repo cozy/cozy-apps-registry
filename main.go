@@ -1171,7 +1171,7 @@ var importCmd = &cobra.Command{
 		var in io.Reader
 		if len(args) > 0 {
 			filename := args[0]
-			file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
+			file, err := os.Open(filename)
 			if err != nil {
 				return err
 			}
@@ -1184,7 +1184,14 @@ var importCmd = &cobra.Command{
 		} else {
 			in = os.Stdin
 		}
-		if err = registry.Import(in, importDrop); err != nil {
+
+		if importDrop {
+			if err := registry.Drop(); err != nil {
+				return err
+			}
+		}
+
+		if err = registry.Import(in); err != nil {
 			return err
 		}
 		fmt.Println("Import finished successfully.")

@@ -117,14 +117,14 @@ func importSwift(reader io.Reader, header *tar.Header, parts []string) error {
 	return err
 }
 
-func drop() error {
+func Drop() error {
 	if err := cleanCouch(); err != nil {
 		return err
 	}
 	return cleanSwift()
 }
 
-func Import(reader io.Reader, delete bool) (err error) {
+func Import(reader io.Reader) (err error) {
 	zw, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
@@ -135,12 +135,6 @@ func Import(reader io.Reader, delete bool) (err error) {
 		}
 	}()
 	tw := tar.NewReader(zw)
-
-	if delete {
-		if err := drop(); err != nil {
-			return err
-		}
-	}
 
 	dbs := couchDbs{}
 	for {
