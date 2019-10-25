@@ -87,7 +87,12 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 
 func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
 	name := db.Name()
-	prefix = path.Join(prefix, name)
+	clean := strings.TrimPrefix(name, globalPrefix)
+	if clean != name {
+		clean = "__prefix__" + clean
+	}
+
+	prefix = path.Join(prefix, clean)
 	fmt.Printf("  Exporting %s\n", name)
 
 	skip := 0

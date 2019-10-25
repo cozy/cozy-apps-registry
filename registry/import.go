@@ -79,6 +79,7 @@ func cleanCouch() error {
 
 func parseCouchDocument(reader io.Reader, parts []string) (string, *interface{}, error) {
 	db, id := parts[0], parts[1]
+	db = strings.Replace(db, "__prefix__", globalPrefix, 1)
 	id = strings.TrimSuffix(id, documentSuffix)
 	fmt.Printf("Parse CouchDB document %s.%s\n", db, id)
 
