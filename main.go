@@ -771,8 +771,11 @@ var genSessionSecret = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Println("ok")
-		defer file.Close()
+		defer func() {
+			if e := file.Close(); e != nil && err == nil {
+				err = e
+			}
+		}()
 
 		var passphrase []byte
 		if passphraseFlag == nil || *passphraseFlag {
@@ -1171,9 +1174,9 @@ var importCmd = &cobra.Command{
 		var in io.Reader
 		if len(args) > 0 {
 			filename := args[0]
-			file, err := os.Open(filename)
-			if err != nil {
-				return err
+			file, e := os.Open(filename)
+			if e != nil {
+				return e
 			}
 			defer func() {
 				if e := file.Close(); e != nil && err == nil {

@@ -143,8 +143,8 @@ func Import(reader io.Reader) (err error) {
 	}()
 	tw := tar.NewReader(zw)
 
-	pool := threadpool.New(10, 100)
-	s := pool.NewJobGroup()
+	pool := threadpool.New(10, 10)
+	swiftGroup := pool.NewJobGroup()
 
 	dbs := couchDbs{}
 	for {
@@ -178,13 +178,13 @@ func Import(reader io.Reader) (err error) {
 				return err
 			}
 		case swiftPrefix:
-			if err := importSwift(tw, header, parts, pool, s); err != nil {
+			if err := importSwift(tw, header, parts, pool, swiftGroup); err != nil {
 				return err
 			}
 		}
 	}
 
-	if err := pool.Wait(s); err != nil {
+	if err := pool.Wait(swiftGroup); err != nil {
 		return err
 	}
 

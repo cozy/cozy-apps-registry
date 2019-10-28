@@ -82,25 +82,30 @@ func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
 	prefix = path.Join(prefix, clean)
 	fmt.Printf("  Exporting %s\n", name)
 
-	skip := 0
+	startKey, perPage := "", 1000
 	for {
 		rows, err := db.AllDocs(ctx, map[string]interface{}{
 			"include_docs": true,
-			"limit":        1000,
-			"skip":         skip,
+			"limit":        perPage + 1,
+			"start_key":    startKey,
 		})
 		if err != nil {
 			return err
 		}
-		noContent := true
+
+		startKey = ""
+		i := 0
 		for rows.Next() {
-			noContent = false
-			skip += 1
+			if i == perPage {
+				startKey = rows.Key()
+				break
+			}
 			if err := exportCouchDocument(writer, prefix, db, rows); err != nil {
 				return err
 			}
+			i++
 		}
-		if noContent {
+		if startKey == "" {
 			break
 		}
 	}
