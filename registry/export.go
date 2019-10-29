@@ -191,12 +191,6 @@ func exportSwift(writer *tar.Writer, prefix string) error {
 }
 
 func Export(writer io.Writer) (err error) {
-	buf := bufio.NewWriter(writer)
-	defer func() {
-		if e := buf.Flush(); e != nil && err == nil {
-			err = e
-		}
-	}()
 	zw := gzip.NewWriter(writer)
 	defer func() {
 		if e := zw.Close(); e != nil && err == nil {
