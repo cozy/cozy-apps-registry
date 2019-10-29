@@ -2,7 +2,6 @@ package registry
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -54,7 +53,7 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 	}
 
 	file := path.Join(prefix, fmt.Sprintf("%s%s", id, documentSuffix))
-	fmt.Printf("    Exporting %s\n", id)
+	fmt.Printf("    Exporting document %s\n", id)
 
 	var value map[string]interface{}
 	if err := rows.ScanDoc(&value); err != nil {
@@ -72,7 +71,7 @@ func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *
 	return writeFile(writer, file, data, nil)
 }
 
-func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
+func exportSingleCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
 	name := db.Name()
 	clean := strings.TrimPrefix(name, globalPrefix)
 	if clean != name {
@@ -80,7 +79,7 @@ func exportCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error {
 	}
 
 	prefix = path.Join(prefix, clean)
-	fmt.Printf("  Exporting %s\n", name)
+	fmt.Printf("  Exporting database %s\n", name)
 
 	startKey, perPage := "", 1000
 	for {
@@ -121,13 +120,13 @@ func couchDatabases() []*kivik.DB {
 	return dbs
 }
 
-func exportCouch(writer *tar.Writer, prefix string) error {
+func exportAllCouchDbs(writer *tar.Writer, prefix string) error {
 	fmt.Printf("  Exporting CouchDB\n")
 	prefix = path.Join(prefix, couchPrefix)
 
 	dbs := couchDatabases()
 	for _, db := range dbs {
-		if err := exportCouchDb(writer, prefix, db); err != nil {
+		if err := exportSingleCouchDb(writer, prefix, db); err != nil {
 			return err
 		}
 	}
@@ -136,7 +135,7 @@ func exportCouch(writer *tar.Writer, prefix string) error {
 }
 
 func exportSwiftContainer(writer *tar.Writer, prefix string, connection *swift.Connection, container string) error {
-	fmt.Printf("    Exporting %s\n", container)
+	fmt.Printf("    Exporting container %s\n", container)
 	prefix = path.Join(prefix, container)
 
 	return connection.ObjectsWalk(container, nil, func(opts *swift.ObjectsOpts) (interface{}, error) {
@@ -146,7 +145,7 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, connection *swift.C
 		}
 		for _, object := range objects {
 			name := object.Name
-			fmt.Printf("      Exporting %s\n", name)
+			fmt.Printf("      Exporting object %s\n", name)
 
 			buffer := new(bytes.Buffer)
 			if _, err := connection.ObjectGet(container, name, buffer, false, nil); err != nil {
@@ -204,7 +203,7 @@ func Export(writer io.Writer) (err error) {
 		}
 	}()
 
-	if err := exportCouch(tw, rootPrefix); err != nil {
+	if err := exportAllCouchDbs(tw, rootPrefix); err != nil {
 		return err
 	}
 	return exportSwift(tw, rootPrefix)
