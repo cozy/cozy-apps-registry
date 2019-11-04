@@ -448,6 +448,20 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	return
 }
 
+func initCouch() error {
+	if err := client.CreateDB(ctx, asset.AssetStore.DB.Name()); err != nil {
+		return err
+	}
+
+	for _, c := range spaces {
+		if err := c.init(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func RegisterSpace(name string) error {
 	if spaces == nil {
 		spaces = make(map[string]*Space)

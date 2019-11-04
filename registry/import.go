@@ -72,10 +72,12 @@ func cleanCouch() error {
 		if err := client.DestroyDB(ctx, name); err != nil {
 			return err
 		}
-		if err := client.CreateDB(ctx, name); err != nil {
-			return err
-		}
 	}
+
+	if err := initCouch(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -110,7 +112,7 @@ func cleanSwift() error {
 func importSwift(reader io.Reader, header *tar.Header, parts []string, pool threadpool.ThreadPool, group int) error {
 	container, parts := parts[0], parts[1:]
 	path := path.Join(parts...)
-	fmt.Printf("Import Swift document %s.%s\n", container, path)
+	fmt.Printf("Import Swift document %s %s\n", container, path)
 
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -132,23 +134,23 @@ func Drop() error {
 }
 
 func Import(reader io.Reader) (err error) {
-	zw, err := gzip.NewReader(reader)
+	zr, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if e := zw.Close(); e != nil && err == nil {
+		if e := zr.Close(); e != nil && err == nil {
 			err = e
 		}
 	}()
-	tw := tar.NewReader(zw)
+	tr := tar.NewReader(zr)
 
 	pool := threadpool.New(10, 10)
 	swiftGroup := pool.NewJobGroup()
 
 	dbs := couchDbs{}
 	for {
-		header, err := tw.Next()
+		header, err := tr.Next()
 		if err == io.EOF {
 			break
 		}
@@ -170,7 +172,7 @@ func Import(reader io.Reader) (err error) {
 				// Skip attachments
 				continue
 			}
-			db, doc, err := parseCouchDocument(tw, parts)
+			db, doc, err := parseCouchDocument(tr, parts)
 			if err != nil {
 				return err
 			}
@@ -178,7 +180,7 @@ func Import(reader io.Reader) (err error) {
 				return err
 			}
 		case swiftPrefix:
-			if err := importSwift(tw, header, parts, pool, swiftGroup); err != nil {
+			if err := importSwift(tr, header, parts, pool, swiftGroup); err != nil {
 				return err
 			}
 		}
