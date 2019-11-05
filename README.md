@@ -47,6 +47,7 @@
     - [Access to our official apps registry](#access-to-our-official-apps-registry)
   - [Access control and tokens](#access-control-and-tokens)
   - [Maintenance](#maintenance)
+  - [Import/export](#import-export)
   - [Application confidence grade / labelling](#application-confidence-grade--labelling)
   - [Universal links](#universal-links)
     - [Configuration](#configuration)
@@ -759,6 +760,18 @@ curl -XPUT \
   -H"Authorization: Token $COZY_REGISTRY_ADMIN_TOKEN" \
   https://apps-registry.cozycloud.cc/registry/maintenance/bank/deactivate
 ```
+
+## Import/export
+
+CouchDB & Swift can be exported into a single archive with `cozy-apps-registry export <dump.tar.gz>`.
+Registry data are exported as below:
+
+ * `registry/couchdb/{db}/{uuid}.json`: CouchDB document exported as JSON
+ * `registry/swift/{file/path}`: Swift document, with the following tar custom metadata
+    * `COZY.content-type`: associated content type
+
+The generated archive can be imported with `cozy-apps-registry import -d <dump.tar.gz>`.
+The `-d` option will drop CouchDB databases and Swift containers related to declared spaces on the registry configuration.
 
 ## Application confidence grade / labelling
 
