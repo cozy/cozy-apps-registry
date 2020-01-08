@@ -231,7 +231,7 @@ Field          | Description
 `messages`         | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See [example below](#konnectors-message-property).
 `name`             | the name to display on the home (__REQUIRED__)
 `name_prefix`      | the prefix to display with the name
-`oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector. Note: scope can be a string or an array. If it is an array, its values will be joined with a space.
+`oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector. Note: scope can be a string or an array. If it is an array, its values will be joined with a space. A `false` or `null` value in scope will remove any scope parameter in the request sent to the oauth provider.
 `parameters`       | _(konnector specific)_ Additional parameters which should be passed to the konnector. Used for example for bank konnectors to pass a `bankId` parameter.
 `partnership`      | an object to provide informations (to display in the Store for example) about a partnership related to the application (`icon` `description`, `name` and `domain`)
 `permissions`      | a map of permissions needed by the app (see [see cozy-stack permissions doc ](https://docs.cozy.io/en/cozy-stack/permissions/) for more details)
