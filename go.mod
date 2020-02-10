@@ -8,7 +8,7 @@ require (
 	github.com/flimzy/kivik v1.8.1 // indirect
 	github.com/flimzy/testy v0.1.16 // indirect
 	github.com/go-kivik/couchdb v2.0.0+incompatible
-	github.com/go-kivik/kivik v2.0.0-pre3+incompatible
+	github.com/go-kivik/kivik v2.0.0+incompatible
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
 	github.com/go-redis/redis/v7 v7.0.0-beta.6
 	github.com/gopherjs/gopherjs v0.0.0-20190915194858-d3ddacdb130f // indirect
