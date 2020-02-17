@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/flimzy/diff v0.1.6 // indirect
 	github.com/flimzy/kivik v1.8.1 // indirect
-	github.com/flimzy/testy v0.1.16 // indirect
+	github.com/flimzy/testy v0.1.17-0.20190521133342-95b386c3ece6 // indirect
 	github.com/go-kivik/couchdb v2.0.0+incompatible
 	github.com/go-kivik/kivik v2.0.0+incompatible
 	github.com/go-kivik/kiviktest v1.1.2 // indirect
@@ -20,6 +20,7 @@ require (
 	github.com/ncw/swift v1.0.50
 	github.com/otiai10/copy v1.0.2 // indirect
 	github.com/pbenner/threadpool v0.0.0-20191122191339-0302c226b91e
+	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2
