@@ -1,18 +1,27 @@
+// Package utils regroups a few functions that can be useful, but don't deserve
+// their own package.
 package utils
 
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
-// AbsPath returns an absolute path relative.
+// AbsPath returns an absolute path.
 func AbsPath(inPath string) string {
 	if strings.HasPrefix(inPath, "~") {
-		inPath = UserHomeDir() + inPath[len("~"):]
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		inPath = home + inPath[len("~"):]
 	} else if strings.HasPrefix(inPath, "$HOME") {
-		inPath = UserHomeDir() + inPath[len("$HOME"):]
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		inPath = home + inPath[len("$HOME"):]
 	}
 
 	if strings.HasPrefix(inPath, "$") {
@@ -26,16 +35,4 @@ func AbsPath(inPath string) string {
 	}
 
 	return ""
-}
-
-// UserHomeDir returns the user's home directory
-func UserHomeDir() string {
-	if runtime.GOOS == "windows" {
-		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
-		if home == "" {
-			home = os.Getenv("USERPROFILE")
-		}
-		return home
-	}
-	return os.Getenv("HOME")
 }
