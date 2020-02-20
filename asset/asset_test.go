@@ -11,11 +11,10 @@ import (
 	"testing"
 
 	"github.com/cozy/cozy-apps-registry/config"
+	_ "github.com/go-kivik/couchdb/v3" // The CouchDB driver
+	"github.com/go-kivik/kivik/v3"
 	"github.com/ncw/swift"
 	"github.com/ncw/swift/swifttest"
-
-	_ "github.com/go-kivik/couchdb" // The CouchDB driver
-	"github.com/go-kivik/kivik"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )

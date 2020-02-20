@@ -6,15 +6,15 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/cozy/cozy-apps-registry/asset"
-	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/ncw/swift"
 	"io"
 	"io/ioutil"
 	"path"
 	"strings"
 
-	"github.com/go-kivik/kivik"
+	"github.com/cozy/cozy-apps-registry/asset"
+	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/go-kivik/kivik/v3"
+	"github.com/ncw/swift"
 )
 
 const rootPrefix = "registry"
