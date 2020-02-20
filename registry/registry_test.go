@@ -18,7 +18,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/go-kivik/kivik"
+	"github.com/go-kivik/kivik/v3"
 	"github.com/ncw/swift"
 	"github.com/ncw/swift/swifttest"
 	"github.com/spf13/viper"

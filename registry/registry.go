@@ -28,15 +28,13 @@ import (
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/magic"
-	"github.com/labstack/echo/v4"
-	"github.com/ncw/swift"
-
-	_ "github.com/go-kivik/couchdb" // for couchdb
-	"github.com/go-kivik/couchdb/chttp"
-	"github.com/go-kivik/kivik"
-
+	_ "github.com/go-kivik/couchdb/v3" // for couchdb
+	"github.com/go-kivik/couchdb/v3/chttp"
+	"github.com/go-kivik/kivik/v3"
 	"github.com/h2non/filetype"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/labstack/echo/v4"
+	"github.com/ncw/swift"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )

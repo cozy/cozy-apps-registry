@@ -16,15 +16,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/go-kivik/kivik/v3"
 	"github.com/labstack/echo/v4"
 	"github.com/ncw/swift"
 	"github.com/sirupsen/logrus"
-
-	"github.com/Masterminds/semver"
-	"github.com/go-kivik/kivik"
 	"github.com/spf13/viper"
 )
 

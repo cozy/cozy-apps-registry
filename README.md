@@ -1,5 +1,9 @@
 # cozy-apps-registry
 
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white&style=flat-square)](https://pkg.go.dev/github.com/cozy/cozy-apps-registry)
+[![Build Status](https://github.com/cozy/cozy-apps-registry/workflows/CI/badge.svg)](https://github.com/cozy/cozy-apps-registry/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cozy/cozy-apps-registry)](https://goreportcard.com/report/github.com/cozy/cozy-apps-registry)
+
 ### What's Cozy?
 
 <div align="center">
@@ -44,7 +48,6 @@
         - [Remove a space](#remove-a-space)
       - [Virtual Spaces](#virtual-spaces)
     - [Automation (CI)](#automation-ci)
-    - [Access to our official apps registry](#access-to-our-official-apps-registry)
   - [Access control and tokens](#access-control-and-tokens)
   - [Maintenance](#maintenance)
   - [Import/export](#import-export)
@@ -65,14 +68,15 @@ described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
 To work properly, it requires:
 
-- Couchdb >= 2.0
+- Couchdb >= 2.3
+- Redis
 - Openstack Object Storage (Swift)
 
 ## How to develop with a `cozy-apps-registry` working in local environment
 
 Before starting, you will need to have a couchdb running already. That can be the one used by the local `cozy-stack` if you have one. For this tutorial, couchdb will be running on the default port 5984.
 
-You also must have an OpenStack Object Storage (Swift) up and running. You can follow install instructions on [the official website](https://docs.openstack.org/swift/latest/install/index.html)
+You also must have redis and an OpenStack Object Storage (Swift) up and running. You can follow install instructions on [the official website](https://docs.openstack.org/swift/latest/install/index.html)
 
 ### 1) Install and configure the local `cozy-apps-registry`
 
@@ -93,10 +97,9 @@ cozy-apps-registry gen-session-secret --passphrase sessionsecret.key
 
 ### 2) Configure the registry with `cozy-registry.yml`
 
-Before running the registry, you have to configure it correctly. Don't worry, here is the `.yaml` file to copy and paste in your `cozy-registry.yml` (should be in the root folder of `cozy-registry/`):
+Before running the registry, you have to configure it correctly. Don't worry, here is the yaml file to copy and paste in your `cozy-registry.yml` (should be in the root folder of `cozy-apps-registry/`):
 
 > :bulb: You can find an [example of this configuration file](cozy-registry.example.yml) at the root of the directory.
-
 
 ```yaml
 # server host (serve command) - flag --host
@@ -211,15 +214,15 @@ Most properties are common to both applications and konnectors but platforms, sc
 
 Here are all properties meaning for the manifest file (for webapp and konnectors) sorted alphabetically:
 
-Field          | Description
----------------|-------------------------------------------------------------
+Field              | Description
+-------------------|---------------------------------------------------------------------------------------------------
 `aggregator`       | Object containing aggregator data. Typically `{ accountId: 'aggregator-service' }`.
 `categories`       | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
 `data_types`       | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`        | `name` and `url` for the developer
 `editor`           | the editor's name to display on the cozy-bar (__REQUIRED__)
 `fields`           | _(konnector specific)_ JSON object describing the fields need by the konnector (__except folder path__). Used to generate a form. See [below](#konnectors-fields-property)
-`folders`           | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
+`folders`          | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
 `frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default: `weekly`.
 `icon`             | path to the icon for the home (path in the build)
 `intents`          | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://docs.cozy.io/en/cozy-stack/intents/) for more details)
@@ -531,13 +534,13 @@ curl -X "POST" "http://localhost:8081/registry/collect" \
 }'
 ```
 
-Field          | Description
----------------|-------------------------------------------------------------
+Field         | Description
+--------------|-------------------------------------------------------------
 url           | the archive source of your application, it will be downloaded and checked with the sha256 property
 sha256        | the sha256 hash of your source archive matching the archive in `url` (see the notice below)
 version       | version of the application, must match the one in the manifest (see the notice below)
-type           | kind of application (it can be only `webapp` or `konnector`)
-editor         | Name of the editor matching the `{{EDITOR_TOKEN}}`
+type          | kind of application (it can be only `webapp` or `konnector`)
+editor        | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 > __:warning: Important notices:__
 >
@@ -670,23 +673,10 @@ deploy:
 > - A tag push (Github release) will publish a stable version (ex: `1.0.0`) or a beta version (ex: `1.0.1-beta2`) to the registry (automatically handled by the registry).
 > - [`cozy-app-publish`][cozy-app-publish] will use the github archive URL computing to get the application tarball. If your applicaiton is not on Github, you may need to use the manual mode of the command.
 
-### Access to our official apps registry
-
-Official registry URL: `https://apps-registry.cozycloud.cc`
-
-In order to use our official repository, you need a token for a specific
-editor. To do so, contact us directly at the address contact@cozycloud.cc
-with a mail using the following title prefix: `[registry]` and provide us these folowing information (not changeable after):
-
-- `slug` of your application
-- `editor` name that you want
-
-We will provide you with the correct token.
-
 ## Access control and tokens
 
 The read-only routes of the registry are all public and do not require any
-access-contre. However routes allowing to create applications and versions have
+access-control. However routes allowing to create applications and versions have
 access-control policies associated to them.
 
 The registry has two types of access permissions, that are associated to two

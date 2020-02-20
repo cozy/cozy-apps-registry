@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-kivik/kivik"
+	"github.com/go-kivik/kivik/v3"
 )
 
 type couchdbVault struct {
