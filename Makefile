@@ -45,6 +45,6 @@ clean:
 
 ## help: print this help message
 help:
-	@echo "Usage: \n"
+	@echo "Usage:"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 .PHONY: help
