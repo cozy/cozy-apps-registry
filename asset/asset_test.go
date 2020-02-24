@@ -50,14 +50,14 @@ func TestAddAsset(t *testing.T) {
 	conf := config.GetConfig()
 	buf := new(bytes.Buffer)
 
-	hdrs, err := conf.SwiftConnection.ObjectGet(AssetContainerName, hex.EncodeToString(shasum), buf, false, nil)
+	hdrs, err := conf.SwiftConnection.ObjectGet(string(AssetContainerName), hex.EncodeToString(shasum), buf, false, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "foobar content", buf.String())
 	assert.Equal(t, "image/jpeg", hdrs["Content-Type"])
 }
 
 func TestGetAsset(t *testing.T) {
-	buf, hdrs, err := store.FS.GetAsset(hex.EncodeToString(shasum))
+	buf, hdrs, err := store.FS.Get(AssetContainerName, hex.EncodeToString(shasum))
 	assert.NoError(t, err)
 	assert.Equal(t, "image/jpeg", hdrs["Content-Type"])
 	assert.Equal(t, "foobar content", buf.String())
@@ -113,7 +113,7 @@ func TestRemoveAssetRemainingOthers(t *testing.T) {
 	// Assert asset in FS
 	var buf = new(bytes.Buffer)
 	conf := config.GetConfig()
-	_, err = conf.SwiftConnection.ObjectGet(AssetContainerName, hex.EncodeToString(shasum), buf, false, nil)
+	_, err = conf.SwiftConnection.ObjectGet(string(AssetContainerName), hex.EncodeToString(shasum), buf, false, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, buf)
 }
@@ -130,7 +130,7 @@ func TestRemoveAsset(t *testing.T) {
 
 	var buf = new(bytes.Buffer)
 	conf := config.GetConfig()
-	_, err = conf.SwiftConnection.ObjectGet(AssetContainerName, hex.EncodeToString(shasum), buf, false, nil)
+	_, err = conf.SwiftConnection.ObjectGet(string(AssetContainerName), hex.EncodeToString(shasum), buf, false, nil)
 	assert.Error(t, err)
 	assert.Equal(t, swift.ObjectNotFound, err)
 }
