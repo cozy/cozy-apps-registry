@@ -27,6 +27,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/utils"
+	"github.com/cozy/cozy-apps-registry/web"
 	"github.com/go-redis/redis/v7"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
@@ -321,7 +322,7 @@ var serveCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
-		router := Router(address)
+		router := web.Router(address, editorRegistry, sessionSecret)
 		go func() {
 			errc <- router.Start(address)
 		}()

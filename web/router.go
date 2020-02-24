@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"bytes"
@@ -26,6 +26,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 )
+
+// TODO remove those global variables
+var editorRegistry *auth.EditorRegistry
+var sessionSecret []byte
 
 const RegistryVersion = "0.1.0"
 
@@ -1033,7 +1037,9 @@ func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSp
 	}
 }
 
-func Router(addr string) *echo.Echo {
+func Router(addr string, editor *auth.EditorRegistry, secret []byte) *echo.Echo {
+	editorRegistry = editor
+	sessionSecret = secret
 	err := initAssets()
 	if err != nil {
 		panic(err)
