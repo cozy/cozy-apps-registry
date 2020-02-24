@@ -317,7 +317,7 @@ var serveCmd = &cobra.Command{
 	Short:   `Start the registry HTTP server`,
 	PreRunE: compose(loadSessionSecret, prepareRegistry, prepareSpaces),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		InitLogger(LoggerOptions{Syslog: viper.GetBool("syslog")})
+		config.SetupLogger(config.LoggerOptions{Syslog: viper.GetBool("syslog")})
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
