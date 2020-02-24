@@ -14,7 +14,7 @@ require (
 	github.com/ncw/swift v1.0.50
 	github.com/pbenner/threadpool v0.0.0-20191122191339-0302c226b91e
 	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/cobra v0.0.5
+	github.com/spf13/cobra v0.0.6
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200214034016-1d94cc7ab1c6
