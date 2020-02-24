@@ -563,6 +563,7 @@ Most of the CLI and API endpoints have a `space` option. You can refer to the
 documentation or CLI help to view all available parameters.
 
 ##### Create a space
+
 Spaces are defined in the config file and are automatically created during registry
 launching.
 
@@ -583,6 +584,7 @@ $ cozy-apps-registry rm-space <your-space>
 ```
 
 Example:
+
 ```bash
 $ cozy-apps-registry rm-space foobar
 Warning: You are going to remove space foobar and all its applications. This action is irreversible.

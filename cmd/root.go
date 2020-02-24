@@ -26,7 +26,6 @@ import (
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/registry"
-	"github.com/cozy/cozy-apps-registry/utils"
 	"github.com/cozy/cozy-apps-registry/web"
 	"github.com/go-redis/redis/v7"
 	"github.com/howeyc/gopass"
@@ -545,7 +544,7 @@ var verifySignatureCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(os.Stderr, "ok")
-		filePath := utils.AbsPath(args[0])
+		filePath := config.AbsPath(args[0])
 		f, err := os.Open(filePath)
 		if err != nil {
 			return fmt.Errorf("Failed to open file %q: %s", filePath, err)
@@ -853,7 +852,7 @@ var addEditorCmd = &cobra.Command{
 
 		// 		publicKeyPath = prompt("Path to public key file:")
 
-		// 		publicKeyPath = utils.AbsPath(publicKeyPath)
+		// 		publicKeyPath = config.AbsPath(publicKeyPath)
 		// 		publicKeyFile, err = os.Open(publicKeyPath)
 		// 		if err != nil {
 		// 			fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
@@ -1295,7 +1294,7 @@ func loadSessionSecret(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing path to session secret file")
 	}
 
-	sessionSecretPath = utils.AbsPath(sessionSecretPath)
+	sessionSecretPath = config.AbsPath(sessionSecretPath)
 
 	f, err := os.Open(sessionSecretPath)
 	if os.IsNotExist(err) {
