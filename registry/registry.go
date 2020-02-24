@@ -25,7 +25,6 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/magic"
 	_ "github.com/go-kivik/couchdb/v3" // for couchdb
@@ -465,7 +464,7 @@ func RegisterSpace(name string) error {
 		spaces = make(map[string]*Space)
 	}
 	name = strings.TrimSpace(name)
-	if name == consts.DefaultSpacePrefix {
+	if name == config.DefaultSpacePrefix {
 		name = ""
 	} else {
 		if !validSpaceReg.MatchString(name) {
@@ -1565,7 +1564,7 @@ func ChannelToStr(channel Channel) string {
 func GetPrefixOrDefault(c *Space) string {
 	prefix := c.Prefix
 	if prefix == "" {
-		prefix = consts.DefaultSpacePrefix
+		prefix = config.DefaultSpacePrefix
 	}
 	return prefix
 }

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/go-kivik/couchdb/v3/chttp"
 	"github.com/go-kivik/kivik/v3"
 	"github.com/ncw/swift"
@@ -63,7 +62,7 @@ func InitGlobalAssetStore(addr, user, pass, prefix string) (*GlobalAssetStore, e
 
 // MarshalAssetKey returns the string key store in UsedBy field for app versions
 func MarshalAssetKey(spacePrefix, appSlug, version string) string {
-	if spacePrefix == consts.DefaultSpacePrefix {
+	if spacePrefix == config.DefaultSpacePrefix {
 		spacePrefix = ""
 	}
 	return filepath.Join(spacePrefix, appSlug, version)

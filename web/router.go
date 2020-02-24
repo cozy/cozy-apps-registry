@@ -18,7 +18,6 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/config"
-	"github.com/cozy/cozy-apps-registry/consts"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
 
@@ -871,7 +870,7 @@ func getSpaceFromHost(c echo.Context) (*registry.Space, error) {
 	conf := config.GetConfig()
 
 	if spaceName, ok := conf.DomainSpaces[host]; ok {
-		if spaceName == consts.DefaultSpacePrefix {
+		if spaceName == config.DefaultSpacePrefix {
 			spaceName = ""
 		}
 		if space, ok := registry.GetSpace(spaceName); ok {
@@ -1116,7 +1115,7 @@ func Router(addr string, editor *auth.EditorRegistry, secret []byte) *echo.Echo 
 		groupName := fmt.Sprintf("/%s/registry", url.PathEscape(name))
 
 		source := virtual.Source
-		if source == consts.DefaultSpacePrefix {
+		if source == config.DefaultSpacePrefix {
 			source = ""
 		}
 		g := e.Group(groupName, ensureSpace(source))
