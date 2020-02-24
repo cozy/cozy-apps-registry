@@ -67,7 +67,7 @@ var ctx = context.Background()
 
 // Root returns the main command to execute, with all the subcommands and flags
 // ready to be used.
-func Root() (*cobra.Command, error) {
+func Root() *cobra.Command {
 	flags := rootCmd.PersistentFlags()
 
 	flags.StringVarP(&cfgFileFlag, "config", "c", "", "configuration file")
@@ -176,7 +176,7 @@ func Root() (*cobra.Command, error) {
 
 	importCmd.Flags().BoolVarP(&importDrop, "drop", "d", false, "drop couchdb database & swift container before import")
 
-	return rootCmd, nil
+	return rootCmd
 }
 
 func useConfig() error {

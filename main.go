@@ -10,11 +10,7 @@ import (
 )
 
 func main() {
-	rootCmd, err := cmd.Root()
-	if err != nil {
-		err = rootCmd.Execute()
-	}
-	if err != nil {
+	if err := cmd.Root().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 		os.Exit(1)
 	}
