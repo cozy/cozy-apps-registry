@@ -144,7 +144,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	shasum, ok := ver.AttachmentReferences[filename]
 
 	if ok {
-		contentBuffer, headers, err = asset.AssetStore.FS.GetAsset(shasum)
+		contentBuffer, headers, err = asset.AssetStore.FS.Get(asset.AssetContainerName, shasum)
 		if err != nil {
 			return nil, err
 		}

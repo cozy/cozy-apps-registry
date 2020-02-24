@@ -164,8 +164,9 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, connection *swift.C
 	})
 }
 
+// TODO: use storage package
 func swiftContainers() []string {
-	containers := []string{asset.AssetContainerName}
+	containers := []string{string(asset.AssetContainerName)}
 	for _, space := range spaces {
 		container := GetPrefixOrDefault(space)
 		containers = append(containers, container)
