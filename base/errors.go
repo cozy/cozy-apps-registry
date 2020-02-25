@@ -39,9 +39,6 @@ var (
 	// ErrFileNotFound is returned when trying to read a file that does not
 	// exist.
 	ErrFileNotFound = errors.New("File not found")
-	// ErrConflict is returned when trying to create a file, and a file with
-	// the same name already exists.
-	ErrConflict = errors.New("File already exists")
 	// ErrTooLarge is returned when the size limit is reached.
 	ErrTooLarge = errors.New("File is too large")
 	// ErrInternal can be used as a sentinel error for unexpected errors on the
@@ -53,12 +50,6 @@ var (
 // found code.
 func NewFileNotFoundError(cause error) error {
 	return Error{Code: 404, Wrapped: ErrFileNotFound, Cause: cause}
-}
-
-// NewConflictError returns an Error that wraps the given error, with a
-// Conflict code.
-func NewConflictError(cause error) error {
-	return Error{Code: 409, Wrapped: ErrConflict, Cause: cause}
 }
 
 // NewTooLargeError returns an Error that wraps the given error, with a Request

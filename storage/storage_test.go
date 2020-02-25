@@ -24,8 +24,16 @@ func TestSwift(t *testing.T) {
 	if err := conn.Authenticate(); err != nil {
 		t.Fatalf("Cannot authenticate to Swift: %s", err)
 	}
-	storage := &swiftFS{conn: conn}
+	swift := &swiftFS{conn: conn}
+	testStorage(t, swift)
+}
 
+func TestMem(t *testing.T) {
+	mem := NewMemFS()
+	testStorage(t, mem)
+}
+
+func testStorage(t *testing.T, storage base.Storage) {
 	fooPrefix := base.Prefix("foo-prefix")
 	barPrefix := base.Prefix("bar-prefix")
 	bazPrefix := base.Prefix("baz-prefix")
@@ -47,7 +55,7 @@ func TestSwift(t *testing.T) {
 		assert.NoError(t, storage.Create(barPrefix, "file-in-bar", "text/plain", content))
 
 		content = strings.NewReader("other bytes")
-		err = storage.Create(bazPrefix, "file-one", "text/plain", content)
+		err := storage.Create(bazPrefix, "file-one", "text/plain", content)
 		if assert.Error(t, err) {
 			assert.Equal(t, 404, err.(base.Error).Code)
 		}
