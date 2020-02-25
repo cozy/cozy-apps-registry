@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -26,6 +28,14 @@ func TestSwift(t *testing.T) {
 	}
 	swift := &swiftFS{conn: conn}
 	testStorage(t, swift)
+}
+
+func TestLocal(t *testing.T) {
+	tmp, err := ioutil.TempDir(os.TempDir(), "local")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmp)
+	local := &localFS{tmp}
+	testStorage(t, local)
 }
 
 func TestMem(t *testing.T) {
