@@ -41,7 +41,6 @@ func (r *couchdbVault) GetEditor(editorName string) (*Editor, error) {
 		name:               e.Name,
 		editorSalt:         e.EditorSalt,
 		masterSalt:         e.MasterSalt,
-		publicKeyBytes:     e.PublicKeyBytes,
 		autoPublication:    e.AutoPublication,
 		revocationCounters: e.RevocationCounters,
 	}
@@ -75,7 +74,6 @@ func (r *couchdbVault) CreateEditor(editor *Editor) error {
 		Name:               editor.name,
 		EditorSalt:         editor.editorSalt,
 		MasterSalt:         editor.masterSalt,
-		PublicKeyBytes:     editor.publicKeyBytes,
 		AutoPublication:    editor.autoPublication,
 		RevocationCounters: editor.revocationCounters,
 	})
@@ -93,7 +91,6 @@ func (r *couchdbVault) UpdateEditor(editor *Editor) error {
 		Name:               editor.name,
 		EditorSalt:         editor.editorSalt,
 		MasterSalt:         editor.masterSalt,
-		PublicKeyBytes:     editor.publicKeyBytes,
 		AutoPublication:    editor.autoPublication,
 		RevocationCounters: editor.revocationCounters,
 	})
@@ -130,7 +127,6 @@ func (r *couchdbVault) AllEditors() ([]*Editor, error) {
 			name:               e.Name,
 			editorSalt:         e.EditorSalt,
 			masterSalt:         e.MasterSalt,
-			publicKeyBytes:     e.PublicKeyBytes,
 			autoPublication:    e.AutoPublication,
 			revocationCounters: e.RevocationCounters,
 		})

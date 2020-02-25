@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -46,7 +45,6 @@ var appSpaceFlag string
 var appNameFlag string
 var appDUCFlag string
 var appDUCByFlag string
-var fixerSpacesFlag []string
 var minorFlag int
 var majorFlag int
 var durationFlag int
@@ -107,8 +105,6 @@ func Root() *cobra.Command {
 	rootCmd.AddCommand(verifyTokenCmd)
 	rootCmd.AddCommand(revokeTokensCmd)
 	rootCmd.AddCommand(genSessionSecret)
-	rootCmd.AddCommand(printPublicKeyCmd)
-	rootCmd.AddCommand(verifySignatureCmd)
 	rootCmd.AddCommand(addEditorCmd)
 	rootCmd.AddCommand(rmEditorCmd)
 	rootCmd.AddCommand(lsEditorsCmd)
@@ -509,68 +505,6 @@ var rmSpaceCmd = &cobra.Command{
 		return registry.RemoveSpace(s)
 	},
 }
-var printPublicKeyCmd = &cobra.Command{
-	Use:     "pubkey [editor]",
-	Short:   `Print the PEM encoded public key of the specified editor`,
-	PreRunE: prepareRegistry,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		editor, _, err := fetchEditor(args)
-		if err != nil {
-			return err
-		}
-		fmt.Print(editor.MarshalPublicKeyPEM())
-		return nil
-	},
-}
-
-var verifySignatureCmd = &cobra.Command{
-	Use:     "verify [editor] [file]",
-	Short:   `Verify a signature given via stdin for a specified editor and file`,
-	PreRunE: prepareRegistry,
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		editor, args, err := fetchEditor(args)
-		if err != nil {
-			return err
-		}
-		if len(args) == 0 {
-			return fmt.Errorf("Missing argument for file path")
-		}
-
-		fmt.Fprintf(os.Stderr, "Waiting for signature on stdin...")
-		signature, err := ioutil.ReadAll(io.LimitReader(os.Stdin, 10*1024))
-		if err != nil {
-			return fmt.Errorf("Error reading signature on stdin: %s", err)
-		}
-
-		fmt.Fprintln(os.Stderr, "ok")
-		filePath := config.AbsPath(args[0])
-		f, err := os.Open(filePath)
-		if err != nil {
-			return fmt.Errorf("Failed to open file %q: %s", filePath, err)
-		}
-		defer f.Close()
-
-		hash := sha256.New()
-		_, err = io.Copy(hash, f)
-		if err != nil {
-			return fmt.Errorf("Could not read file %q: %s", filePath, err)
-		}
-		hashed := hash.Sum(nil)
-
-		signatureB64, err := base64.StdEncoding.DecodeString(string(signature))
-		if err == nil {
-			signature = signatureB64
-		}
-
-		fmt.Fprintf(os.Stderr, "Checking signature...")
-		if !editor.VerifySignature(hashed, signature) {
-			return fmt.Errorf("failed: bad signature")
-		}
-		fmt.Fprintln(os.Stderr, "ok")
-
-		return nil
-	},
-}
 
 var durationReg = regexp.MustCompile(`^([0-9][0-9\.]*)(years|year|y|days|day|d)`)
 
@@ -840,39 +774,6 @@ var addEditorCmd = &cobra.Command{
 			}
 			break
 		}
-
-		// associatePublicKey := askQuestion(false, "Associate a public key to the editor %q ?", editorName)
-		// if associatePublicKey {
-		// 	var encodedPublicKey []byte
-
-		// 	for {
-		// 		var publicKeyPath string
-		// 		var publicKeyFile *os.File
-
-		// 		publicKeyPath = prompt("Path to public key file:")
-
-		// 		publicKeyPath = config.AbsPath(publicKeyPath)
-		// 		publicKeyFile, err = os.Open(publicKeyPath)
-		// 		if err != nil {
-		// 			fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
-		// 				publicKeyPath, err.Error())
-		// 			continue
-		// 		}
-
-		// 		encodedPublicKey, err = ioutil.ReadAll(io.LimitReader(publicKeyFile, 10*1024))
-		// 		if err != nil {
-		// 			fmt.Printf("Error while loading file %q: %s.\nPlease retry.\n\n",
-		// 				publicKeyPath, err.Error())
-		// 			continue
-		// 		}
-
-		// 		break
-		// 	}
-
-		// 	fmt.Printf("Creating new editor with given public key...")
-		// 	_, err = editorRegistry.CreateEditorWithPublicKey(editorName, encodedPublicKey)
-		// } else {
-		// }
 
 		fmt.Printf("Creating new editor %q...", editorName)
 		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName, editorAutoPublicationFlag)
