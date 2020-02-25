@@ -339,9 +339,8 @@ type VersionOptions struct {
 }
 
 type Version struct {
-	ID          string                 `json:"_id,omitempty"`
-	Rev         string                 `json:"_rev,omitempty"`
-	Attachments map[string]interface{} `json:"_attachments,omitempty"`
+	ID  string `json:"_id,omitempty"`
+	Rev string `json:"_rev,omitempty"`
 
 	AttachmentReferences map[string]string `json:"attachments"`
 	Slug                 string            `json:"slug"`
@@ -758,10 +757,6 @@ func CreateReleaseVersion(c *Space, ver *Version, attachments []*kivik.Attachmen
 
 func (version *Version) Clone() *Version {
 	clone := *version
-	clone.Attachments = make(map[string]interface{})
-	for k, v := range version.Attachments {
-		clone.Attachments[k] = v
-	}
 	clone.AttachmentReferences = make(map[string]string)
 	for k, v := range version.AttachmentReferences {
 		clone.AttachmentReferences[k] = v
@@ -776,7 +771,6 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	release := pending.Clone()
 
 	release.Rev = ""
-	release.Attachments = nil
 
 	// Attachments are already created, skipping them
 	var attachments = []*kivik.Attachment{}

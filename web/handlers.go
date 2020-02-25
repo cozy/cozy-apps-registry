@@ -586,7 +586,6 @@ func getVersion(c echo.Context) error {
 	// Do not show internal identifier and revision
 	doc.ID = ""
 	doc.Rev = ""
-	doc.Attachments = nil
 
 	return writeJSON(c, doc)
 }

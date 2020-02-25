@@ -35,7 +35,6 @@ var ErrSpaceNotFound = errors.New("Cannot find space")
 func cleanVersion(version *registry.Version) {
 	version.ID = ""
 	version.Rev = ""
-	version.Attachments = nil
 }
 
 // Do not show internal identifier and revision

@@ -541,7 +541,6 @@ func FindLatestVersionCacheMiss(c *Space, appSlug string, channel Channel) (*Ver
 
 	latestVersion.ID = ""
 	latestVersion.Rev = ""
-	latestVersion.Attachments = nil
 
 	// Update the cache by using a goroutine to avoid waiting for the latency
 	// between the app server and redis.
