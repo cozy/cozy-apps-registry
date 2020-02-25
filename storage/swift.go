@@ -25,7 +25,6 @@ func (s *swiftFS) wrapError(err error) error {
 		return base.NewFileNotFoundError(err)
 	case swift.TooLargeObject:
 		return base.NewTooLargeError(err)
-	// TODO return the correct error in case of conflict
 	default:
 		return base.NewInternalError(err)
 	}
