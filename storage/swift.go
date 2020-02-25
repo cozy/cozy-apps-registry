@@ -4,46 +4,72 @@ import (
 	"bytes"
 	"io"
 
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/ncw/swift"
 )
+
+// TODO remove NewSwift
+func NewSwift(conn *swift.Connection) base.Storage {
+	return &swiftFS{conn: conn}
+}
 
 type swiftFS struct {
 	conn *swift.Connection
 }
 
-func (s *swiftFS) Ensure(prefix Prefix) error {
-	return s.conn.ContainerCreate(string(prefix), nil)
+func (s *swiftFS) wrapError(err error) error {
+	switch err {
+	case nil:
+		return nil
+	case swift.ObjectNotFound:
+		return base.NewFileNotFoundError(err)
+	case swift.TooLargeObject:
+		return base.NewTooLargeError(err)
+	// TODO return the correct error in case of conflict
+	default:
+		return base.NewInternalError(err)
+	}
 }
 
-func (s *swiftFS) Create(prefix Prefix, name, contentType string, content io.Reader) error {
+func (s *swiftFS) EnsureExists(prefix base.Prefix) error {
+	err := s.conn.ContainerCreate(string(prefix), nil)
+	return s.wrapError(err)
+}
+
+func (s *swiftFS) EnsureEmpty(prefix base.Prefix) error {
+	if err := deleteContainer(s.conn, string(prefix)); err != nil {
+		return s.wrapError(err)
+	}
+	return s.EnsureExists(prefix)
+}
+
+func (s *swiftFS) Create(prefix base.Prefix, name, contentType string, content io.Reader) error {
 	f, err := s.conn.ObjectCreate(string(prefix), name, true, "", contentType, nil)
 	if err != nil {
-		return err
+		return s.wrapError(err)
 	}
 
 	_, err = io.Copy(f, content)
 	if e := f.Close(); e != nil && err == nil {
 		err = e
 	}
-	return err
+	return s.wrapError(err)
 }
 
-func (s *swiftFS) Get(prefix Prefix, name string) (*bytes.Buffer, map[string]string, error) {
+func (s *swiftFS) Get(prefix base.Prefix, name string) (*bytes.Buffer, map[string]string, error) {
 	buf := new(bytes.Buffer)
 	headers, err := s.conn.ObjectGet(string(prefix), name, buf, false, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, s.wrapError(err)
 	}
 	return buf, headers, nil
 }
 
-// Remove asset cleans a UsedByEntry and deletes the asset is there are no more app using the asset
-func (s *swiftFS) Remove(prefix Prefix, name string) error {
-	// Deleting the object from swift. If the object is not found, it's OK.
+func (s *swiftFS) Remove(prefix base.Prefix, name string) error {
 	err := s.conn.ObjectDelete(string(prefix), name)
-	if err != nil && err != swift.ObjectNotFound {
-		return err
+	// If the object is not found, it's OK.
+	if err == swift.ObjectNotFound {
+		err = nil
 	}
-
-	return nil
+	return s.wrapError(err)
 }

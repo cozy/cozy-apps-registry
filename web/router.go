@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
@@ -205,21 +206,21 @@ func validateVersionRequest(c echo.Context, ver *registry.VersionOptions) error 
 }
 
 func httpErrorHandler(err error, c echo.Context) {
-	var (
-		code = http.StatusInternalServerError
-		msg  string
-	)
+	code := http.StatusInternalServerError
+	desc := err.Error()
+	msg := desc
 
 	isJSON, _ := c.Get("json").(bool)
 
 	if he, ok := err.(*errshttp.Error); ok {
 		code = he.StatusCode()
-		msg = err.Error()
+	} else if be, ok := err.(base.Error); ok {
+		code = be.Code
+		msg = be.Message()
 	} else if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
-		msg = fmt.Sprintf("%s", he.Message)
-	} else {
-		msg = err.Error()
+		desc = fmt.Sprintf("%s", he.Message)
+		msg = desc
 	}
 
 	respHeaders := c.Response().Header()
@@ -254,14 +255,14 @@ func httpErrorHandler(err error, c echo.Context) {
 				c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
 				err = c.NoContent(code)
 			} else {
-				err = c.JSON(code, echo.Map{"error": msg})
+				err = c.JSON(code, echo.Map{"error": desc})
 			}
 		} else {
 			if c.Request().Method == echo.HEAD {
 				c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextPlain)
 				err = c.NoContent(code)
 			} else {
-				err = c.String(code, msg)
+				err = c.String(code, desc)
 			}
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/storage"
 	"github.com/go-kivik/couchdb/v3/chttp"
@@ -29,10 +30,10 @@ var ctx = context.Background()
 var AssetStore *GlobalAssetStore
 
 const assetStoreDBSuffix string = "assets"
-const AssetContainerName storage.Prefix = "__assets__"
+const AssetContainerName base.Prefix = "__assets__"
 
 type GlobalAssetStore struct {
-	FS storage.Operator
+	FS base.Storage
 	DB *kivik.DB
 }
 
@@ -104,9 +105,9 @@ func InitCouchDB(addr, user, pass, prefix string) (*kivik.DB, error) {
 	return globalAssetStoreDB, nil
 }
 
-func InitStorage() (storage.Operator, error) {
+func InitStorage() (base.Storage, error) {
 	fs := storage.New()
-	if err := fs.Ensure(AssetContainerName); err != nil {
+	if err := fs.EnsureExists(AssetContainerName); err != nil {
 		return nil, err
 	}
 	return fs, nil
