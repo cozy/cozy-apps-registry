@@ -117,6 +117,7 @@ func Root() *cobra.Command {
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(oldVersionsCmd)
+	rootCmd.AddCommand(completionCmd)
 
 	passphraseFlag = genSessionSecret.Flags().Bool("passphrase", false, "enforce or dismiss the session secret encryption")
 
