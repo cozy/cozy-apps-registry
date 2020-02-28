@@ -152,10 +152,9 @@ func TestMain(m *testing.M) {
 	url := viper.GetString("couchdb.url")
 	user := viper.GetString("couchdb.user")
 	pass := viper.GetString("couchdb.password")
-	prefix := viper.GetString("couchdb.prefix")
 
 	var err error
-	store, err = InitGlobalAssetStore(url, user, pass, prefix)
+	store, err = InitGlobalAssetStore(url, user, pass)
 	if err != nil {
 		fmt.Println("Error while initializing global asset store", err)
 	}

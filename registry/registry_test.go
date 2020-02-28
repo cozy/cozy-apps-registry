@@ -554,8 +554,7 @@ func TestMain(m *testing.M) {
 	url := viper.GetString("couchdb.url")
 	user := viper.GetString("couchdb.user")
 	pass := viper.GetString("couchdb.password")
-	prefix := viper.GetString("couchdb.prefix")
-	editorsDB, err := InitGlobalClient(url, user, pass, prefix)
+	editorsDB, err := InitGlobalClient(url, user, pass)
 	if err != nil {
 		fmt.Println("Error accessing CouchDB:", err)
 	}
@@ -585,7 +584,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Global asset store
-	globalAssetStore, err = asset.InitGlobalAssetStore(url, user, pass, prefix)
+	globalAssetStore, err = asset.InitGlobalAssetStore(url, user, pass)
 	if err != nil {
 		fmt.Printf("Could not reach CouchDB: %s", err)
 	}

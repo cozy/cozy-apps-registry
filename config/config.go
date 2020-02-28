@@ -117,6 +117,8 @@ func SetupServices() error {
 		return fmt.Errorf("Cannot configure the cache: %w", err)
 	}
 
+	base.DatabaseNamespace = viper.GetString("couchdb.prefix")
+
 	base.Storage = storage.NewSwift(config.SwiftConnection)
 	return prepareContainers()
 }
@@ -129,6 +131,8 @@ func SetupForTests() error {
 	if err != nil {
 		return err
 	}
+
+	base.DatabaseNamespace = "cozy-registry-test"
 
 	configureLRUCache()
 

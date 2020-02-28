@@ -35,8 +35,8 @@ type GlobalAssetStore struct {
 }
 
 // InitGlobalAssetStore initializes the global asset store database
-func InitGlobalAssetStore(addr, user, pass, prefix string) (*GlobalAssetStore, error) {
-	globalAssetDB, err := InitCouchDB(addr, user, pass, prefix)
+func InitGlobalAssetStore(addr, user, pass string) (*GlobalAssetStore, error) {
+	globalAssetDB, err := InitCouchDB(addr, user, pass)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func MarshalAssetKey(spacePrefix, appSlug, version string) string {
 	return filepath.Join(spacePrefix, appSlug, version)
 }
 
-func InitCouchDB(addr, user, pass, prefix string) (*kivik.DB, error) {
+func InitCouchDB(addr, user, pass string) (*kivik.DB, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func InitCouchDB(addr, user, pass, prefix string) (*kivik.DB, error) {
 		}
 	}
 
-	assetsStoreDBName := "registry-" + assetStoreDBSuffix
+	assetsStoreDBName := base.DBName(assetStoreDBSuffix)
 	exists, err := client.DBExists(ctx, assetsStoreDBName)
 	if err != nil {
 		return nil, err

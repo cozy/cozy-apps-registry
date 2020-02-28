@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-apps-registry/export"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ var exportCmd = &cobra.Command{
 		} else {
 			out = os.Stdout
 		}
-		return registry.Export(out)
+		return export.Export(out)
 	},
 }
 
@@ -57,12 +57,12 @@ var importCmd = &cobra.Command{
 		}
 
 		if importDropFlag {
-			if err := registry.Drop(); err != nil {
+			if err := export.Drop(); err != nil {
 				return err
 			}
 		}
 
-		if err = registry.Import(in); err != nil {
+		if err = export.Import(in); err != nil {
 			return err
 		}
 		fmt.Println("Import finished successfully.")

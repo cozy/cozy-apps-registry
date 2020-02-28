@@ -95,11 +95,11 @@ var (
 )
 
 var (
-	client    *kivik.Client
+	// TODO move those globals to base
+	Client    *kivik.Client
 	clientURL *url.URL
-	spaces    map[string]*Space
+	Spaces    map[string]*Space
 
-	globalPrefix    string
 	globalEditorsDB *kivik.DB
 
 	ctx = context.Background()
@@ -177,7 +177,7 @@ func (c *Space) dbName(suffix string) (name string) {
 		name = c.Prefix + "-"
 	}
 	name += suffix
-	return dbName(name)
+	return base.DBName(name)
 }
 
 func RemoveSpace(c *Space) error {
@@ -245,24 +245,17 @@ func RemoveSpace(c *Space) error {
 	}
 
 	// Removing databases
-	err = client.DestroyDB(ctx, c.PendingVersDB().Name())
+	err = Client.DestroyDB(ctx, c.PendingVersDB().Name())
 	if err != nil {
 		return err
 	}
 
-	err = client.DestroyDB(ctx, c.VersDB().Name())
+	err = Client.DestroyDB(ctx, c.VersDB().Name())
 	if err != nil {
 		return err
 	}
 
-	return client.DestroyDB(ctx, c.AppsDB().Name())
-}
-
-func dbName(name string) string {
-	if globalPrefix != "" {
-		return globalPrefix + "-" + name
-	}
-	return "registry-" + name
+	return Client.DestroyDB(ctx, c.AppsDB().Name())
 }
 
 type AppOptions struct {
@@ -394,20 +387,20 @@ func NewSpace(prefix string) *Space {
 	return &Space{Prefix: prefix}
 }
 
-func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err error) {
+func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return
 	}
 	u.User = nil
 
-	client, err = kivik.New("couch", u.String())
+	Client, err = kivik.New("couch", u.String())
 	if err != nil {
 		return
 	}
 
 	if user != "" {
-		err = client.Authenticate(ctx, &chttp.BasicAuth{
+		err = Client.Authenticate(ctx, &chttp.BasicAuth{
 			Username: user,
 			Password: pass,
 		})
@@ -420,22 +413,20 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	clientURL.Path = ""
 	clientURL.RawPath = ""
 
-	globalPrefix = prefix
-
-	editorsDBName := dbName(editorsDBSuffix)
-	exists, err := client.DBExists(ctx, editorsDBName)
+	editorsDBName := base.DBName(editorsDBSuffix)
+	exists, err := Client.DBExists(ctx, editorsDBName)
 	if err != nil {
 		return
 	}
 	if !exists {
 		fmt.Printf("Creating database %q...", editorsDBName)
-		if err = client.CreateDB(ctx, editorsDBName); err != nil {
+		if err = Client.CreateDB(ctx, editorsDBName); err != nil {
 			return nil, err
 		}
 		fmt.Println("ok.")
 	}
 
-	globalEditorsDB = client.DB(ctx, editorsDBName)
+	globalEditorsDB = Client.DB(ctx, editorsDBName)
 	if err = globalEditorsDB.Err(); err != nil {
 		return
 	}
@@ -444,12 +435,8 @@ func InitGlobalClient(addr, user, pass, prefix string) (editorsDB *kivik.DB, err
 	return
 }
 
-func initCouch() error {
-	if err := client.CreateDB(ctx, asset.AssetStore.DB.Name()); err != nil {
-		return err
-	}
-
-	for _, c := range spaces {
+func InitializeSpaces() error {
+	for _, c := range Spaces {
 		if err := c.init(); err != nil {
 			return err
 		}
@@ -459,8 +446,8 @@ func initCouch() error {
 }
 
 func RegisterSpace(name string) error {
-	if spaces == nil {
-		spaces = make(map[string]*Space)
+	if Spaces == nil {
+		Spaces = make(map[string]*Space)
 	}
 	name = strings.TrimSpace(name)
 	if name == base.DefaultSpacePrefix {
@@ -470,24 +457,24 @@ func RegisterSpace(name string) error {
 			return fmt.Errorf("Space named %q contains invalid characters", name)
 		}
 	}
-	if _, ok := spaces[name]; ok {
+	if _, ok := Spaces[name]; ok {
 		return fmt.Errorf("Space %q already registered", name)
 	}
 	c := NewSpace(name)
-	spaces[name] = c
+	Spaces[name] = c
 	return c.init()
 }
 
 func GetSpacesNames() (cs []string) {
-	cs = make([]string, 0, len(spaces))
-	for n := range spaces {
+	cs = make([]string, 0, len(Spaces))
+	for n := range Spaces {
 		cs = append(cs, n)
 	}
 	return cs
 }
 
 func GetSpace(name string) (*Space, bool) {
-	c, ok := spaces[name]
+	c, ok := Spaces[name]
 	return c, ok
 }
 
@@ -495,19 +482,19 @@ func (c *Space) init() (err error) {
 	for _, suffix := range []string{appsDBSuffix, versDBSuffix, pendingVersDBSuffix} {
 		var ok bool
 		dbName := c.dbName(suffix)
-		ok, err = client.DBExists(ctx, dbName)
+		ok, err = Client.DBExists(ctx, dbName)
 		if err != nil {
 			return
 		}
 		if !ok {
 			fmt.Printf("Creating database %q...", dbName)
-			if err = client.CreateDB(ctx, dbName); err != nil {
+			if err = Client.CreateDB(ctx, dbName); err != nil {
 				fmt.Println("failed")
 				return err
 			}
 			fmt.Println("ok.")
 		}
-		db := client.DB(context.Background(), dbName)
+		db := Client.DB(context.Background(), dbName)
 		if err = db.Err(); err != nil {
 			return
 		}

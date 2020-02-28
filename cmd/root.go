@@ -207,8 +207,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	editorsDB, err := registry.InitGlobalClient(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
-		viper.GetString("couchdb.password"),
-		viper.GetString("couchdb.prefix"))
+		viper.GetString("couchdb.password"))
 	if err != nil {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
@@ -216,8 +215,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	_, err = asset.InitGlobalAssetStore(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
-		viper.GetString("couchdb.password"),
-		viper.GetString("couchdb.prefix"))
+		viper.GetString("couchdb.password"))
 	if err != nil {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
