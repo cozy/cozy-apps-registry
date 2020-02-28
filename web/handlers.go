@@ -22,7 +22,6 @@ import (
 
 // TODO remove those global variables
 var editorRegistry *auth.EditorRegistry
-var sessionSecret []byte
 
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 

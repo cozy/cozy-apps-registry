@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +33,7 @@ var genTokenCmd = &cobra.Command{
 
 		var token []byte
 		if tokenMasterFlag {
-			token, err = editor.GenerateMasterToken(sessionSecret, maxAge)
+			token, err = editor.GenerateMasterToken(base.SessionSecret, maxAge)
 		} else if appNameFlag != "" {
 			space, ok := registry.GetSpace(appSpaceFlag)
 			if !ok {
@@ -41,7 +42,7 @@ var genTokenCmd = &cobra.Command{
 				var app *registry.App
 				app, err = registry.FindApp(space, appNameFlag, registry.Stable)
 				if err == nil {
-					token, err = editor.GenerateEditorToken(sessionSecret, maxAge, app.Slug)
+					token, err = editor.GenerateEditorToken(base.SessionSecret, maxAge, app.Slug)
 				}
 			}
 		} else {
@@ -123,7 +124,7 @@ var verifyTokenCmd = &cobra.Command{
 
 		var ok bool
 		if tokenMasterFlag {
-			ok = editor.VerifyMasterToken(sessionSecret, token)
+			ok = editor.VerifyMasterToken(base.SessionSecret, token)
 		} else if appNameFlag == "" {
 			return fmt.Errorf("missing --app flag")
 		} else {
@@ -136,7 +137,7 @@ var verifyTokenCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			ok = editor.VerifyEditorToken(sessionSecret, token, app.Slug)
+			ok = editor.VerifyEditorToken(base.SessionSecret, token, app.Slug)
 		}
 		if !ok {
 			return fmt.Errorf("token is **not** valid")

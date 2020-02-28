@@ -51,7 +51,7 @@ func checkAuthorized(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if !auth.VerifyTokenAuthentication(sessionSecret, token) {
+	if !auth.VerifyTokenAuthentication(base.SessionSecret, token) {
 		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
 	}
 	return nil
@@ -68,7 +68,7 @@ func checkPermissions(c echo.Context, editorName string, appName string, master 
 	}
 	ok := false
 	if !master {
-		ok = editor.VerifyEditorToken(sessionSecret, token, appName)
+		ok = editor.VerifyEditorToken(base.SessionSecret, token, appName)
 	}
 	if !ok {
 		editors, err := editorRegistry.AllEditors()
@@ -76,7 +76,7 @@ func checkPermissions(c echo.Context, editorName string, appName string, master 
 			return nil, err
 		}
 		for _, e := range editors {
-			if ok = e.VerifyMasterToken(sessionSecret, token); ok {
+			if ok = e.VerifyMasterToken(base.SessionSecret, token); ok {
 				break
 			}
 		}
@@ -335,9 +335,8 @@ func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSp
 	}
 }
 
-func Router(addr string, editor *auth.EditorRegistry, secret []byte) *echo.Echo {
+func Router(addr string, editor *auth.EditorRegistry) *echo.Echo {
 	editorRegistry = editor
-	sessionSecret = secret
 	err := initAssets()
 	if err != nil {
 		panic(err)

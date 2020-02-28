@@ -8,6 +8,9 @@
 // in-memory service for other tests.
 package base
 
+// SessionSecret is the secret used to check the tokens.
+var SessionSecret []byte
+
 // LatestVersionsCache is used for caching the latest version of an app.
 var LatestVersionsCache Cache
 

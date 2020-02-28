@@ -48,7 +48,6 @@ var disallowManualExecFlag bool
 
 // TODO move those globals outside of this module
 var editorRegistry *auth.EditorRegistry
-var sessionSecret []byte
 
 // Root returns the main command to execute, with all the subcommands and flags
 // ready to be used.
@@ -185,7 +184,7 @@ var serveCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
-		router := web.Router(address, editorRegistry, sessionSecret)
+		router := web.Router(address, editorRegistry)
 		go func() {
 			errc <- router.Start(address)
 		}()
@@ -321,14 +320,14 @@ it to you configuration file.`, sessionSecretPath)
 	}
 
 	if auth.IsSecretClear(data) {
-		sessionSecret = data
+		base.SessionSecret = data
 		return nil
 	}
 
 	{
 		envPassphrase := []byte(os.Getenv(envSessionPass))
 		if len(envPassphrase) > 0 {
-			sessionSecret, err = auth.DecryptMasterSecret(data, envPassphrase)
+			base.SessionSecret, err = auth.DecryptMasterSecret(data, envPassphrase)
 			if err != nil {
 				return fmt.Errorf("Could not decrypt session secret: %s", err)
 			}
@@ -338,7 +337,7 @@ it to you configuration file.`, sessionSecretPath)
 
 	for {
 		passphrase := askPassword("Enter passphrase (decrypting session secret): ")
-		sessionSecret, err = auth.DecryptMasterSecret(data, passphrase)
+		base.SessionSecret, err = auth.DecryptMasterSecret(data, passphrase)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not decrypt session secret: %s\n", err)
 			continue
