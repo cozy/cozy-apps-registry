@@ -119,8 +119,9 @@ func SetupServices() error {
 
 	base.DatabaseNamespace = viper.GetString("couchdb.prefix")
 
+	// TODO allow to use a local FS storage
 	base.Storage = storage.NewSwift(config.SwiftConnection)
-	return prepareContainers()
+	return nil
 }
 
 // SetupForTests can be used to setup the services with in-memory implementations
@@ -140,10 +141,6 @@ func SetupForTests() error {
 	// more complete.
 
 	base.Storage = storage.NewMemFS()
-	if err := prepareContainers(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -262,7 +259,9 @@ func configureLRUCache() {
 	base.ListVersionsCache = cache.NewLRUCache(256, base.DefaultCacheTTL)
 }
 
-func prepareContainers() error {
+// PrepareSpaces makes sure that the CouchDB databases and Swift containers for
+// the spaces exist and have their index/views.
+func PrepareSpaces() error {
 	spacesNames := viper.GetStringSlice("spaces")
 	for _, space := range spacesNames {
 		// TODO we should have a method to convert a space name to a prefix

@@ -574,10 +574,7 @@ func TestMain(m *testing.M) {
 
 	// Creating a default editor
 	vault := auth.NewCouchDBVault(editorsDB)
-	auth.Editors, err = auth.NewEditorRegistry(vault)
-	if err != nil {
-		fmt.Println("Error while creating editor:", err)
-	}
+	auth.Editors = auth.NewEditorRegistry(vault)
 	editor, err = auth.Editors.CreateEditorWithoutPublicKey("cozytesteditor", true)
 	if err != nil {
 		fmt.Println("Error while creating editor:", err)
@@ -587,6 +584,11 @@ func TestMain(m *testing.M) {
 	globalAssetStore, err = asset.InitGlobalAssetStore(url, user, pass)
 	if err != nil {
 		fmt.Printf("Could not reach CouchDB: %s", err)
+	}
+
+	if err := config.PrepareSpaces(); err != nil {
+		fmt.Println("Cannot prepare the spaces:", err)
+		os.Exit(1)
 	}
 
 	out := m.Run()

@@ -159,5 +159,10 @@ func TestMain(m *testing.M) {
 		fmt.Println("Error while initializing global asset store", err)
 	}
 
+	if err := config.PrepareSpaces(); err != nil {
+		fmt.Println("Cannot prepare the spaces:", err)
+		os.Exit(1)
+	}
+
 	os.Exit(m.Run())
 }

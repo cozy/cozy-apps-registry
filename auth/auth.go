@@ -61,8 +61,8 @@ type (
 	}
 )
 
-func NewEditorRegistry(vault Vault) (*EditorRegistry, error) {
-	return &EditorRegistry{vault}, nil
+func NewEditorRegistry(vault Vault) *EditorRegistry {
+	return &EditorRegistry{vault}
 }
 
 func CheckEditorName(editorName string) error {

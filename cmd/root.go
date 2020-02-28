@@ -162,10 +162,7 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		config.SetDefaults()
-		if err := config.ReadFile(cfgFileFlag, "cozy-registry"); err != nil {
-			return err
-		}
-		return config.SetupServices()
+		return config.ReadFile(cfgFileFlag, "cozy-registry")
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
@@ -200,6 +197,10 @@ var serveCmd = &cobra.Command{
 
 // TODO move prepareRegistry to config
 func prepareRegistry(cmd *cobra.Command, args []string) error {
+	if err := config.SetupServices(); err != nil {
+		return err
+	}
+
 	editorsDB, err := registry.InitGlobalClient(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
@@ -217,11 +218,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	vault := auth.NewCouchDBVault(editorsDB)
-	auth.Editors, err = auth.NewEditorRegistry(vault)
-	if err != nil {
-		return fmt.Errorf("Error while loading editor registry: %s", err)
-	}
-
+	auth.Editors = auth.NewEditorRegistry(vault)
 	return nil
 }
 
@@ -250,9 +247,6 @@ func checkSpaceVspaceOverlap(spaces []string, vspaces map[string]interface{}) (b
 // TODO move prepareSpaces to config
 func prepareSpaces(cmd *cobra.Command, args []string) error {
 	spacesNames := viper.GetStringSlice("spaces")
-	if len(spacesNames) == 0 {
-		spacesNames = viper.GetStringSlice("contexts") // retro-compat
-	}
 	if len(spacesNames) > 0 {
 		if ok, name := checkSpaceVspaceOverlap(spacesNames, viper.GetStringMap("virtual_spaces")); ok {
 			return fmt.Errorf("%q is defined as a space and a virtual space (check your config file)", name)
@@ -275,10 +269,13 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-		return nil
+	} else {
+		if err := registry.RegisterSpace(base.DefaultSpacePrefix); err != nil {
+			return err
+		}
 	}
 
-	return registry.RegisterSpace(base.DefaultSpacePrefix)
+	return config.PrepareSpaces()
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {
