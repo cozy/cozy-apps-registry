@@ -24,7 +24,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
-	"github.com/cozy/cozy-apps-registry/cache"
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	_ "github.com/go-kivik/couchdb/v3" // for couchdb
@@ -35,7 +35,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ncw/swift"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const maxApplicationSize = 20 * 1024 * 1024 // 20 Mo
@@ -220,6 +219,7 @@ func RemoveSpace(c *Space) error {
 	}
 
 	// Removing swift container
+	// TODO use storage
 	conf := config.GetConfig()
 	sc := conf.SwiftConnection
 	prefix := GetPrefixOrDefault(c)
@@ -696,11 +696,9 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	versionChannel := GetVersionChannel(ver.Version)
 	for _, channel := range []Channel{Stable, Beta, Dev} {
 		if channel >= versionChannel {
-			key := cache.Key(c.Prefix + "/" + ver.Slug + "/" + ChannelToStr(channel))
-			cacheVersionsLatest := viper.Get("cacheVersionsLatest").(cache.Cache)
-			cacheVersionsList := viper.Get("cacheVersionsList").(cache.Cache)
-			cacheVersionsLatest.Remove(key)
-			cacheVersionsList.Remove(key)
+			key := base.Key(c.Prefix + "/" + ver.Slug + "/" + ChannelToStr(channel))
+			base.LatestVersionsCache.Remove(key)
+			base.ListVersionsCache.Remove(key)
 		}
 	}
 
@@ -1244,19 +1242,9 @@ func getMIMEType(name string, data []byte) string {
 func SaveTarball(space, filepath string, tarball *Tarball) error {
 	// Saving the tar to Swift
 	var content = bytes.NewReader(tarball.Content)
-	conf := config.GetConfig()
-	sc := conf.SwiftConnection
 
-	f, err := sc.ObjectCreate(space, filepath, false, "", tarball.ContentType, nil)
-	if err != nil {
-		return err
-	}
-
-	if _, err = io.Copy(f, content); err != nil {
-		_ = f.Close()
-		return err
-	}
-	return f.Close()
+	// TODO fix space->prefix conversion
+	return base.Storage.Create(base.Prefix(space), filepath, tarball.ContentType, content)
 }
 
 // ReadTarballVersion reads the content of the version tarball which has been
@@ -1492,7 +1480,11 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 	var err error
 	prefix := GetPrefixOrDefault(c)
 
+	// TODO do not use config from here
 	conf := config.GetConfig()
+	if conf == nil {
+		return errors.New("No swift configuration")
+	}
 	sc := conf.SwiftConnection
 
 	// Dereferences this version from global asset store

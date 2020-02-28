@@ -10,6 +10,11 @@ import (
 // string for the default space.
 type Prefix string
 
+// String returns the prefix as a string.
+func (p Prefix) String() string {
+	return string(p)
+}
+
 // VirtualStorage is an interface with the operations that can be done on the
 // storage.
 type VirtualStorage interface {

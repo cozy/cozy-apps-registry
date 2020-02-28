@@ -8,6 +8,12 @@
 // in-memory service for other tests.
 package base
 
+// LatestVersionsCache is used for caching the latest version of an app.
+var LatestVersionsCache Cache
+
+// ListVersionsCache is used for caching the list of apps in a space.
+var ListVersionsCache Cache
+
 // Storage is the global variable that can be used to perform operations on
 // files.
 var Storage VirtualStorage
