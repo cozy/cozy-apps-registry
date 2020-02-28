@@ -463,7 +463,7 @@ func RegisterSpace(name string) error {
 		spaces = make(map[string]*Space)
 	}
 	name = strings.TrimSpace(name)
-	if name == config.DefaultSpacePrefix {
+	if name == base.DefaultSpacePrefix {
 		name = ""
 	} else {
 		if !validSpaceReg.MatchString(name) {
@@ -978,7 +978,7 @@ func downloadTarball(opts *VersionOptions, url string) (*Tarball, error) {
 	}
 
 	// Reader for filesize
-	counter := &Counter{}
+	counter := &bytesCounter{}
 	var reader io.Reader = buf
 	reader = io.TeeReader(reader, counter)
 
@@ -1565,7 +1565,7 @@ func ChannelToStr(channel Channel) string {
 func GetPrefixOrDefault(c *Space) string {
 	prefix := c.Prefix
 	if prefix == "" {
-		prefix = config.DefaultSpacePrefix
+		prefix = base.DefaultSpacePrefix
 	}
 	return prefix
 }

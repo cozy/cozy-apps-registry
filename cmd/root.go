@@ -21,6 +21,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/web"
@@ -988,7 +989,7 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			if spaceName == config.DefaultSpacePrefix {
+			if spaceName == base.DefaultSpacePrefix {
 				spaceName = ""
 			}
 
@@ -1004,7 +1005,7 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	return registry.RegisterSpace(config.DefaultSpacePrefix)
+	return registry.RegisterSpace(base.DefaultSpacePrefix)
 }
 
 func loadSessionSecret(cmd *cobra.Command, args []string) error {

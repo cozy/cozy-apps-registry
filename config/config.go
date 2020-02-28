@@ -11,9 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TODO move this to base package
-const DefaultSpacePrefix string = "__default__"
-
+// TODO move the global config object to base
 var config *Config
 
 type Config struct {
@@ -100,6 +98,7 @@ func ConfigureCache() error {
 		configureLRUCache()
 		return nil
 	}
+
 	optsLatest := &redis.UniversalOptions{
 		// Either a single address or a seed list of host:port addresses
 		// of cluster/sentinel nodes.

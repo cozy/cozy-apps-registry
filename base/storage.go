@@ -15,6 +15,9 @@ func (p Prefix) String() string {
 	return string(p)
 }
 
+// DefaultSpacePrefix is the prefix used for the default space.
+const DefaultSpacePrefix string = "__default__"
+
 // VirtualStorage is an interface with the operations that can be done on the
 // storage.
 type VirtualStorage interface {
