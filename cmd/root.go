@@ -7,13 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -168,71 +166,17 @@ func Root() *cobra.Command {
 	return rootCmd
 }
 
-func useConfig() error {
-	viper.SetEnvPrefix("cozy_registry")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-	viper.SetDefault("port", 8080)
-	viper.SetDefault("host", "localhost")
-	viper.SetDefault("couchdb.url", "http://localhost:5984/")
-	viper.SetDefault("couchdb.prefix", "cozyregistry")
-
-	var cfgFile string
-	if cfgFileFlag == "" {
-		if file, ok := config.FindConfigFile("cozy-registry"); ok {
-			cfgFile = file
-		}
-	} else {
-		cfgFile = cfgFileFlag
-	}
-	if cfgFile == "" {
-		return nil
-	}
-
-	parser := template.New(filepath.Base(cfgFile))
-	parser = parser.Option("missingkey=zero")
-	tmpl, err := parser.ParseFiles(cfgFile)
-	if err != nil {
-		return fmt.Errorf("Failed to parse cozy-apps-registry configuration %q: %w",
-			cfgFile, err)
-	}
-
-	dest := new(bytes.Buffer)
-	ctxt := &struct{ Env map[string]string }{Env: envMap()}
-	err = tmpl.ExecuteTemplate(dest, filepath.Base(cfgFile), ctxt)
-	if err != nil {
-		return fmt.Errorf("Failed to parse cozy-apps-registry configuration %q: %w",
-			cfgFile, err)
-	}
-
-	if ext := filepath.Ext(cfgFile); len(ext) > 0 {
-		viper.SetConfigType(ext[1:])
-	}
-
-	if err = viper.ReadConfig(dest); err != nil {
-		return fmt.Errorf("Failed to read cozy-apps-registry configuration %q: %w",
-			cfgFile, err)
-	}
-
-	// Create cache
-	if err = config.ConfigureCache(); err != nil {
-		return fmt.Errorf("Cannot configure the cache: %w", err)
-	}
-
-	return nil
-}
-
 var rootCmd = &cobra.Command{
 	Use:           "cozy-registry",
 	Short:         "cozy-registry is a registry site to store links to cozy applications",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		err := useConfig()
-		if err != nil {
+		config.SetDefaults()
+		if err := config.ReadFile(cfgFileFlag, "cozy-registry"); err != nil {
 			return err
 		}
-		return config.Init()
+		return config.SetupServices()
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
@@ -489,9 +433,6 @@ var revokeTokensCmd = &cobra.Command{
 var genSessionSecret = &cobra.Command{
 	Use:   "gen-session-secret [path]",
 	Short: `Generate a session secret file`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return useConfig()
-	},
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		// go has no way to distinguish between a flag's default value or if a flag
 		// is actually set.
@@ -1172,13 +1113,4 @@ func checkNoErr(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func envMap() map[string]string {
-	env := make(map[string]string)
-	for _, i := range os.Environ() {
-		sep := strings.Index(i, "=")
-		env[i[0:sep]] = i[sep+1:]
-	}
-	return env
 }
