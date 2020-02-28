@@ -26,10 +26,13 @@ import (
 const authTokenScheme = "Token "
 const spaceKey = "space"
 
-// FS folder name containing the universal link files
-const universalLinkFolder = "universallink"
+var errSpaceNotFound = base.Error{Code: 404, Wrapped: errors.New("Cannot find space")}
 
-var ErrSpaceNotFound = errors.New("Cannot find space")
+var (
+	fiveMinute = 5 * time.Minute
+	oneHour    = 1 * time.Hour
+	oneYear    = 365 * 24 * time.Hour
+)
 
 // Do not show internal identifier and revision
 func cleanVersion(version *registry.Version) {
@@ -175,7 +178,7 @@ func getSpaceFromHost(c echo.Context) (*registry.Space, error) {
 		}
 	}
 
-	return nil, ErrSpaceNotFound
+	return nil, errSpaceNotFound
 }
 
 func getVersionsChannel(c echo.Context, defaultChannel registry.Channel) registry.Channel {
@@ -335,6 +338,7 @@ func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSp
 	}
 }
 
+// Router sets up the HTTP routes.
 func Router(addr string) *echo.Echo {
 	err := initAssets()
 	if err != nil {
