@@ -574,11 +574,11 @@ func TestMain(m *testing.M) {
 
 	// Creating a default editor
 	vault := auth.NewCouchDBVault(editorsDB)
-	editorRegistry, err := auth.NewEditorRegistry(vault)
+	auth.Editors, err = auth.NewEditorRegistry(vault)
 	if err != nil {
 		fmt.Println("Error while creating editor:", err)
 	}
-	editor, err = editorRegistry.CreateEditorWithoutPublicKey("cozytesteditor", true)
+	editor, err = auth.Editors.CreateEditorWithoutPublicKey("cozytesteditor", true)
 	if err != nil {
 		fmt.Println("Error while creating editor:", err)
 	}

@@ -19,7 +19,7 @@ var addEditorCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			_, err = editorRegistry.GetEditor(editorName)
+			_, err = auth.Editors.GetEditor(editorName)
 			if err == nil {
 				if len(args) > 0 {
 					return auth.ErrEditorExists
@@ -31,7 +31,7 @@ var addEditorCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Creating new editor %q...", editorName)
-		_, err = editorRegistry.CreateEditorWithoutPublicKey(editorName, editorAutoPublicationFlag)
+		_, err = auth.Editors.CreateEditorWithoutPublicKey(editorName, editorAutoPublicationFlag)
 		if err != nil {
 			fmt.Println("failed")
 			return err
@@ -54,7 +54,7 @@ var rmEditorCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Deleting editor %q...", editor.Name())
-		err = editorRegistry.DeleteEditor(editor)
+		err = auth.Editors.DeleteEditor(editor)
 		if err != nil {
 			fmt.Println("failed")
 			return err
@@ -71,7 +71,7 @@ var lsEditorsCmd = &cobra.Command{
 	Short:   `List all editors from registry`,
 	PreRunE: prepareRegistry,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		editors, err := editorRegistry.AllEditors()
+		editors, err := auth.Editors.AllEditors()
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func fetchEditor(args []string) (editor *auth.Editor, rest []string, err error) 
 	if err != nil {
 		return
 	}
-	editor, err = editorRegistry.GetEditor(editorName)
+	editor, err = auth.Editors.GetEditor(editorName)
 	if err != nil {
 		err = fmt.Errorf("Error while getting editor: %s", err)
 	}

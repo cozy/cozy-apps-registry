@@ -46,9 +46,6 @@ var infraMaintenanceFlag bool
 var shortMaintenanceFlag bool
 var disallowManualExecFlag bool
 
-// TODO move those globals outside of this module
-var editorRegistry *auth.EditorRegistry
-
 // Root returns the main command to execute, with all the subcommands and flags
 // ready to be used.
 func Root() *cobra.Command {
@@ -184,7 +181,7 @@ var serveCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
-		router := web.Router(address, editorRegistry)
+		router := web.Router(address)
 		go func() {
 			errc <- router.Start(address)
 		}()
@@ -220,7 +217,7 @@ func prepareRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	vault := auth.NewCouchDBVault(editorsDB)
-	editorRegistry, err = auth.NewEditorRegistry(vault)
+	auth.Editors, err = auth.NewEditorRegistry(vault)
 	if err != nil {
 		return fmt.Errorf("Error while loading editor registry: %s", err)
 	}

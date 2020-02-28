@@ -20,9 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO remove those global variables
-var editorRegistry *auth.EditorRegistry
-
 var queryFilterReg = regexp.MustCompile(`^filter\[([a-z]+)\]$`)
 
 var (
@@ -695,7 +692,7 @@ func universalLinkRedirect(c echo.Context) error {
 
 func getEditor(c echo.Context) error {
 	editorName := c.Param("editor")
-	editor, err := editorRegistry.GetEditor(editorName)
+	editor, err := auth.Editors.GetEditor(editorName)
 	if err != nil {
 		return err
 	}
@@ -708,7 +705,7 @@ func getEditor(c echo.Context) error {
 }
 
 func getEditorsList(c echo.Context) error {
-	editors, err := editorRegistry.AllEditors()
+	editors, err := auth.Editors.AllEditors()
 	if err != nil {
 		return err
 	}

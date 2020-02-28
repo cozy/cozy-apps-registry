@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ var addAppCmd = &cobra.Command{
 			return cmd.Help()
 		}
 
-		editor, err := editorRegistry.GetEditor(appEditorFlag)
+		editor, err := auth.Editors.GetEditor(appEditorFlag)
 		if err != nil {
 			return err
 		}

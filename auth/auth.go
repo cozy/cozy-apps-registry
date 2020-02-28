@@ -18,6 +18,11 @@ import (
 	"github.com/cozy/cozy-apps-registry/errshttp"
 )
 
+// Editors is the default registry for editors. In theory, I would have
+// preferred to avoid using a global variable, or moved it to the base package.
+// But it is quite complex to do so, so let's keep it here for now.
+var Editors *EditorRegistry
+
 const (
 	secretLen = 32
 	saltsLen  = 16

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/spf13/cobra"
@@ -166,9 +167,9 @@ var revokeTokensCmd = &cobra.Command{
 			return nil
 		}
 		if tokenMasterFlag {
-			err = editorRegistry.RevokeMasterTokens(editor)
+			err = auth.Editors.RevokeMasterTokens(editor)
 		} else {
-			err = editorRegistry.RevokeEditorTokens(editor)
+			err = auth.Editors.RevokeEditorTokens(editor)
 		}
 		return err
 	},

@@ -62,7 +62,7 @@ func checkPermissions(c echo.Context, editorName string, appName string, master 
 	if err != nil {
 		return nil, err
 	}
-	editor, err := editorRegistry.GetEditor(editorName)
+	editor, err := auth.Editors.GetEditor(editorName)
 	if err != nil {
 		return nil, errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
 	}
@@ -71,7 +71,7 @@ func checkPermissions(c echo.Context, editorName string, appName string, master 
 		ok = editor.VerifyEditorToken(base.SessionSecret, token, appName)
 	}
 	if !ok {
-		editors, err := editorRegistry.AllEditors()
+		editors, err := auth.Editors.AllEditors()
 		if err != nil {
 			return nil, err
 		}
@@ -335,8 +335,7 @@ func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *config.VirtualSp
 	}
 }
 
-func Router(addr string, editor *auth.EditorRegistry) *echo.Echo {
-	editorRegistry = editor
+func Router(addr string) *echo.Echo {
 	err := initAssets()
 	if err != nil {
 		panic(err)
