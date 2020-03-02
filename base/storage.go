@@ -23,12 +23,15 @@ const DefaultSpacePrefix string = "__default__"
 type VirtualStorage interface {
 	// Status check if the storage is up, and returns an error if it is not.
 	Status() error
-	// EnsureExists make sure that the Swift container or local directory
+	// EnsureExists makes sure that the Swift container or local directory
 	// exists.
 	EnsureExists(prefix Prefix) error
-	// EnsureEmpty make sure that the Swift container or local directory
+	// EnsureEmpty makes sure that the Swift container or local directory
 	// exists and does not contain any files.
 	EnsureEmpty(prefix Prefix) error
+	// EnsureDeleted makes sure that the Swift container or local directory
+	// does no longer exist.
+	EnsureDeleted(prefix Prefix) error
 	// Create adds a file to the given container/directory.
 	Create(prefix Prefix, name, contentType string, content io.Reader) error
 	// Get fetches a file from the given container/directory.

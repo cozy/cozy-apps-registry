@@ -42,6 +42,11 @@ func (m *memFS) EnsureEmpty(prefix base.Prefix) error {
 	return nil
 }
 
+func (m *memFS) EnsureDeleted(prefix base.Prefix) error {
+	delete(m.prefixes, prefix)
+	return nil
+}
+
 func (m *memFS) Create(prefix base.Prefix, name, contentType string, content io.Reader) error {
 	if _, ok := m.prefixes[prefix]; !ok {
 		return base.NewFileNotFoundError(fmt.Errorf("Prefix %s not found", prefix))

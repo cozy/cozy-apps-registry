@@ -41,10 +41,14 @@ func (s *swiftFS) EnsureExists(prefix base.Prefix) error {
 }
 
 func (s *swiftFS) EnsureEmpty(prefix base.Prefix) error {
-	if err := deleteContainer(s.conn, string(prefix)); err != nil {
+	if err := s.EnsureDeleted(prefix); err != nil {
 		return s.wrapError(err)
 	}
 	return s.EnsureExists(prefix)
+}
+
+func (s swiftFS) EnsureDeleted(prefix base.Prefix) error {
+	return deleteContainer(s.conn, string(prefix))
 }
 
 func (s *swiftFS) Create(prefix base.Prefix, name, contentType string, content io.Reader) error {

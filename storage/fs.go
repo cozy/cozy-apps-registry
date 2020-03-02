@@ -32,11 +32,18 @@ func (m *localFS) EnsureExists(prefix base.Prefix) error {
 }
 
 func (m *localFS) EnsureEmpty(prefix base.Prefix) error {
+	if err := m.EnsureDeleted(prefix); err != nil {
+		return err
+	}
+	return m.EnsureExists(prefix)
+}
+
+func (m *localFS) EnsureDeleted(prefix base.Prefix) error {
 	dir := filepath.Join(m.baseDir, string(prefix))
 	if err := os.RemoveAll(dir); err != nil {
 		return base.NewInternalError(err)
 	}
-	return m.EnsureExists(prefix)
+	return nil
 }
 
 func (m *localFS) getPath(prefix base.Prefix, original string) (string, error) {

@@ -180,8 +180,6 @@ func (c *Space) dbName(suffix string) (name string) {
 }
 
 func RemoveSpace(c *Space) error {
-	var err error
-
 	// Removing the applications versions
 	var cursor int = 0
 	for cursor != -1 {
@@ -218,39 +216,17 @@ func RemoveSpace(c *Space) error {
 	}
 
 	// Removing swift container
-	// TODO use storage
-	conf := config.GetConfig()
-	sc := conf.SwiftConnection
 	prefix := GetPrefixOrDefault(c)
-
-	// First emptying the container
-	objs, err := sc.ObjectNames(prefix, nil)
-	if err != nil {
-		return err
-	}
-	_, err = sc.BulkDelete(prefix, objs)
-	if err != nil {
-		for _, obj := range objs {
-			err = sc.ObjectDelete(prefix, obj)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err = sc.ContainerDelete(prefix)
-	if err != nil {
+	if err := base.Storage.EnsureDeleted(base.Prefix(prefix)); err != nil {
 		return err
 	}
 
 	// Removing databases
-	err = Client.DestroyDB(ctx, c.PendingVersDB().Name())
-	if err != nil {
+	if err := Client.DestroyDB(ctx, c.PendingVersDB().Name()); err != nil {
 		return err
 	}
 
-	err = Client.DestroyDB(ctx, c.VersDB().Name())
-	if err != nil {
+	if err := Client.DestroyDB(ctx, c.VersDB().Name()); err != nil {
 		return err
 	}
 
