@@ -10,8 +10,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/base"
+	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/pbenner/threadpool"
 )
@@ -77,10 +77,11 @@ func cleanCouch() error {
 		}
 	}
 
-	if err := registry.Client.CreateDB(context.Background(), asset.AssetStore.DB.Name()); err != nil {
+	if err := config.PrepareSpaces(); err != nil {
 		return err
 	}
 
+	// TODO can we remove this call?
 	return registry.InitializeSpaces()
 }
 

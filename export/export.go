@@ -110,7 +110,7 @@ func exportSingleCouchDb(writer *tar.Writer, prefix string, db *kivik.DB) error 
 }
 
 func couchDatabases() []*kivik.DB {
-	dbs := []*kivik.DB{asset.AssetStore.DB}
+	dbs := []*kivik.DB{base.GlobalAssetStore.GetDB()}
 	for _, c := range registry.Spaces {
 		dbs = append(dbs, c.DBs()...)
 	}

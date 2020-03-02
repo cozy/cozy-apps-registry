@@ -665,10 +665,8 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	}
 
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
-	basePath := asset.MarshalAssetKey(c.Prefix, ver.Slug, ver.Version)
-
-	var atts = map[string]string{}
-
+	source := asset.ComputeSource(c.Prefix, ver.Slug, ver.Version)
+	atts := map[string]string{}
 	for _, att := range attachments {
 		var buf = new(bytes.Buffer)
 
@@ -682,13 +680,13 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 		shasum := h.Sum(nil)
 
 		// Adding asset to the global asset store
-		a := &asset.GlobalAsset{
+		a := &base.Asset{
 			Name:        att.Filename,
 			Shasum:      hex.EncodeToString(shasum),
 			AppSlug:     app.Slug,
 			ContentType: att.ContentType,
 		}
-		err = asset.AssetStore.AddAsset(a, buf, basePath)
+		err = base.GlobalAssetStore.Add(a, buf, source)
 		if err != nil {
 			return err
 		}
@@ -1444,8 +1442,8 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 	// Dereferences this version from global asset store
 	if v.AttachmentReferences != nil {
 		for _, shasum := range v.AttachmentReferences {
-			key := asset.MarshalAssetKey(prefix, v.Slug, v.Version)
-			err := asset.AssetStore.RemoveAsset(shasum, key)
+			source := asset.ComputeSource(prefix, v.Slug, v.Version)
+			err := base.GlobalAssetStore.Remove(shasum, source)
 			if err != nil {
 				return err
 			}

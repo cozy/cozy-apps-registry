@@ -27,8 +27,6 @@ const testSpaceName = "test-space"
 
 var editor *auth.Editor
 var app *App
-var err error
-var globalAssetStore *asset.GlobalAssetStore
 
 func TestFindPreviousMinorExisting(t *testing.T) {
 	ver := "1.2.0"
@@ -127,6 +125,7 @@ func TestCreateApp(t *testing.T) {
 		Type:   "webapp",
 	}
 
+	var err error
 	app, err = CreateApp(space, opts, editor)
 	assert.NoError(t, err)
 }
@@ -308,6 +307,7 @@ func TestGetAppsList(t *testing.T) {
 		Type:   "konnector",
 	}
 
+	var err error
 	app, err = CreateApp(s, opts, editor)
 	assert.NoError(t, err)
 
@@ -580,7 +580,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Global asset store
-	globalAssetStore, err = asset.InitGlobalAssetStore(url, user, pass)
+	base.GlobalAssetStore, err = asset.NewStore(url, user, pass)
 	if err != nil {
 		fmt.Printf("Could not reach CouchDB: %s", err)
 	}

@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/go-kivik/kivik/v3"
 	"github.com/ncw/swift"
@@ -136,8 +135,7 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 	shasum, ok := ver.AttachmentReferences[filename]
 
 	if ok {
-		// TODO add a method on asset module instead of accessing directly to base.Storage
-		contentBuffer, headers, err = base.Storage.Get(asset.AssetContainerName, shasum)
+		contentBuffer, headers, err = base.GlobalAssetStore.Get(shasum)
 		if err != nil {
 			return nil, err
 		}
@@ -202,14 +200,14 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename,
 	}
 	shasum := h.Sum(nil)
 
-	a := &asset.GlobalAsset{
+	a := &base.Asset{
 		Name:        filename,
 		Shasum:      hex.EncodeToString(shasum),
 		AppSlug:     ver.Slug,
 		ContentType: contentType,
 	}
 
-	err = asset.AssetStore.AddAsset(a, bytes.NewReader(content), globalFilepath)
+	err = base.GlobalAssetStore.Add(a, bytes.NewReader(content), globalFilepath)
 	if err != nil {
 		return err
 	}

@@ -17,6 +17,9 @@ var LatestVersionsCache Cache
 // ListVersionsCache is used for caching the list of apps in a space.
 var ListVersionsCache Cache
 
+// GlobalAssetStore is used for persisting assets like icons and screenshots.
+var GlobalAssetStore AssetStore
+
 // Storage is the global variable that can be used to perform operations on
 // files.
 var Storage VirtualStorage
