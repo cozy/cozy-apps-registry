@@ -38,6 +38,9 @@ type VirtualStorage interface {
 	// Walk is a function to iterate on all object names of a given
 	// container/directory.
 	Walk(prefix Prefix, fn WalkFn) error
+	// FindByPrefix returns a list of object names that starts with the given
+	// string.
+	FindByPrefix(prefix Prefix, namePrefix string) ([]string, error)
 }
 
 // WalkFn is a function defined by the caller to iterate through all object

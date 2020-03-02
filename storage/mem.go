@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/cozy/cozy-apps-registry/base"
 )
@@ -93,4 +94,15 @@ func (m *memFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
 	}
 
 	return nil
+}
+
+func (m *memFS) FindByPrefix(prefix base.Prefix, namePrefix string) ([]string, error) {
+	var names []string
+	err := m.Walk(prefix, func(name, _ string) error {
+		if strings.HasPrefix(name, namePrefix) {
+			names = append(names, name)
+		}
+		return nil
+	})
+	return names, err
 }

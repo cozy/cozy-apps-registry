@@ -92,3 +92,16 @@ func (s *swiftFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
 		return objects, nil
 	})
 }
+
+func (s *swiftFS) FindByPrefix(prefix base.Prefix, namePrefix string) ([]string, error) {
+	opts := &swift.ObjectsOpts{Prefix: namePrefix}
+	objs, err := s.conn.ObjectsAll(string(prefix), opts)
+	if err != nil {
+		return nil, s.wrapError(err)
+	}
+	names := make([]string, len(objs))
+	for i, obj := range objs {
+		names[i] = obj.Name
+	}
+	return names, nil
+}

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/pkg/xattr"
@@ -117,4 +118,15 @@ func (m *localFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
 		}
 		return fn(name, contentType)
 	})
+}
+
+func (m *localFS) FindByPrefix(prefix base.Prefix, namePrefix string) ([]string, error) {
+	var names []string
+	err := m.Walk(prefix, func(name, _ string) error {
+		if strings.HasPrefix(name, namePrefix) {
+			names = append(names, name)
+		}
+		return nil
+	})
+	return names, err
 }
