@@ -30,6 +30,11 @@ func (s *swiftFS) wrapError(err error) error {
 	}
 }
 
+func (s *swiftFS) Status() error {
+	_, err := s.conn.QueryInfo()
+	return err
+}
+
 func (s *swiftFS) EnsureExists(prefix base.Prefix) error {
 	err := s.conn.ContainerCreate(string(prefix), nil)
 	return s.wrapError(err)

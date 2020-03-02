@@ -18,6 +18,10 @@ type localFS struct {
 	baseDir string
 }
 
+func (m *localFS) Status() error {
+	return nil
+}
+
 func (m *localFS) EnsureExists(prefix base.Prefix) error {
 	dir := filepath.Join(m.baseDir, string(prefix))
 	if err := os.MkdirAll(dir, 0755); err != nil {

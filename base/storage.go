@@ -21,6 +21,8 @@ const DefaultSpacePrefix string = "__default__"
 // VirtualStorage is an interface with the operations that can be done on the
 // storage.
 type VirtualStorage interface {
+	// Status check if the storage is up, and returns an error if it is not.
+	Status() error
 	// EnsureExists make sure that the Swift container or local directory
 	// exists.
 	EnsureExists(prefix Prefix) error

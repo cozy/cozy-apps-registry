@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/go-kivik/couchdb/v3/chttp"
 	"github.com/go-kivik/kivik/v3"
 	"github.com/labstack/echo/v4"
@@ -24,11 +24,8 @@ func Status(c echo.Context) error {
 	global = "ok"
 
 	// Swift
-	conf := config.GetConfig()
-	sc := conf.SwiftConnection
-
-	swift := Entry{Status: "ok"}
-	if _, err := sc.QueryInfo(); err != nil {
+	swift := entry{Status: "ok"}
+	if err := base.Storage.Status(); err != nil {
 		swift.Status = "failed"
 		swift.Reason = err.Error()
 		global = "failed"
@@ -36,7 +33,8 @@ func Status(c echo.Context) error {
 	check["swift"] = swift
 
 	// CouchDB
-	couchDB := Entry{Status: "ok"}
+	couchDB := entry{Status: "ok"}
+	// TODO do not access viper from the web package
 	url := viper.GetString("couchdb.url")
 	user := viper.GetString("couchdb.user")
 	password := viper.GetString("couchdb.password")

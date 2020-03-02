@@ -25,6 +25,10 @@ type memFile struct {
 	content *bytes.Buffer
 }
 
+func (m *memFS) Status() error {
+	return nil
+}
+
 func (m *memFS) EnsureExists(prefix base.Prefix) error {
 	if _, ok := m.prefixes[prefix]; !ok {
 		m.prefixes[prefix] = make(memPrefix)
