@@ -102,3 +102,19 @@ func (m *localFS) Remove(prefix base.Prefix, name string) error {
 	}
 	return nil
 }
+
+func (m *localFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
+	dir := filepath.Join(m.baseDir, string(prefix))
+
+	return filepath.Walk(dir, func(name string, _ os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		contentType := "application/octet-stream"
+		path := filepath.Join(dir, name)
+		if mime, err := xattr.Get(path, xattrMime); err == nil {
+			contentType = string(mime)
+		}
+		return fn(name, contentType)
+	})
+}

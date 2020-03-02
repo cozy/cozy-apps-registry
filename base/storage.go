@@ -35,4 +35,11 @@ type VirtualStorage interface {
 	Get(prefix Prefix, name string) (*bytes.Buffer, map[string]string, error)
 	// Remove deletes a file from the given container/directory.
 	Remove(prefix Prefix, name string) error
+	// Walk is a function to iterate on all object names of a given
+	// container/directory.
+	Walk(prefix Prefix, fn WalkFn) error
 }
+
+// WalkFn is a function defined by the caller to iterate through all object
+// names with Walk.
+type WalkFn func(name, contentType string) error

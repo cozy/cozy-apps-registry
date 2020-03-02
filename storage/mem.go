@@ -79,3 +79,18 @@ func (m *memFS) Remove(prefix base.Prefix, name string) error {
 	delete(m.prefixes[prefix], name)
 	return nil
 }
+
+func (m *memFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
+	p, ok := m.prefixes[prefix]
+	if !ok {
+		return base.NewFileNotFoundError(fmt.Errorf("Prefix %s not found", prefix))
+	}
+
+	for key, f := range p {
+		if err := fn(key, f.mime); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

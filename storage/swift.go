@@ -77,3 +77,18 @@ func (s *swiftFS) Remove(prefix base.Prefix, name string) error {
 	}
 	return s.wrapError(err)
 }
+
+func (s *swiftFS) Walk(prefix base.Prefix, fn base.WalkFn) error {
+	return s.conn.ObjectsWalk(string(prefix), nil, func(opts *swift.ObjectsOpts) (interface{}, error) {
+		objects, err := s.conn.Objects(string(prefix), opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, object := range objects {
+			if err := fn(object.Name, object.ContentType); err != nil {
+				return nil, err
+			}
+		}
+		return objects, nil
+	})
+}
