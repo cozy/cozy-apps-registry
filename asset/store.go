@@ -25,11 +25,12 @@ const assetStoreDBSuffix string = "assets"
 const AssetContainerName base.Prefix = "__assets__"
 
 // ComputeSource returns the string key store in UsedBy field for app versions.
-func ComputeSource(spacePrefix, appSlug, version string) string {
-	if spacePrefix == base.DefaultSpacePrefix {
-		spacePrefix = ""
+func ComputeSource(spacePrefix base.Prefix, appSlug, version string) string {
+	space := ""
+	if spacePrefix != base.DefaultSpacePrefix {
+		space = spacePrefix.String()
 	}
-	return filepath.Join(spacePrefix, appSlug, version)
+	return filepath.Join(space, appSlug, version)
 }
 
 // NewStore initializes the global asset store database

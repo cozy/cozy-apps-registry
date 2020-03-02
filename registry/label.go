@@ -5,8 +5,10 @@ import (
 	"strings"
 )
 
+// Label is a score given to apps to show the trust a user can have in it.
 type Label int
 
+// The label scores go from A to F.
 const (
 	LabelA = iota
 	LabelB
@@ -16,13 +18,15 @@ const (
 	LabelF
 )
 
+// "DUC" stands for DataUserCommitment
 const (
-	// "DUC" stands for DataUserCommitment
 	DUCUserCiphered = "user_ciphered"
 	DUCUserReserved = "user_reserved"
 	DUCNone         = "none"
+)
 
-	// "DUCBy" stands for DataUserCommitmentBy
+// "DUCBy" stands for DataUserCommitmentBy
+const (
 	DUCByCozy   = "cozy"
 	DUCByEditor = "editor"
 	DUCByNone   = "none"

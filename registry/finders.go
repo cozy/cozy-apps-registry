@@ -140,11 +140,9 @@ func FindVersionAttachment(c *Space, appSlug, version, filename string) (*Attach
 			return nil, err
 		}
 	} else {
-		// TODO do we still need this fallback
-		// If we cannot find it, we try from the local database as a fallback
-		prefix := GetPrefixOrDefault(c)
-		// TODO space->prefix conversion to check
-		contentBuffer, headers, err = base.Storage.Get(base.Prefix(prefix), fp)
+		// If we cannot find it, we try from the app swift container as a fallback
+		prefix := c.GetPrefix()
+		contentBuffer, headers, err = base.Storage.Get(prefix, fp)
 		if err != nil {
 			return nil, err
 		}
@@ -225,8 +223,8 @@ func MoveAssetToGlobalDatabase(c *Space, ver *Version, content []byte, filename,
 	}
 
 	// Remove the old object
-	prefix := GetPrefixOrDefault(c)
-	return base.Storage.Remove(base.Prefix(prefix), filename)
+	prefix := c.GetPrefix()
+	return base.Storage.Remove(prefix, filename)
 }
 
 func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {

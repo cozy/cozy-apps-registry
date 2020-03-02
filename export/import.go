@@ -100,9 +100,8 @@ func parseCouchDocument(reader io.Reader, parts []string) (string, *interface{},
 }
 
 func cleanSwift() error {
-	// TODO make swiftContainers returns a list of Prefix, not string
 	for _, container := range swiftContainers() {
-		if err := base.Storage.EnsureEmpty(base.Prefix(container)); err != nil {
+		if err := base.Storage.EnsureEmpty(container); err != nil {
 			return err
 		}
 	}

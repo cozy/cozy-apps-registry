@@ -257,7 +257,7 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			if spaceName == base.DefaultSpacePrefix {
+			if spaceName == base.DefaultSpacePrefix.String() {
 				spaceName = ""
 			}
 
@@ -271,7 +271,7 @@ func prepareSpaces(cmd *cobra.Command, args []string) error {
 			}
 		}
 	} else {
-		if err := registry.RegisterSpace(base.DefaultSpacePrefix); err != nil {
+		if err := registry.RegisterSpace(""); err != nil {
 			return err
 		}
 	}

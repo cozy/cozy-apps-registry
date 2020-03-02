@@ -414,7 +414,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	}
 
 	// Storing the attachments to swift (screenshots, icon, partnership_icon)
-	source := asset.ComputeSource(c.Prefix, ver.Slug, ver.Version)
+	source := asset.ComputeSource(c.GetPrefix(), ver.Slug, ver.Version)
 	atts := map[string]string{}
 	for _, att := range attachments {
 		var buf = new(bytes.Buffer)
@@ -619,7 +619,7 @@ func (t *Tarball) CheckVersion(expectedVersion string) (bool, error) {
 	var errm error
 
 	if tbManifestVersion != "" {
-		match = VersionMatch(expectedVersion, tbManifestVersion)
+		match = versionMatch(expectedVersion, tbManifestVersion)
 	}
 	if !match {
 		errm = multierror.Append(errm,
@@ -628,7 +628,7 @@ func (t *Tarball) CheckVersion(expectedVersion string) (bool, error) {
 	}
 
 	if tbPackageVersion != "" {
-		match = VersionMatch(expectedVersion, tbPackageVersion)
+		match = versionMatch(expectedVersion, tbPackageVersion)
 		if !match {
 			errm = multierror.Append(errm,
 				fmt.Errorf("\"version\" from package.json (%q != %q)",
@@ -1101,7 +1101,7 @@ func (v *Version) Delete(c *Space) error {
 
 // RemoveAllAttachments removes all the attachments of a version
 func (v *Version) RemoveAllAttachments(c *Space) error {
-	prefix := GetPrefixOrDefault(c)
+	prefix := c.GetPrefix()
 
 	// Dereferences this version from global asset store
 	if v.AttachmentReferences != nil {
@@ -1116,12 +1116,12 @@ func (v *Version) RemoveAllAttachments(c *Space) error {
 
 	// XXX: legacy
 	fp := filepath.Join(v.Slug, v.Version)
-	names, err := base.Storage.FindByPrefix(base.Prefix(prefix), fp+"/")
+	names, err := base.Storage.FindByPrefix(prefix, fp+"/")
 	if err != nil {
 		return err
 	}
 	for _, name := range names {
-		if err := base.Storage.Remove(base.Prefix(prefix), name); err != nil {
+		if err := base.Storage.Remove(prefix, name); err != nil {
 			return err
 		}
 	}

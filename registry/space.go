@@ -25,6 +25,9 @@ var appsIndexes = map[string][]string{
 	"maintenance": {"maintenance_activated"},
 }
 
+// Space is a way to regroup applications that are available to the same cozy
+// instances. For example, it can make sense to have a space for the
+// self-hosted users, with dedicated apps and konnectors.
 type Space struct {
 	Prefix        string
 	dbApps        *kivik.DB
@@ -32,14 +35,15 @@ type Space struct {
 	dbPendingVers *kivik.DB
 }
 
+// NewSpace returns a space with the given name.
 func NewSpace(prefix string) *Space {
 	return &Space{Prefix: prefix}
 }
 
-func (c *Space) init() (err error) {
+func (s *Space) init() (err error) {
 	for _, suffix := range []string{appsDBSuffix, versDBSuffix, pendingVersDBSuffix} {
 		var ok bool
-		dbName := c.dbName(suffix)
+		dbName := s.dbName(suffix)
 		ok, err = Client.DBExists(ctx, dbName)
 		if err != nil {
 			return
@@ -58,18 +62,18 @@ func (c *Space) init() (err error) {
 		}
 		switch suffix {
 		case appsDBSuffix:
-			c.dbApps = db
+			s.dbApps = db
 		case versDBSuffix:
-			c.dbVers = db
+			s.dbVers = db
 		case pendingVersDBSuffix:
-			c.dbPendingVers = db
+			s.dbPendingVers = db
 		default:
 			panic("unreachable")
 		}
 	}
 
 	for name, fields := range appsIndexes {
-		err = c.AppsDB().CreateIndex(ctx, appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
+		err = s.AppsDB().CreateIndex(ctx, appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
 		if err != nil {
 			err = fmt.Errorf("Error while creating index %q: %s", appIndexName(name), err)
 			return
@@ -85,47 +89,52 @@ func appIndexName(name string) string {
 
 // Clone takes an optionnal prefix parameter
 // If empty, use the original space prefix
-func (c *Space) Clone(prefix string) Space {
+func (s *Space) Clone(prefix string) Space {
 	if prefix == "" {
-		prefix = c.Prefix
+		prefix = s.Prefix
 	}
 	return Space{
 		Prefix:        prefix,
-		dbApps:        c.dbApps,
-		dbVers:        c.dbVers,
-		dbPendingVers: c.dbPendingVers,
+		dbApps:        s.dbApps,
+		dbVers:        s.dbVers,
+		dbPendingVers: s.dbPendingVers,
 	}
 }
 
-func (c *Space) AppsDB() *kivik.DB {
-	return c.dbApps
+// AppsDB returns the database used for storing the apps in this space.
+func (s *Space) AppsDB() *kivik.DB {
+	return s.dbApps
 }
 
-func (c *Space) VersDB() *kivik.DB {
-	return c.dbVers
+// VersDB returns the database used for storing the published versions in this space.
+func (s *Space) VersDB() *kivik.DB {
+	return s.dbVers
 }
 
-func (c *Space) PendingVersDB() *kivik.DB {
-	return c.dbPendingVers
+// PendingVersDB returns the database used for storing the pending versions in this space.
+func (s *Space) PendingVersDB() *kivik.DB {
+	return s.dbPendingVers
 }
 
-func (c *Space) DBs() []*kivik.DB {
-	return []*kivik.DB{c.AppsDB(), c.VersDB(), c.PendingVersDB()}
+// DBs returns the three databases used by this space.
+func (s *Space) DBs() []*kivik.DB {
+	return []*kivik.DB{s.AppsDB(), s.VersDB(), s.PendingVersDB()}
 }
 
-func (c *Space) dbName(suffix string) string {
+func (s *Space) dbName(suffix string) string {
 	name := suffix
-	if c.Prefix != "" {
-		name = c.Prefix + "-" + name
+	if s.Prefix != "" {
+		name = s.Prefix + "-" + name
 	}
 	return base.DBName(name)
 }
 
-func RemoveSpace(c *Space) error {
+// RemoveSpace deletes CouchDB databases and Swift container for this space.
+func RemoveSpace(s *Space) error {
 	// Removing the applications versions
 	var cursor int = 0
 	for cursor != -1 {
-		next, apps, err := GetAppsList(c, &AppsListOptions{
+		next, apps, err := GetAppsList(s, &AppsListOptions{
 			Limit:                200,
 			Cursor:               cursor,
 			LatestVersionChannel: Stable,
@@ -144,12 +153,12 @@ func RemoveSpace(c *Space) error {
 			}
 
 			for _, version := range app.Versions.GetAll() {
-				v, err := FindVersion(c, app.Slug, version)
+				v, err := FindVersion(s, app.Slug, version)
 				if err != nil {
 					continue
 				}
 				fmt.Printf("Removing %s/%s\n", v.Slug, v.Version)
-				err = v.Delete(c)
+				err = v.Delete(s)
 				if err != nil {
 					return err
 				}
@@ -158,41 +167,33 @@ func RemoveSpace(c *Space) error {
 	}
 
 	// Removing swift container
-	prefix := GetPrefixOrDefault(c)
-	if err := base.Storage.EnsureDeleted(base.Prefix(prefix)); err != nil {
+	prefix := s.GetPrefix()
+	if err := base.Storage.EnsureDeleted(prefix); err != nil {
 		return err
 	}
 
 	// Removing databases
-	if err := Client.DestroyDB(ctx, c.PendingVersDB().Name()); err != nil {
+	if err := Client.DestroyDB(ctx, s.PendingVersDB().Name()); err != nil {
 		return err
 	}
 
-	if err := Client.DestroyDB(ctx, c.VersDB().Name()); err != nil {
+	if err := Client.DestroyDB(ctx, s.VersDB().Name()); err != nil {
 		return err
 	}
 
-	return Client.DestroyDB(ctx, c.AppsDB().Name())
+	return Client.DestroyDB(ctx, s.AppsDB().Name())
 }
 
+// Spaces is a global map of name -> space.
 var Spaces map[string]*Space
 
-func InitializeSpaces() error {
-	for _, c := range Spaces {
-		if err := c.init(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
+// RegisterSpace adds a space to the Spaces map.
 func RegisterSpace(name string) error {
 	if Spaces == nil {
 		Spaces = make(map[string]*Space)
 	}
 	name = strings.TrimSpace(name)
-	if name == base.DefaultSpacePrefix {
+	if name == base.DefaultSpacePrefix.String() {
 		name = ""
 	} else {
 		if !validSpaceReg.MatchString(name) {
@@ -207,21 +208,36 @@ func RegisterSpace(name string) error {
 	return c.init()
 }
 
-func GetSpacesNames() (cs []string) {
-	cs = make([]string, 0, len(Spaces))
-	for n := range Spaces {
-		cs = append(cs, n)
+// InitializeSpaces can be used to initialize again the spaces (ie check that
+// the databases exist, have their indexes, etc.)
+func InitializeSpaces() error {
+	for _, c := range Spaces {
+		if err := c.init(); err != nil {
+			return err
+		}
 	}
-	return cs
+
+	return nil
 }
 
+// GetSpacesNames returns the list of the space names.
+func GetSpacesNames() []string {
+	names := make([]string, 0, len(Spaces))
+	for name := range Spaces {
+		names = append(names, name)
+	}
+	return names
+}
+
+// GetSpace return the space with the given name
 func GetSpace(name string) (*Space, bool) {
-	c, ok := Spaces[name]
-	return c, ok
+	s, ok := Spaces[name]
+	return s, ok
 }
 
-func GetPrefixOrDefault(c *Space) string {
-	prefix := c.Prefix
+// GetPrefix returns the prefix for this space.
+func (s *Space) GetPrefix() base.Prefix {
+	prefix := base.Prefix(s.Prefix)
 	if prefix == "" {
 		prefix = base.DefaultSpacePrefix
 	}
