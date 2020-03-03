@@ -1,7 +1,9 @@
 package config
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/cozy/cozy-apps-registry/asset"
@@ -10,6 +12,8 @@ import (
 	"github.com/cozy/cozy-apps-registry/cache"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/storage"
+	"github.com/go-kivik/couchdb/v3/chttp"
+	"github.com/go-kivik/kivik/v3"
 	"github.com/go-redis/redis/v7"
 	"github.com/ncw/swift"
 	"github.com/spf13/viper"
@@ -173,6 +177,14 @@ func configureLRUCache() {
 }
 
 func configureCouch() error {
+	client, err := newClient(
+		viper.GetString("couchdb.url"),
+		viper.GetString("couchdb.user"),
+		viper.GetString("couchdb.password"))
+	if err != nil {
+		return fmt.Errorf("Could not reach CouchDB: %w", err)
+	}
+
 	editorsDB, err := registry.InitGlobalClient(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
@@ -180,19 +192,36 @@ func configureCouch() error {
 	if err != nil {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
-
-	store, err := asset.NewStore(
-		viper.GetString("couchdb.url"),
-		viper.GetString("couchdb.user"),
-		viper.GetString("couchdb.password"))
-	if err != nil {
-		return fmt.Errorf("Could not reach CouchDB: %s", err)
-	}
-	base.GlobalAssetStore = store
-
 	vault := auth.NewCouchDBVault(editorsDB)
 	auth.Editors = auth.NewEditorRegistry(vault)
+
+	base.GlobalAssetStore = asset.NewStore(client)
 	return nil
+}
+
+func newClient(addr, user, pass string) (*kivik.Client, error) {
+	u, err := url.Parse(addr)
+	if err != nil {
+		return nil, err
+	}
+	u.User = nil
+
+	client, err := kivik.New("couch", u.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if pass != "" {
+		auth := &chttp.BasicAuth{
+			Username: user,
+			Password: pass,
+		}
+		if err := client.Authenticate(context.Background(), auth); err != nil {
+			return nil, err
+		}
+	}
+
+	return client, nil
 }
 
 // PrepareSpaces makes sure that the CouchDB databases and Swift containers for
