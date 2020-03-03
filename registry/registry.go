@@ -24,7 +24,6 @@ import (
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/base"
-	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	_ "github.com/go-kivik/couchdb/v3" // for couchdb
 	"github.com/go-kivik/couchdb/v3/chttp"
@@ -456,11 +455,8 @@ func (version *Version) Clone() *Version {
 }
 
 func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, error) {
-	conf := config.GetConfig()
 	db := c.PendingVersDB()
-
 	release := pending.Clone()
-
 	release.Rev = ""
 
 	// Attachments are already created, skipping them
@@ -483,10 +479,12 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 
 	channelString := ChannelToStr(channel)
 
-	if conf.CleanEnabled {
+	if base.Config.CleanEnabled {
 		// Cleaning the old versions
 		go func() {
-			err := CleanOldVersions(c, release.Slug, channelString, conf.CleanNbMonths, conf.CleanNbMajorVersions, conf.CleanNbMinorVersions, false)
+			err := CleanOldVersions(c, release.Slug, channelString,
+				base.Config.CleanNbMonths, base.Config.CleanNbMajorVersions,
+				base.Config.CleanNbMinorVersions, false)
 			if err != nil {
 				log := logrus.WithFields(logrus.Fields{
 					"nspace":    "clean_version",

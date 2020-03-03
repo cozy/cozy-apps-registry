@@ -6,6 +6,8 @@ import (
 )
 
 // CleanOldVersions removes a specific app version of a space
+// TODO use a struct for nbMonths, major and minor parameters
+// TODO use an enum for dryRun parameter
 func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major, minor int, dryRun bool) error {
 	// Finding last versions of the app
 	versionsToKeepFromN, err := FindLastNVersions(space, appSlug, channel, major, minor)
