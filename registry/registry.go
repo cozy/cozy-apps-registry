@@ -64,8 +64,7 @@ var versionClient = http.Client{
 
 var (
 	// TODO move those globals to base
-	Client    *kivik.Client
-	clientURL *url.URL
+	Client *kivik.Client
 
 	globalEditorsDB *kivik.DB
 
@@ -219,7 +218,7 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 		}
 	}
 
-	clientURL = u
+	clientURL := u
 	clientURL.Path = ""
 	clientURL.RawPath = ""
 
