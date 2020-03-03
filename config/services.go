@@ -66,6 +66,44 @@ func SetupForTests() error {
 	return nil
 }
 
+// CleanupTests can be used to clean all the CouchDB databases used for tests.
+func CleanupTests() error {
+	base.LatestVersionsCache = nil
+	base.ListVersionsCache = nil
+
+	ctx := context.Background()
+	for _, s := range space.Spaces {
+		if err := base.DBClient.DestroyDB(ctx, s.PendingVersDB().Name()); err != nil {
+			return err
+		}
+
+		if err := base.DBClient.DestroyDB(ctx, s.VersDB().Name()); err != nil {
+			return err
+		}
+
+		if err := base.DBClient.DestroyDB(ctx, s.AppsDB().Name()); err != nil {
+			return err
+		}
+	}
+	space.Spaces = make(map[string]*space.Space)
+
+	editorsDBName := base.DBName(editorsDBSuffix)
+	if err := base.DBClient.DestroyDB(ctx, editorsDBName); err != nil {
+		return err
+	}
+	auth.Editors = nil
+
+	if db := base.GlobalAssetStore.GetDB(); db != nil {
+		if err := base.DBClient.DestroyDB(ctx, db.Name()); err != nil {
+			return err
+		}
+	}
+	base.GlobalAssetStore = nil
+
+	base.Storage = nil
+	return nil
+}
+
 func configureParameters() error {
 	virtuals, err := getVirtualSpaces()
 	if err != nil {

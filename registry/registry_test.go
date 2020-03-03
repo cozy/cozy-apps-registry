@@ -19,6 +19,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/config"
+	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/go-kivik/kivik/v3"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -119,7 +120,7 @@ func TestDownloadVersionWithoutEditor(t *testing.T) {
 
 // Apps
 func TestCreateApp(t *testing.T) {
-	space, _ := GetSpace(testSpaceName)
+	space, _ := space.GetSpace(testSpaceName)
 	opts := &AppOptions{
 		Editor: "cozy",
 		Slug:   "app-test",
@@ -132,7 +133,7 @@ func TestCreateApp(t *testing.T) {
 }
 
 func TestCreateAppBadType(t *testing.T) {
-	space, _ := GetSpace(testSpaceName)
+	space, _ := space.GetSpace(testSpaceName)
 	opts := &AppOptions{
 		Editor: "cozy",
 		Slug:   "app-test",
@@ -176,7 +177,7 @@ func TestDownloadVersionBadURL(t *testing.T) {
 }
 
 func TestCreateVersion(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	db := s.VersDB()
 
 	// Create the test app
@@ -193,7 +194,7 @@ func TestCreateVersion(t *testing.T) {
 
 func TestCreateVersionBadSlug(t *testing.T) {
 	// Should fail because slugs are not matching
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	db := s.VersDB()
 
 	testApp, err := findApp(s, "app-test")
@@ -209,7 +210,7 @@ func TestCreateVersionBadSlug(t *testing.T) {
 func TestCreateVersionAlreadyExists(t *testing.T) {
 	// Try to create the same version, should fail because the version already
 	// exists
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	db := s.VersDB()
 
 	testApp, err := findApp(s, "app-test")
@@ -225,7 +226,7 @@ func TestCreateVersionAlreadyExists(t *testing.T) {
 
 func TestCreateVersionWithAttachment(t *testing.T) {
 	// Create a Version with attachment and check it is created
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	db := s.VersDB()
 
 	testApp, err := findApp(s, "app-test")
@@ -262,7 +263,7 @@ func TestCreateVersionWithAttachment(t *testing.T) {
 }
 
 func TestActivateAppMaintenance(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	err := ActivateMaintenanceApp(s, "app-test", MaintenanceOptions{FlagInfraMaintenance: true})
 	assert.NoError(t, err)
 
@@ -272,7 +273,7 @@ func TestActivateAppMaintenance(t *testing.T) {
 }
 
 func TestDeactivateAppMaintenance(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	err := DeactivateMaintenanceApp(s, "app-test")
 	assert.NoError(t, err)
 
@@ -283,14 +284,14 @@ func TestDeactivateAppMaintenance(t *testing.T) {
 
 // Finders
 func TestFindApp(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	app, err := FindApp(s, "app-test", Stable)
 	assert.NoError(t, err)
 	assert.Equal(t, app.LatestVersion.Version, "2.0.0")
 }
 
 func TestFindAppAttachment(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	att, err := FindAppAttachment(s, "app-test", "myfile1", Stable)
 	assert.NoError(t, err)
 	assert.Equal(t, "text/plain", att.ContentType)
@@ -301,7 +302,7 @@ func TestFindAppAttachment(t *testing.T) {
 }
 
 func TestGetAppsList(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	opts := &AppOptions{
 		Editor: "cozy",
 		Slug:   "app-test2",
@@ -323,7 +324,7 @@ func TestGetAppsList(t *testing.T) {
 }
 
 func TestGetAppsListSelectFilter(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 
 	_, apps, err := GetAppsList(s, &AppsListOptions{
 		Limit:                10,
@@ -337,7 +338,7 @@ func TestGetAppsListSelectFilter(t *testing.T) {
 }
 
 func TestGetAppsListRejectFilter(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 
 	_, apps, err := GetAppsList(s, &AppsListOptions{
 		Limit:                10,
@@ -351,7 +352,7 @@ func TestGetAppsListRejectFilter(t *testing.T) {
 }
 
 func TestLastNVersions(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 
 	// We want to get the last major version (1.0.0)
 	versions, err := FindLastNVersions(s, "app-test", "stable", 1, 2)
@@ -407,7 +408,7 @@ func TestLastNVersions(t *testing.T) {
 }
 
 func TestFindLastsVersionsSince(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	db := s.VersDB()
 	app, err := FindApp(s, "app-test", Stable)
 	assert.NoError(t, err)
@@ -430,7 +431,7 @@ func TestFindLastsVersionsSince(t *testing.T) {
 }
 
 func TestDeleteVersion(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	// Version 2.0.0 is the only to have an attachment
 	ver, err := findVersion("app-test", "2.0.0", s.VersDB())
 	assert.NoError(t, err)
@@ -509,7 +510,7 @@ func TestIsValidVersionBadVersion(t *testing.T) {
 }
 
 func TestRemoveSpace(t *testing.T) {
-	s, _ := GetSpace(testSpaceName)
+	s, _ := space.GetSpace(testSpaceName)
 	err := RemoveSpace(s)
 	assert.NoError(t, err)
 
@@ -553,6 +554,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Creating a default editor
+	var err error
 	editor, err = auth.Editors.CreateEditorWithoutPublicKey("cozytesteditor", true)
 	if err != nil {
 		fmt.Println("Error while creating editor:", err)
@@ -560,36 +562,8 @@ func TestMain(m *testing.M) {
 
 	out := m.Run()
 
-	// Databases cleaning
-	appDB := s.AppsDB()
-	client := appDB.Client()
-
-	err = client.DestroyDB(context.Background(), appDB.Name())
-	if err != nil {
-		fmt.Println("Cannot remove test app DB")
-	}
-	err = client.DestroyDB(context.Background(), s.PendingVersDB().Name())
-	if err != nil {
-		fmt.Println("Cannot remove test pending version DB")
-	}
-	err = client.DestroyDB(context.Background(), s.VersDB().Name())
-	if err != nil {
-		fmt.Println("Cannot remove test version DB")
-	}
-
-	type editor struct {
-		ID  string `json:"_id,omitempty"`
-		Rev string `json:"_rev,omitempty"`
-	}
-	row := editorsDB.Get(context.Background(), "cozytesteditor")
-	var doc editor
-	err = row.ScanDoc(&doc)
-	if err != nil {
-		fmt.Println("Cannot remove test editor ")
-	}
-	_, err = editorsDB.Delete(context.Background(), doc.ID, doc.Rev)
-	if err != nil {
-		fmt.Println("Cannot remove test editor DB")
+	if err := config.CleanupTests(); err != nil {
+		fmt.Println("Error while cleaning:", err)
 	}
 
 	os.Exit(out)

@@ -153,5 +153,11 @@ func TestMain(m *testing.M) {
 	testStore = base.GlobalAssetStore
 	testDB = testStore.GetDB()
 
-	os.Exit(m.Run())
+	out := m.Run()
+
+	if err := config.CleanupTests(); err != nil {
+		fmt.Println("Error while cleaning:", err)
+	}
+
+	os.Exit(out)
 }

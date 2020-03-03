@@ -1068,7 +1068,8 @@ func (v *Version) RemoveAllAttachments(c *space.Space) error {
 
 // RemoveSpace deletes CouchDB databases and Swift container for this space.
 func RemoveSpace(s *space.Space) error {
-	// Removing the applications versions
+	// Removing the applications versions, to clean the assets in the
+	// __assets__ container.
 	var cursor int = 0
 	for cursor != -1 {
 		next, apps, err := GetAppsList(s, &AppsListOptions{
