@@ -56,13 +56,15 @@ func configureParameters() error {
 		return err
 	}
 	base.Config = base.ConfigParameters{
-		CleanEnabled:         viper.GetBool("conservation.enable_background_cleaning"),
-		CleanNbMajorVersions: viper.GetInt("conservation.major"),
-		CleanNbMinorVersions: viper.GetInt("conservation.minor"),
-		CleanNbMonths:        viper.GetInt("conservation.month"),
-		VirtualSpaces:        virtuals,
-		DomainSpaces:         viper.GetStringMapString("domain_space"),
-		TrustedDomains:       viper.GetStringMapStringSlice("trusted_domains"),
+		CleanEnabled: viper.GetBool("conservation.enable_background_cleaning"),
+		CleanParameters: base.CleanParameters{
+			NbMajor:  viper.GetInt("conservation.major"),
+			NbMinor:  viper.GetInt("conservation.minor"),
+			NbMonths: viper.GetInt("conservation.month"),
+		},
+		VirtualSpaces:  virtuals,
+		DomainSpaces:   viper.GetStringMapString("domain_space"),
+		TrustedDomains: viper.GetStringMapStringSlice("trusted_domains"),
 	}
 	return nil
 }

@@ -39,7 +39,7 @@ var minorFlag int
 var majorFlag int
 var durationFlag int
 var forceFlag bool
-var dryRunFlag bool
+var noDryRunFlag bool
 var editorAutoPublicationFlag bool
 var importDropFlag bool
 var infraMaintenanceFlag bool
@@ -134,7 +134,7 @@ func Root() *cobra.Command {
 	oldVersionsCmd.Flags().IntVar(&minorFlag, "minor", 2, "specify the maximum number of major versions to keep")
 	oldVersionsCmd.Flags().IntVar(&majorFlag, "major", 2, "specify the maximum number of minor versions for each major version to keep")
 	oldVersionsCmd.Flags().IntVar(&durationFlag, "duration", 2, "number of months to check")
-	oldVersionsCmd.Flags().BoolVar(&dryRunFlag, "no-dry-run", false, "do no dry run and removes the apps")
+	oldVersionsCmd.Flags().BoolVar(&noDryRunFlag, "no-dry-run", false, "do no dry run and removes the apps")
 
 	modifyAppCmd.Flags().StringVar(&appSpaceFlag, "space", "", "specify the application space")
 	modifyAppCmd.Flags().StringVar(&appDUCFlag, "data-usage-commitment", "", "Specify the data usage commitment: user_ciphered, user_reserved or none")

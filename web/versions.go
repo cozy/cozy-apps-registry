@@ -79,8 +79,7 @@ func createVersion(c echo.Context) (err error) {
 		if base.Config.CleanEnabled {
 			go func() {
 				err := registry.CleanOldVersions(space, ver.Slug, channelString,
-					base.Config.CleanNbMonths, base.Config.CleanNbMajorVersions,
-					base.Config.CleanNbMinorVersions, false)
+					base.Config.CleanParameters, registry.RealRun)
 				if err != nil {
 					log := logrus.WithFields(logrus.Fields{
 						"nspace":    "clean_version",

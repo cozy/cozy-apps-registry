@@ -3,18 +3,29 @@ package registry
 import (
 	"fmt"
 	"time"
+
+	"github.com/cozy/cozy-apps-registry/base"
+)
+
+// RunType is the type for telling if it's a dry run or a real one.
+type RunType bool
+
+const (
+	// DryRun will just simulate the job and tell what would happen with a real
+	// run.
+	DryRun RunType = true
+	// RealRun will really delete the old versions.
+	RealRun RunType = false
 )
 
 // CleanOldVersions removes a specific app version of a space
-// TODO use a struct for nbMonths, major and minor parameters
-// TODO use an enum for dryRun parameter
-func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major, minor int, dryRun bool) error {
+func CleanOldVersions(space *Space, appSlug, channel string, params base.CleanParameters, run RunType) error {
 	// Finding last versions of the app
-	versionsToKeepFromN, err := FindLastNVersions(space, appSlug, channel, major, minor)
+	versionsToKeepFromN, err := FindLastNVersions(space, appSlug, channel, params.NbMajor, params.NbMinor)
 	if err != nil {
 		return err
 	}
-	d := time.Now().AddDate(0, -nbMonths, 0)
+	d := time.Now().AddDate(0, -params.NbMonths, 0)
 
 	// Finding all the versions of apps from a date
 	versionsToKeepFromDate, err := FindLastsVersionsSince(space, appSlug, channel, d)
@@ -59,7 +70,7 @@ func CleanOldVersions(space *Space, appSlug, channel string, nbMonths int, major
 
 		if toExpire {
 			fmt.Printf("Removing %s\n", v.Slug+"/"+v.Version)
-			if dryRun {
+			if run == DryRun {
 				continue
 			}
 			err := v.Delete(space)

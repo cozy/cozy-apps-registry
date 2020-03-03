@@ -482,9 +482,7 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	if base.Config.CleanEnabled {
 		// Cleaning the old versions
 		go func() {
-			err := CleanOldVersions(c, release.Slug, channelString,
-				base.Config.CleanNbMonths, base.Config.CleanNbMajorVersions,
-				base.Config.CleanNbMinorVersions, false)
+			err := CleanOldVersions(c, release.Slug, channelString, base.Config.CleanParameters, RealRun)
 			if err != nil {
 				log := logrus.WithFields(logrus.Fields{
 					"nspace":    "clean_version",
