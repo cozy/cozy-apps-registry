@@ -16,6 +16,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-apps-registry/space"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -149,7 +150,7 @@ func jsonEndpoint(next echo.HandlerFunc) echo.HandlerFunc {
 func ensureSpace(spaceName string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			space, ok := registry.GetSpace(spaceName)
+			space, ok := space.GetSpace(spaceName)
 			if !ok {
 				return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("Space %q does not exist", spaceName))
 			}
@@ -159,18 +160,18 @@ func ensureSpace(spaceName string) echo.MiddlewareFunc {
 	}
 }
 
-func getSpace(c echo.Context) *registry.Space {
-	return c.Get(spaceKey).(*registry.Space)
+func getSpace(c echo.Context) *space.Space {
+	return c.Get(spaceKey).(*space.Space)
 }
 
-func getSpaceFromHost(c echo.Context) (*registry.Space, error) {
+func getSpaceFromHost(c echo.Context) (*space.Space, error) {
 	host := strings.Split(c.Request().Host, ":")[0]
 
 	if spaceName, ok := base.Config.DomainSpaces[host]; ok {
 		if spaceName == base.DefaultSpacePrefix.String() {
 			spaceName = ""
 		}
-		if space, ok := registry.GetSpace(spaceName); ok {
+		if space, ok := space.GetSpace(spaceName); ok {
 			return space, nil
 		}
 	}
@@ -351,7 +352,7 @@ func Router(addr string) *echo.Echo {
 	e.Use(middleware.BodyLimit("100K"))
 	e.Use(middleware.Recover())
 
-	for _, c := range registry.GetSpacesNames() {
+	for _, c := range space.GetSpacesNames() {
 		var groupName string
 		if c == "" {
 			groupName = "/registry"

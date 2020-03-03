@@ -10,7 +10,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/cache"
-	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/cozy/cozy-apps-registry/storage"
 	"github.com/go-kivik/couchdb/v3/chttp"
 	"github.com/go-kivik/kivik/v3"
@@ -18,6 +18,8 @@ import (
 	"github.com/ncw/swift"
 	"github.com/spf13/viper"
 )
+
+const editorsDBSuffix = "editors"
 
 // SetupServices connects the cache, database and storage services.
 func SetupServices() error {
@@ -184,12 +186,23 @@ func configureCouch() error {
 	if err != nil {
 		return fmt.Errorf("Could not reach CouchDB: %w", err)
 	}
+	base.DBClient = client
 
-	editorsDB, err := registry.InitGlobalClient(
-		viper.GetString("couchdb.url"),
-		viper.GetString("couchdb.user"),
-		viper.GetString("couchdb.password"))
+	editorsDBName := base.DBName(editorsDBSuffix)
+	exists, err := client.DBExists(context.Background(), editorsDBName)
 	if err != nil {
+		return err
+	}
+	if !exists {
+		fmt.Printf("Creating database %q...", editorsDBName)
+		if err = client.CreateDB(context.Background(), editorsDBName); err != nil {
+			return err
+		}
+		fmt.Println("ok.")
+	}
+
+	editorsDB := client.DB(context.Background(), editorsDBName)
+	if err = editorsDB.Err(); err != nil {
 		return fmt.Errorf("Could not reach CouchDB: %s", err)
 	}
 	vault := auth.NewCouchDBVault(editorsDB)
@@ -231,7 +244,7 @@ func PrepareSpaces() error {
 	if len(spaceNames) == 0 {
 		spaceNames = []string{""}
 	}
-	registry.Spaces = make(map[string]*registry.Space)
+	space.Spaces = make(map[string]*space.Space)
 
 	if ok, name := checkSpaceVspaceOverlap(spaceNames, viper.GetStringMap("virtual_spaces")); ok {
 		return fmt.Errorf("%q is defined as a space and a virtual space (check your config file)", name)
@@ -245,7 +258,7 @@ func PrepareSpaces() error {
 		}
 
 		// Register the space in registry spaces list and prepare CouchDB.
-		if err := registry.RegisterSpace(spaceName); err != nil {
+		if err := space.Register(spaceName); err != nil {
 			return err
 		}
 

@@ -536,59 +536,26 @@ func TestRemoveSpace(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	config.SetDefaults()
+	viper.Set("spaces", []string{"__default__", testSpaceName})
+
 	if err := config.ReadFile("", "cozy-registry-test"); err != nil {
 		fmt.Println("Cannot load test config:", err)
 	}
-
-	// TODO remove those lines
-	viper.Set("swift.username", "swifttest")
-	viper.Set("swift.api_key", "swifttest")
-	viper.Set("swift.auth_url", "localhost:12345")
 
 	if err := config.SetupForTests(); err != nil {
 		fmt.Println("Cannot configure the services:", err)
 		os.Exit(1)
 	}
 
-	// Ensure kivik is launched
-	url := viper.GetString("couchdb.url")
-	user := viper.GetString("couchdb.user")
-	pass := viper.GetString("couchdb.password")
-	editorsDB, err := InitGlobalClient(url, user, pass)
-	if err != nil {
-		fmt.Println("Error accessing CouchDB:", err)
-	}
-
-	// Preparing test space
-	if err := RegisterSpace(testSpaceName); err != nil {
-		fmt.Println("Error registering space:", err)
-	}
-
-	s, ok := GetSpace(testSpaceName)
-	if ok {
-		db := s.VersDB()
-		if err := CreateVersionsDateView(db); err != nil {
-			fmt.Println("Error creating views:", err)
-		}
-	}
-
-	// Creating a default editor
-	vault := auth.NewCouchDBVault(editorsDB)
-	auth.Editors = auth.NewEditorRegistry(vault)
-	editor, err = auth.Editors.CreateEditorWithoutPublicKey("cozytesteditor", true)
-	if err != nil {
-		fmt.Println("Error while creating editor:", err)
-	}
-
-	// Global asset store
-	base.GlobalAssetStore, err = asset.NewStore(url, user, pass)
-	if err != nil {
-		fmt.Printf("Could not reach CouchDB: %s", err)
-	}
-
 	if err := config.PrepareSpaces(); err != nil {
 		fmt.Println("Cannot prepare the spaces:", err)
 		os.Exit(1)
+	}
+
+	// Creating a default editor
+	editor, err = auth.Editors.CreateEditorWithoutPublicKey("cozytesteditor", true)
+	if err != nil {
+		fmt.Println("Error while creating editor:", err)
 	}
 
 	out := m.Run()

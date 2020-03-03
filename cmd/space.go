@@ -6,6 +6,7 @@ import (
 
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/spf13/cobra"
 )
 
@@ -18,19 +19,19 @@ var rmSpaceCmd = &cobra.Command{
 		if len(args) != 1 {
 			return cmd.Usage()
 		}
-		space := args[0]
+		spaceName := args[0]
 
-		if config.IsVirtualSpace(space) {
-			return fmt.Errorf("%q is a virtual space, just remove the entry from your config file", space)
+		if config.IsVirtualSpace(spaceName) {
+			return fmt.Errorf("%q is a virtual space, just remove the entry from your config file", spaceName)
 		}
 
-		s, ok := registry.GetSpace(space)
+		s, ok := space.GetSpace(spaceName)
 		if !ok {
-			return fmt.Errorf("cannot find space %q", space)
+			return fmt.Errorf("cannot find space %q", spaceName)
 		}
 
 		if !forceFlag {
-			fmt.Printf("Warning: You are going to remove space %s and all its applications. This action is irreversible.\nPlease enter the space name to confirm: ", space)
+			fmt.Printf("Warning: You are going to remove space %s and all its applications. This action is irreversible.\nPlease enter the space name to confirm: ", spaceName)
 			var response string
 			_, err := fmt.Scanln(&response)
 			if err != nil {

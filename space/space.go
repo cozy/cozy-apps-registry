@@ -1,8 +1,9 @@
-package registry
+package space
 
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/go-kivik/kivik/v3"
@@ -13,15 +14,22 @@ const (
 	appsDBSuffix        = "apps"
 	versDBSuffix        = "versions"
 	pendingVersDBSuffix = "pending"
-	editorsDBSuffix     = "editors"
 )
 
-var appsIndexes = map[string][]string{
+var validSpaceReg = regexp.MustCompile(`^[a-z]+[a-z0-9\_\-]*$`)
+
+// AppsIndexes is the list of the mango indexes that can be used.
+var AppsIndexes = map[string][]string{
 	"slug":        {"slug", "editor", "type"},
 	"type":        {"type", "slug", "editor"},
 	"editor":      {"editor", "slug", "type"},
 	"created_at":  {"created_at", "slug", "editor", "type"},
 	"maintenance": {"maintenance_activated"},
+}
+
+// AppIndexName returns the long name of the index.
+func AppIndexName(name string) string {
+	return "apps-index-by-" + name + "-v2"
 }
 
 // Space is a way to regroup applications that are available to the same cozy
@@ -72,19 +80,16 @@ func (s *Space) init() (err error) {
 		}
 	}
 
-	for name, fields := range appsIndexes {
-		err = s.AppsDB().CreateIndex(context.Background(), appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
+	for name, fields := range AppsIndexes {
+		idx := AppIndexName(name)
+		err = s.AppsDB().CreateIndex(context.Background(), idx, idx, echo.Map{"fields": fields})
 		if err != nil {
-			err = fmt.Errorf("Error while creating index %q: %s", appIndexName(name), err)
+			err = fmt.Errorf("Error while creating index %q: %w", idx, err)
 			return
 		}
 	}
 
 	return CreateVersionsDateView(s.VersDB())
-}
-
-func appIndexName(name string) string {
-	return "apps-index-by-" + name + "-v2"
 }
 
 // Clone takes an optionnal prefix parameter
@@ -129,66 +134,11 @@ func (s *Space) dbName(suffix string) string {
 	return base.DBName(name)
 }
 
-// RemoveSpace deletes CouchDB databases and Swift container for this space.
-func RemoveSpace(s *Space) error {
-	// Removing the applications versions
-	var cursor int = 0
-	for cursor != -1 {
-		next, apps, err := GetAppsList(s, &AppsListOptions{
-			Limit:                200,
-			Cursor:               cursor,
-			LatestVersionChannel: Stable,
-			VersionsChannel:      Dev,
-		})
-
-		if err != nil {
-			return err
-		}
-		cursor = next
-
-		for _, app := range apps { // Iterate over 200 apps
-			// Skipping app with no versions
-			if !app.Versions.HasVersions {
-				continue
-			}
-
-			for _, version := range app.Versions.GetAll() {
-				v, err := FindVersion(s, app.Slug, version)
-				if err != nil {
-					continue
-				}
-				fmt.Printf("Removing %s/%s\n", v.Slug, v.Version)
-				err = v.Delete(s)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	// Removing swift container
-	prefix := s.GetPrefix()
-	if err := base.Storage.EnsureDeleted(prefix); err != nil {
-		return err
-	}
-
-	// Removing databases
-	if err := base.DBClient.DestroyDB(context.Background(), s.PendingVersDB().Name()); err != nil {
-		return err
-	}
-
-	if err := base.DBClient.DestroyDB(context.Background(), s.VersDB().Name()); err != nil {
-		return err
-	}
-
-	return base.DBClient.DestroyDB(context.Background(), s.AppsDB().Name())
-}
-
 // Spaces is a global map of name -> space.
 var Spaces map[string]*Space
 
-// RegisterSpace adds a space to the Spaces map.
-func RegisterSpace(name string) error {
+// Register adds a space to the Spaces map, and initializes it.
+func Register(name string) error {
 	if name != "" && !validSpaceReg.MatchString(name) {
 		return fmt.Errorf("Space named %q contains invalid characters", name)
 	}

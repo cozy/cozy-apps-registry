@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cozy/cozy-apps-registry/base"
+	"github.com/cozy/cozy-apps-registry/space"
 )
 
 // RunType is the type for telling if it's a dry run or a real one.
@@ -19,7 +20,7 @@ const (
 )
 
 // CleanOldVersions removes a specific app version of a space
-func CleanOldVersions(space *Space, appSlug, channel string, params base.CleanParameters, run RunType) error {
+func CleanOldVersions(space *space.Space, appSlug, channel string, params base.CleanParameters, run RunType) error {
 	// Finding last versions of the app
 	versionsToKeepFromN, err := FindLastNVersions(space, appSlug, channel, params.NbMajor, params.NbMinor)
 	if err != nil {
