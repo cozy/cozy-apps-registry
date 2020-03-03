@@ -65,10 +65,7 @@ var versionClient = http.Client{
 var (
 	// TODO move those globals to base
 	Client *kivik.Client
-
-	globalEditorsDB *kivik.DB
-
-	ctx = context.Background()
+	ctx    = context.Background()
 )
 
 type AppOptions struct {
@@ -235,12 +232,8 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 		fmt.Println("ok.")
 	}
 
-	globalEditorsDB = Client.DB(ctx, editorsDBName)
-	if err = globalEditorsDB.Err(); err != nil {
-		return
-	}
-
-	editorsDB = globalEditorsDB
+	editorsDB = Client.DB(ctx, editorsDBName)
+	err = editorsDB.Err()
 	return
 }
 
