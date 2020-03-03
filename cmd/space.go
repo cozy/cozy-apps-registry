@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var rmSpaceCmd = &cobra.Command{
@@ -20,11 +20,8 @@ var rmSpaceCmd = &cobra.Command{
 		}
 		space := args[0]
 
-		// Check the space is not a virtual one
-		for _, vkey := range getVspaceKeys(viper.GetStringMap("virtual_spaces")) {
-			if space == vkey {
-				return fmt.Errorf("%q is a virtual space, just remove the entry from your config file", space)
-			}
+		if config.IsVirtualSpace(space) {
+			return fmt.Errorf("%q is a virtual space, just remove the entry from your config file", space)
 		}
 
 		s, ok := registry.GetSpace(space)

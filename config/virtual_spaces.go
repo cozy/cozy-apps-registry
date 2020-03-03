@@ -7,6 +7,38 @@ import (
 	"github.com/spf13/viper"
 )
 
+// IsVirtualSpace returns true if the given space name matches a virtual space.
+func IsVirtualSpace(spaceName string) bool {
+	for _, vkey := range getVspaceKeys(viper.GetStringMap("virtual_spaces")) {
+		if spaceName == vkey {
+			return true
+		}
+	}
+	return false
+}
+
+// checkSpaceVspaceOverlap checks if a space and a vspace holds the same name
+func checkSpaceVspaceOverlap(spaces []string, vspaces map[string]interface{}) (bool, string) {
+	// Retreiving vspaces keys
+	vspaceKeys := getVspaceKeys(vspaces)
+	for _, vspace := range vspaceKeys {
+		for _, space := range spaces {
+			if vspace == space {
+				return true, vspace
+			}
+		}
+	}
+	return false, ""
+}
+
+func getVspaceKeys(vspaces map[string]interface{}) []string {
+	vspaceKeys := make([]string, 0, len(vspaces))
+	for k := range vspaces {
+		vspaceKeys = append(vspaceKeys, k)
+	}
+	return vspaceKeys
+}
+
 func getVirtualSpaces() (map[string]base.VirtualSpace, error) {
 	virtuals := make(map[string]base.VirtualSpace)
 	for name, value := range viper.GetStringMap("virtual_spaces") {

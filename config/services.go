@@ -2,9 +2,13 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/cozy/cozy-apps-registry/asset"
+	"github.com/cozy/cozy-apps-registry/auth"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/cache"
+	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/storage"
 	"github.com/go-redis/redis/v7"
 	"github.com/ncw/swift"
@@ -22,6 +26,9 @@ func SetupServices() error {
 	}
 
 	base.DatabaseNamespace = viper.GetString("couchdb.prefix")
+	if err := configureCouch(); err != nil {
+		return err
+	}
 
 	// TODO allow to use a local FS storage
 	sc, err := initSwiftConnection()
@@ -40,6 +47,9 @@ func SetupForTests() error {
 	}
 
 	base.DatabaseNamespace = "cozy-registry-test"
+	if err := configureCouch(); err != nil {
+		return err
+	}
 
 	configureLRUCache()
 
@@ -162,13 +172,56 @@ func configureLRUCache() {
 	base.ListVersionsCache = cache.NewLRUCache(256, base.DefaultCacheTTL)
 }
 
+func configureCouch() error {
+	editorsDB, err := registry.InitGlobalClient(
+		viper.GetString("couchdb.url"),
+		viper.GetString("couchdb.user"),
+		viper.GetString("couchdb.password"))
+	if err != nil {
+		return fmt.Errorf("Could not reach CouchDB: %s", err)
+	}
+
+	store, err := asset.NewStore(
+		viper.GetString("couchdb.url"),
+		viper.GetString("couchdb.user"),
+		viper.GetString("couchdb.password"))
+	if err != nil {
+		return fmt.Errorf("Could not reach CouchDB: %s", err)
+	}
+	base.GlobalAssetStore = store
+
+	vault := auth.NewCouchDBVault(editorsDB)
+	auth.Editors = auth.NewEditorRegistry(vault)
+	return nil
+}
+
 // PrepareSpaces makes sure that the CouchDB databases and Swift containers for
 // the spaces exist and have their index/views.
 func PrepareSpaces() error {
-	spacesNames := viper.GetStringSlice("spaces")
-	for _, space := range spacesNames {
-		// TODO we should have a method to convert a space name to a prefix
-		if err := base.Storage.EnsureExists(base.Prefix(space)); err != nil {
+	spaceNames := viper.GetStringSlice("spaces")
+	if len(spaceNames) == 0 {
+		spaceNames = []string{""}
+	}
+	registry.Spaces = make(map[string]*registry.Space)
+
+	if ok, name := checkSpaceVspaceOverlap(spaceNames, viper.GetStringMap("virtual_spaces")); ok {
+		return fmt.Errorf("%q is defined as a space and a virtual space (check your config file)", name)
+	}
+
+	for _, spaceName := range spaceNames {
+		spaceName = strings.TrimSpace(spaceName)
+		prefix := base.Prefix(spaceName)
+		if prefix == base.DefaultSpacePrefix {
+			spaceName = ""
+		}
+
+		// Register the space in registry spaces list and prepare CouchDB.
+		if err := registry.RegisterSpace(spaceName); err != nil {
+			return err
+		}
+
+		// Prepare the storage.
+		if err := base.Storage.EnsureExists(prefix); err != nil {
 			return err
 		}
 	}

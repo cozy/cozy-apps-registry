@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/go-kivik/kivik/v3"
@@ -29,6 +28,7 @@ var appsIndexes = map[string][]string{
 // instances. For example, it can make sense to have a space for the
 // self-hosted users, with dedicated apps and konnectors.
 type Space struct {
+	// TODO rename Prefix in Name
 	Prefix        string
 	dbApps        *kivik.DB
 	dbVers        *kivik.DB
@@ -80,7 +80,7 @@ func (s *Space) init() (err error) {
 		}
 	}
 
-	return
+	return CreateVersionsDateView(s.VersDB())
 }
 
 func appIndexName(name string) string {
@@ -189,16 +189,8 @@ var Spaces map[string]*Space
 
 // RegisterSpace adds a space to the Spaces map.
 func RegisterSpace(name string) error {
-	if Spaces == nil {
-		Spaces = make(map[string]*Space)
-	}
-	name = strings.TrimSpace(name)
-	if name == base.DefaultSpacePrefix.String() {
-		name = ""
-	} else {
-		if !validSpaceReg.MatchString(name) {
-			return fmt.Errorf("Space named %q contains invalid characters", name)
-		}
+	if name != "" && !validSpaceReg.MatchString(name) {
+		return fmt.Errorf("Space named %q contains invalid characters", name)
 	}
 	if _, ok := Spaces[name]; ok {
 		return fmt.Errorf("Space %q already registered", name)
