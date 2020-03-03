@@ -65,7 +65,7 @@ func findApp(c *Space, appSlug string) (*App, error) {
 	var err error
 
 	db := c.AppsDB()
-	row := db.Get(ctx, getAppID(appSlug))
+	row := db.Get(context.Background(), getAppID(appSlug))
 	if err = row.ScanDoc(&doc); err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			return nil, ErrAppNotFound
@@ -236,7 +236,7 @@ func findVersion(appSlug, version string, dbs ...*kivik.DB) (*Version, error) {
 	}
 
 	for _, db := range dbs {
-		row := db.Get(ctx, getVersionID(appSlug, version))
+		row := db.Get(context.Background(), getVersionID(appSlug, version))
 
 		var doc *Version
 		err := row.ScanDoc(&doc)
@@ -271,7 +271,7 @@ func FindVersion(c *Space, appSlug, version string) (*Version, error) {
 }
 
 func versionViewQuery(c *Space, db *kivik.DB, appSlug, channel string, opts map[string]interface{}) (*kivik.Rows, error) {
-	rows, err := db.Query(ctx, versViewDocName(appSlug), channel, opts)
+	rows, err := db.Query(context.Background(), versViewDocName(appSlug), channel, opts)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
 			if err = createVersionsViews(c, db, appSlug); err != nil {
@@ -297,7 +297,7 @@ func FindLastsVersionsSince(c *Space, appSlug, channel string, date time.Time) (
 		"include_docs": true,
 	}
 
-	rows, err := db.Query(ctx, "by-date", channel, options)
+	rows, err := db.Query(context.Background(), "by-date", channel, options)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +603,7 @@ type AppsListOptions struct {
 
 func GetPendingVersions(c *Space) ([]*Version, error) {
 	db := c.dbPendingVers
-	rows, err := db.AllDocs(ctx, map[string]interface{}{
+	rows, err := db.AllDocs(context.Background(), map[string]interface{}{
 		"include_docs": true,
 	})
 	if err != nil {
@@ -722,7 +722,7 @@ func GetAppsList(c *Space, opts *AppsListOptions) (int, []*App, error) {
   "limit": %s
 }`, useIndex, cursor, limit)
 
-	rows, err := db.Find(ctx, req)
+	rows, err := db.Find(context.Background(), req)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -883,7 +883,7 @@ func GetMaintainanceApps(c *Space) ([]*App, error) {
   "selector": {"maintenance_activated": true},
   "limit": 1000
 }`, useIndex)
-	rows, err := c.dbApps.Find(ctx, req)
+	rows, err := c.dbApps.Find(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}

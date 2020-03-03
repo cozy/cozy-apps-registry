@@ -2,6 +2,7 @@ package registry
 
 import (
 	"archive/tar"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -520,15 +521,15 @@ func TestRemoveSpace(t *testing.T) {
 
 	// Assert no databases
 	client := s.AppsDB().Client()
-	ok, err := client.DBExists(ctx, s.AppsDB().Name())
+	ok, err := client.DBExists(context.Background(), s.AppsDB().Name())
 	assert.NoError(t, err)
 	assert.False(t, ok)
 
-	ok, err = client.DBExists(ctx, s.PendingVersDB().Name())
+	ok, err = client.DBExists(context.Background(), s.PendingVersDB().Name())
 	assert.NoError(t, err)
 	assert.False(t, ok)
 
-	ok, err = client.DBExists(ctx, s.VersDB().Name())
+	ok, err = client.DBExists(context.Background(), s.VersDB().Name())
 	assert.NoError(t, err)
 	assert.False(t, ok)
 }
@@ -596,15 +597,15 @@ func TestMain(m *testing.M) {
 	appDB := s.AppsDB()
 	client := appDB.Client()
 
-	err = client.DestroyDB(ctx, appDB.Name())
+	err = client.DestroyDB(context.Background(), appDB.Name())
 	if err != nil {
 		fmt.Println("Cannot remove test app DB")
 	}
-	err = client.DestroyDB(ctx, s.PendingVersDB().Name())
+	err = client.DestroyDB(context.Background(), s.PendingVersDB().Name())
 	if err != nil {
 		fmt.Println("Cannot remove test pending version DB")
 	}
-	err = client.DestroyDB(ctx, s.VersDB().Name())
+	err = client.DestroyDB(context.Background(), s.VersDB().Name())
 	if err != nil {
 		fmt.Println("Cannot remove test version DB")
 	}
@@ -613,13 +614,13 @@ func TestMain(m *testing.M) {
 		ID  string `json:"_id,omitempty"`
 		Rev string `json:"_rev,omitempty"`
 	}
-	row := editorsDB.Get(ctx, "cozytesteditor")
+	row := editorsDB.Get(context.Background(), "cozytesteditor")
 	var doc editor
 	err = row.ScanDoc(&doc)
 	if err != nil {
 		fmt.Println("Cannot remove test editor ")
 	}
-	_, err = editorsDB.Delete(ctx, doc.ID, doc.Rev)
+	_, err = editorsDB.Delete(context.Background(), doc.ID, doc.Rev)
 	if err != nil {
 		fmt.Println("Cannot remove test editor DB")
 	}

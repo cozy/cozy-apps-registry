@@ -44,13 +44,13 @@ func (s *Space) init() (err error) {
 	for _, suffix := range []string{appsDBSuffix, versDBSuffix, pendingVersDBSuffix} {
 		var ok bool
 		dbName := s.dbName(suffix)
-		ok, err = Client.DBExists(ctx, dbName)
+		ok, err = Client.DBExists(context.Background(), dbName)
 		if err != nil {
 			return
 		}
 		if !ok {
 			fmt.Printf("Creating database %q...", dbName)
-			if err = Client.CreateDB(ctx, dbName); err != nil {
+			if err = Client.CreateDB(context.Background(), dbName); err != nil {
 				fmt.Println("failed")
 				return err
 			}
@@ -73,7 +73,7 @@ func (s *Space) init() (err error) {
 	}
 
 	for name, fields := range appsIndexes {
-		err = s.AppsDB().CreateIndex(ctx, appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
+		err = s.AppsDB().CreateIndex(context.Background(), appIndexName(name), appIndexName(name), echo.Map{"fields": fields})
 		if err != nil {
 			err = fmt.Errorf("Error while creating index %q: %s", appIndexName(name), err)
 			return
@@ -173,15 +173,15 @@ func RemoveSpace(s *Space) error {
 	}
 
 	// Removing databases
-	if err := Client.DestroyDB(ctx, s.PendingVersDB().Name()); err != nil {
+	if err := Client.DestroyDB(context.Background(), s.PendingVersDB().Name()); err != nil {
 		return err
 	}
 
-	if err := Client.DestroyDB(ctx, s.VersDB().Name()); err != nil {
+	if err := Client.DestroyDB(context.Background(), s.VersDB().Name()); err != nil {
 		return err
 	}
 
-	return Client.DestroyDB(ctx, s.AppsDB().Name())
+	return Client.DestroyDB(context.Background(), s.AppsDB().Name())
 }
 
 // Spaces is a global map of name -> space.

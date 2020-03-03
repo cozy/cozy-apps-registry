@@ -65,7 +65,6 @@ var versionClient = http.Client{
 var (
 	// TODO move those globals to base
 	Client *kivik.Client
-	ctx    = context.Background()
 )
 
 type AppOptions struct {
@@ -206,7 +205,7 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 	}
 
 	if user != "" {
-		err = Client.Authenticate(ctx, &chttp.BasicAuth{
+		err = Client.Authenticate(context.Background(), &chttp.BasicAuth{
 			Username: user,
 			Password: pass,
 		})
@@ -220,19 +219,19 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 	clientURL.RawPath = ""
 
 	editorsDBName := base.DBName(editorsDBSuffix)
-	exists, err := Client.DBExists(ctx, editorsDBName)
+	exists, err := Client.DBExists(context.Background(), editorsDBName)
 	if err != nil {
 		return
 	}
 	if !exists {
 		fmt.Printf("Creating database %q...", editorsDBName)
-		if err = Client.CreateDB(ctx, editorsDBName); err != nil {
+		if err = Client.CreateDB(context.Background(), editorsDBName); err != nil {
 			return nil, err
 		}
 		fmt.Println("ok.")
 	}
 
-	editorsDB = Client.DB(ctx, editorsDBName)
+	editorsDB = Client.DB(context.Background(), editorsDBName)
 	err = editorsDB.Err()
 	return
 }
@@ -311,7 +310,7 @@ func CreateApp(c *Space, opts *AppOptions, editor *auth.Editor) (*App, error) {
 	app.Editor = editor.Name()
 	app.CreatedAt = now
 	app.DataUsageCommitment, app.DataUsageCommitmentBy = defaultDataUserCommitment(app, opts)
-	_, app.Rev, err = db.CreateDoc(ctx, app)
+	_, app.Rev, err = db.CreateDoc(context.Background(), app)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +334,7 @@ func ModifyApp(c *Space, appSlug string, opts AppOptions) (*App, error) {
 	if opts.DataUsageCommitmentBy != nil {
 		app.DataUsageCommitmentBy = *opts.DataUsageCommitmentBy
 	}
-	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	_, err = c.AppsDB().Put(context.Background(), app.ID, app)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +351,7 @@ func ActivateMaintenanceApp(c *Space, appSlug string, opts MaintenanceOptions) e
 	}
 	app.MaintenanceActivated = true
 	app.MaintenanceOptions = &opts
-	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	_, err = c.AppsDB().Put(context.Background(), app.ID, app)
 	return err
 }
 
@@ -363,7 +362,7 @@ func DeactivateMaintenanceApp(c *Space, appSlug string) error {
 	}
 	app.MaintenanceActivated = false
 	app.MaintenanceOptions = nil
-	_, err = c.AppsDB().Put(ctx, app.ID, app)
+	_, err = c.AppsDB().Put(context.Background(), app.ID, app)
 	return err
 }
 
@@ -391,7 +390,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	ver.Editor = app.Editor
 
 	var verID string
-	verID, ver.Rev, err = db.CreateDoc(ctx, ver)
+	verID, ver.Rev, err = db.CreateDoc(context.Background(), ver)
 	if err != nil {
 		return err
 	}
@@ -442,7 +441,7 @@ func createVersion(c *Space, db *kivik.DB, ver *Version, attachments []*kivik.At
 	if len(atts) > 0 {
 		ver.AttachmentReferences = atts
 	}
-	_, err = db.Put(ctx, verID, ver, nil)
+	_, err = db.Put(context.Background(), verID, ver, nil)
 	return err
 }
 
@@ -482,7 +481,7 @@ func ApprovePendingVersion(c *Space, pending *Version, app *App) (*Version, erro
 	}
 
 	// Delete only at the end, to avoid data loss in case of error
-	if _, err := db.Delete(ctx, pending.ID, pending.Rev); err != nil {
+	if _, err := db.Delete(context.Background(), pending.ID, pending.Rev); err != nil {
 		return nil, err
 	}
 
