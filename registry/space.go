@@ -44,19 +44,19 @@ func (s *Space) init() (err error) {
 	for _, suffix := range []string{appsDBSuffix, versDBSuffix, pendingVersDBSuffix} {
 		var ok bool
 		dbName := s.dbName(suffix)
-		ok, err = Client.DBExists(context.Background(), dbName)
+		ok, err = base.DBClient.DBExists(context.Background(), dbName)
 		if err != nil {
 			return
 		}
 		if !ok {
 			fmt.Printf("Creating database %q...", dbName)
-			if err = Client.CreateDB(context.Background(), dbName); err != nil {
+			if err = base.DBClient.CreateDB(context.Background(), dbName); err != nil {
 				fmt.Println("failed")
 				return err
 			}
 			fmt.Println("ok.")
 		}
-		db := Client.DB(context.Background(), dbName)
+		db := base.DBClient.DB(context.Background(), dbName)
 		if err = db.Err(); err != nil {
 			return
 		}
@@ -173,15 +173,15 @@ func RemoveSpace(s *Space) error {
 	}
 
 	// Removing databases
-	if err := Client.DestroyDB(context.Background(), s.PendingVersDB().Name()); err != nil {
+	if err := base.DBClient.DestroyDB(context.Background(), s.PendingVersDB().Name()); err != nil {
 		return err
 	}
 
-	if err := Client.DestroyDB(context.Background(), s.VersDB().Name()); err != nil {
+	if err := base.DBClient.DestroyDB(context.Background(), s.VersDB().Name()); err != nil {
 		return err
 	}
 
-	return Client.DestroyDB(context.Background(), s.AppsDB().Name())
+	return base.DBClient.DestroyDB(context.Background(), s.AppsDB().Name())
 }
 
 // Spaces is a global map of name -> space.

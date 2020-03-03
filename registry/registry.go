@@ -62,11 +62,6 @@ var versionClient = http.Client{
 	Timeout: 30 * time.Second,
 }
 
-var (
-	// TODO move those globals to base
-	Client *kivik.Client
-)
-
 type AppOptions struct {
 	Slug   string `json:"slug"`
 	Editor string `json:"editor"`
@@ -199,13 +194,14 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 	}
 	u.User = nil
 
-	Client, err = kivik.New("couch", u.String())
+	var client *kivik.Client
+	client, err = kivik.New("couch", u.String())
 	if err != nil {
 		return
 	}
 
 	if user != "" {
-		err = Client.Authenticate(context.Background(), &chttp.BasicAuth{
+		err = client.Authenticate(context.Background(), &chttp.BasicAuth{
 			Username: user,
 			Password: pass,
 		})
@@ -213,25 +209,22 @@ func InitGlobalClient(addr, user, pass string) (editorsDB *kivik.DB, err error) 
 			return
 		}
 	}
-
-	clientURL := u
-	clientURL.Path = ""
-	clientURL.RawPath = ""
+	base.DBClient = client
 
 	editorsDBName := base.DBName(editorsDBSuffix)
-	exists, err := Client.DBExists(context.Background(), editorsDBName)
+	exists, err := client.DBExists(context.Background(), editorsDBName)
 	if err != nil {
 		return
 	}
 	if !exists {
 		fmt.Printf("Creating database %q...", editorsDBName)
-		if err = Client.CreateDB(context.Background(), editorsDBName); err != nil {
+		if err = client.CreateDB(context.Background(), editorsDBName); err != nil {
 			return nil, err
 		}
 		fmt.Println("ok.")
 	}
 
-	editorsDB = Client.DB(context.Background(), editorsDBName)
+	editorsDB = client.DB(context.Background(), editorsDBName)
 	err = editorsDB.Err()
 	return
 }

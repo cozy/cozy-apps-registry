@@ -30,7 +30,7 @@ func (db *couchDb) bulkImport() error {
 	fmt.Printf("Bulk import %d CouchDB documents into %s\n", len(docs), db.db)
 
 	ctx := context.Background()
-	c := registry.Client.DB(ctx, db.db)
+	c := base.DBClient.DB(ctx, db.db)
 	_, err := c.BulkDocs(ctx, docs)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func cleanCouch() error {
 	for _, db := range couchDatabases() {
 		name := db.Name()
 		fmt.Printf("  Clean CouchDB %s\n", name)
-		if err := registry.Client.DestroyDB(context.Background(), name); err != nil {
+		if err := base.DBClient.DestroyDB(context.Background(), name); err != nil {
 			return err
 		}
 	}
