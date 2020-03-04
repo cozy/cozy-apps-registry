@@ -691,19 +691,19 @@ func GetAppsList(c *space.Space, opts *AppsListOptions) (int, []*App, error) {
 		switch name {
 		case "tags", "locales":
 			tags := strings.Split(val, ",")
-			selector += string(sprintfJSON(`%s: {"$all": %s}`, name, tags))
+			selector += string(base.SprintfJSON(`%s: {"$all": %s}`, name, tags))
 		case "select":
 			slugs := strings.Split(val, ",")
-			selector += string(sprintfJSON(`"slug": {"$in": %s}`, slugs))
+			selector += string(base.SprintfJSON(`"slug": {"$in": %s}`, slugs))
 		case "reject":
 			slugs := strings.Split(val, ",")
-			selector += string(sprintfJSON(`"slug": {"$nin": %s}`, slugs))
+			selector += string(base.SprintfJSON(`"slug": {"$nin": %s}`, slugs))
 		default:
-			selector += string(sprintfJSON("%s: %s", name, val))
+			selector += string(base.SprintfJSON("%s: %s", name, val))
 		}
 	}
 	if selector == "" {
-		selector = string(sprintfJSON(`%s: {"$gt": null}`, sortField))
+		selector = string(base.SprintfJSON(`%s: {"$gt": null}`, sortField))
 	}
 
 	if opts.Limit == 0 {
@@ -715,7 +715,7 @@ func GetAppsList(c *space.Space, opts *AppsListOptions) (int, []*App, error) {
 	designsCount := len(space.AppsIndexes)
 	limit := opts.Limit + designsCount + 1
 	cursor := opts.Cursor
-	req := sprintfJSON(`{
+	req := base.SprintfJSON(`{
   "use_index": %s,
   "selector": {`+selector+`},
   "skip": %s,
@@ -879,7 +879,7 @@ func GetVersionsLatestFromCache(c *space.Space, channelStr string, apps []*App) 
 
 func GetMaintainanceApps(c *space.Space) ([]*App, error) {
 	useIndex := space.AppIndexName("maintenance")
-	req := sprintfJSON(`{
+	req := base.SprintfJSON(`{
   "use_index": %s,
   "selector": {"maintenance_activated": true},
   "limit": 1000
