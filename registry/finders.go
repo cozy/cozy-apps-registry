@@ -3,8 +3,6 @@ package registry
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -192,21 +190,13 @@ func FindVersionAttachment(c *space.Space, appSlug, version, filename string) (*
 func MoveAssetToGlobalDatabase(c *space.Space, ver *Version, content []byte, filename, contentType string) error {
 	globalFilepath := filepath.Join(c.Prefix, ver.Slug, ver.Version)
 
-	h := sha256.New()
-	_, err := h.Write(content)
-	if err != nil {
-		return err
-	}
-	shasum := h.Sum(nil)
-
 	a := &base.Asset{
 		Name:        filename,
-		Shasum:      hex.EncodeToString(shasum),
 		AppSlug:     ver.Slug,
 		ContentType: contentType,
 	}
 
-	err = base.GlobalAssetStore.Add(a, bytes.NewReader(content), globalFilepath)
+	err := base.GlobalAssetStore.Add(a, bytes.NewReader(content), globalFilepath)
 	if err != nil {
 		return err
 	}
@@ -215,7 +205,7 @@ func MoveAssetToGlobalDatabase(c *space.Space, ver *Version, content []byte, fil
 	if ver.AttachmentReferences == nil {
 		ver.AttachmentReferences = make(map[string]string)
 	}
-	ver.AttachmentReferences[filename] = hex.EncodeToString(shasum)
+	ver.AttachmentReferences[filename] = a.Shasum
 
 	db := c.VersDB()
 	_, err = db.Put(context.Background(), ver.ID, ver)

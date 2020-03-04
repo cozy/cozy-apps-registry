@@ -357,32 +357,20 @@ func createVersion(c *space.Space, db *kivik.DB, ver *Version, attachments []*ki
 	source := asset.ComputeSource(c.GetPrefix(), ver.Slug, ver.Version)
 	atts := map[string]string{}
 	for _, att := range attachments {
-		var buf = new(bytes.Buffer)
-
-		// Sha256
-		h := sha256.New()
-		content := io.TeeReader(att.Content, buf)
-		_, err = io.Copy(h, content)
-		if err != nil {
-			return err
-		}
-		shasum := h.Sum(nil)
-
 		// Adding asset to the global asset store
 		a := &base.Asset{
 			Name:        att.Filename,
-			Shasum:      hex.EncodeToString(shasum),
 			AppSlug:     app.Slug,
 			ContentType: att.ContentType,
 		}
-		err = base.GlobalAssetStore.Add(a, buf, source)
+		err = base.GlobalAssetStore.Add(a, att.Content, source)
 		if err != nil {
 			return err
 		}
 
 		// We are going to use the attachment field to store a link to the
 		// global asset
-		atts[att.Filename] = hex.EncodeToString(shasum)
+		atts[att.Filename] = a.Shasum
 	}
 
 	// Update the version document to add an attachment that references global
