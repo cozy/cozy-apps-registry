@@ -129,7 +129,7 @@ type VersionOptions struct {
 	Icon        string          `json:"icon"`
 	Partnership Partnership     `json:"partnership"`
 	Screenshots []string        `json:"screenshots"`
-	Space       string
+	SpacePrefix base.Prefix
 	RegistryURL *url.URL
 }
 
@@ -696,7 +696,7 @@ func downloadVersion(opts *VersionOptions) (*Version, []*kivik.Attachment, error
 	filepath := filepath.Join(parsedManifest.Slug, opts.Version, filename)
 
 	// Saving app tarball
-	errt := SaveTarball(opts.Space, filepath, tarball)
+	errt := saveTarball(opts.SpacePrefix, filepath, tarball)
 	if errt != nil {
 		return nil, nil, errt
 	}
@@ -870,13 +870,9 @@ func HandleAssets(tarball *Tarball, opts *VersionOptions) ([]*kivik.Attachment, 
 	return attachments, nil
 }
 
-// SaveTarball saves tarball to swift
-func SaveTarball(space, filepath string, tarball *Tarball) error {
-	// Saving the tar to Swift
+func saveTarball(prefix base.Prefix, filepath string, tarball *Tarball) error {
 	var content = bytes.NewReader(tarball.Content)
-
-	// TODO fix space->prefix conversion
-	return base.Storage.Create(base.Prefix(space), filepath, tarball.ContentType, content)
+	return base.Storage.Create(prefix, filepath, tarball.ContentType, content)
 }
 
 // ReadTarballVersion reads the content of the version tarball which has been
