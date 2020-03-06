@@ -128,7 +128,7 @@ func exportAllCouchDbs(writer *tar.Writer, prefix string) error {
 func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Prefix) error {
 	fmt.Printf("    Exporting container %s\n", container)
 	dir := path.Join(prefix, container.String())
-	var g errgroup.Group
+	g, ctx := errgroup.WithContext(context.Background())
 
 	type entry struct {
 		name        string
@@ -139,7 +139,12 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 	g.Go(func() error {
 		defer close(toRead)
 		return base.Storage.Walk(container, func(name, contentType string) error {
-			toRead <- entry{name: name, contentType: contentType}
+			e := entry{name: name, contentType: contentType}
+			select {
+			case toRead <- e:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			return nil
 		})
 	})
@@ -174,7 +179,9 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 		metadata := map[string]string{
 			contentTypeAttr: entry.contentType,
 		}
-		return writeFile(writer, file, entry.content, metadata)
+		if err := writeFile(writer, file, entry.content, metadata); err != nil {
+			return err
+		}
 	}
 
 	return g.Wait()
