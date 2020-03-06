@@ -15,8 +15,8 @@ couchdb:
 
 redis:
   addrs: localhost:6379
-  master:
-  password: password
+  # master:
+  # password: password
   databases:
     versionsList: 0
     versionsLatest: 1

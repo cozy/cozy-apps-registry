@@ -33,7 +33,7 @@ func SetupServices() error {
 
 	base.DatabaseNamespace = viper.GetString("couchdb.prefix")
 	if err := configureCouch(); err != nil {
-		return err
+		return fmt.Errorf("Cannot configure CouchDB: %w", err)
 	}
 
 	if dir := viper.GetString("fs"); dir != "" {
@@ -300,12 +300,12 @@ func PrepareSpaces() error {
 
 		// Register the space in registry spaces list and prepare CouchDB.
 		if err := space.Register(spaceName); err != nil {
-			return err
+			return fmt.Errorf("Cannot register space %q: %w", spaceName, err)
 		}
 
 		// Prepare the storage.
 		if err := base.Storage.EnsureExists(prefix); err != nil {
-			return err
+			return fmt.Errorf("Cannot create storage container %q: %w", prefix, err)
 		}
 	}
 
