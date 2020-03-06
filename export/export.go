@@ -10,11 +10,13 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/go-kivik/kivik/v3"
+	"golang.org/x/sync/errgroup"
 )
 
 const rootPrefix = "registry"
@@ -28,6 +30,7 @@ func writeFile(writer *tar.Writer, path string, content []byte, attrs map[string
 		Typeflag:   tar.TypeReg,
 		Name:       path,
 		Mode:       0640,
+		ModTime:    time.Now(),
 		Size:       int64(len(content)),
 		PAXRecords: attrs,
 	}
@@ -133,19 +136,52 @@ func exportAllCouchDbs(writer *tar.Writer, prefix string) error {
 func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Prefix) error {
 	fmt.Printf("    Exporting container %s\n", container)
 	dir := path.Join(prefix, container.String())
+	var g errgroup.Group
 
-	return base.Storage.Walk(container, func(name, contentType string) error {
-		buffer, _, err := base.Storage.Get(container, name)
-		if err != nil {
-			return err
-		}
-
-		file := path.Join(dir, name)
-		metadata := map[string]string{
-			contentTypeAttr: contentType,
-		}
-		return writeReaderFile(writer, file, buffer, metadata)
+	type entry struct {
+		name        string
+		contentType string
+		reader      io.Reader
+	}
+	toRead := make(chan entry)
+	g.Go(func() error {
+		defer close(toRead)
+		return base.Storage.Walk(container, func(name, contentType string) error {
+			toRead <- entry{name: name, contentType: contentType}
+			return nil
+		})
 	})
+
+	// Start a fixed number of goroutines to read files.
+	toWrite := make(chan entry)
+	const numReaders = 10
+	for i := 0; i < numReaders; i++ {
+		g.Go(func() error {
+			for entry := range toRead {
+				reader, _, err := base.Storage.Get(container, entry.name)
+				if err != nil {
+					return err
+				}
+				entry.reader = reader
+				toWrite <- entry
+			}
+			return nil
+		})
+	}
+	go func() {
+		_ = g.Wait()
+		close(toWrite)
+	}()
+
+	for entry := range toWrite {
+		file := path.Join(dir, entry.name)
+		metadata := map[string]string{
+			contentTypeAttr: entry.contentType,
+		}
+		return writeReaderFile(writer, file, entry.reader, metadata)
+	}
+
+	return g.Wait()
 }
 
 func swiftContainers() []base.Prefix {

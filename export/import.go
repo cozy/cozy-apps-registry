@@ -85,9 +85,8 @@ func cleanCouch() error {
 }
 
 func parseCouchDocument(reader io.Reader, parts []string) (string, *interface{}, error) {
-	db, id := parts[0], parts[1]
+	db := parts[0]
 	db = strings.Replace(db, "__prefix__", base.DatabaseNamespace, 1)
-	id = strings.TrimSuffix(id, documentSuffix)
 
 	var doc interface{}
 	if err := json.NewDecoder(reader).Decode(&doc); err != nil {
