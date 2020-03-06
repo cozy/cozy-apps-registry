@@ -130,11 +130,6 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 	dir := path.Join(prefix, container.String())
 	g, ctx := errgroup.WithContext(context.Background())
 
-	type entry struct {
-		name        string
-		contentType string
-		content     []byte
-	}
 	toRead := make(chan entry)
 	g.Go(func() error {
 		defer close(toRead)
