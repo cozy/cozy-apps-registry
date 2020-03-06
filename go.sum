@@ -36,6 +36,8 @@ github.com/go-kivik/couchdb/v3 v3.0.0 h1:HBDO5gD2FxXECKqb1HMBK+pitv4E+p88RvlaJQZ
 github.com/go-kivik/couchdb/v3 v3.0.0/go.mod h1:eTGmiw9fnA30gdqQCgH3vNrW+glhl+48RbvZga8/wLk=
 github.com/go-kivik/kivik/v3 v3.0.0 h1:5KHMMQ1oeUPF3IOQlZaj5C/4d/zsT4TuY4g3zsU9yBQ=
 github.com/go-kivik/kivik/v3 v3.0.0/go.mod h1:7tmQDvkta/pcijpUjLMsQ9HJUELiKD5zm6jQ3Gb9cxE=
+github.com/go-kivik/kivik/v3 v3.0.2 h1:+tKWFJTAGlUjK1DQhn2rEGQvroYLTUCAO6/Kk8K4uQQ=
+github.com/go-kivik/kivik/v3 v3.0.2/go.mod h1:chqVuHKAU9j2C7qL0cAH2FCO26oL+0B4aIBeCRMnLa8=
 github.com/go-kivik/kiviktest/v3 v3.0.0 h1:xHXdFHx1YVbULTDGi+hzs7rjMzamCl+hf7UbXojZZMM=
 github.com/go-kivik/kiviktest/v3 v3.0.0/go.mod h1:pLjkg/F61+X4Ks1BpbrTgbChjdPcINX2HysR8i7AfBM=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
@@ -199,6 +201,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 gitlab.com/flimzy/testy v0.0.0-20190816103046-aca1ef5ffe7e/go.mod h1:MQwjgAyueIbBZv+qSYAMs6LaZwsJysPs0BK/niv9JiI=
 gitlab.com/flimzy/testy v0.0.2 h1:wii65HpZEbstqGT44+msiwzrX7SaxqNXj0BFjJc9iUY=
 gitlab.com/flimzy/testy v0.0.2/go.mod h1:YObF4cq711ubd/3U0ydRQQVz7Cnq/ChgJpVwNr/AJac=
+gitlab.com/flimzy/testy v0.0.3 h1:UkCz4aDa52cUX6uwvuVrwlTFZC1AesU5W6grDUcVFlg=
+gitlab.com/flimzy/testy v0.0.3/go.mod h1:YObF4cq711ubd/3U0ydRQQVz7Cnq/ChgJpVwNr/AJac=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
