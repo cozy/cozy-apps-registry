@@ -10,7 +10,7 @@ require (
 	github.com/h2non/filetype v1.0.12
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
-	github.com/labstack/echo/v4 v4.1.14
+	github.com/labstack/echo/v4 v4.1.15
 	github.com/ncw/swift v1.0.50
 	github.com/pkg/xattr v0.4.1
 	github.com/sirupsen/logrus v1.4.2
@@ -19,5 +19,4 @@ require (
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
-	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae // indirect
 )
