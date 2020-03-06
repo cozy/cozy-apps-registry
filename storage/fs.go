@@ -15,6 +15,12 @@ import (
 
 const xattrMime = "user.mime_type"
 
+// NewFS returns a VirtualStorage where the files are persisted in the given
+// directory of the local file system.
+func NewFS(baseDir string) base.VirtualStorage {
+	return &localFS{baseDir: baseDir}
+}
+
 type localFS struct {
 	baseDir string
 }

@@ -33,6 +33,11 @@ redis:
   # idle_check_frequency: 1m
   # read_only_slave: false
 
+# Storage - you should use swift in production, but for local development, it
+# can easier to use the local file system. If present, the fs configuration
+# parameter allows to use a directory for the storage (and will skip Swift).
+fs: .storage
+
 # Swift configuration
 swift:
   auth_url: http://localhost:1234

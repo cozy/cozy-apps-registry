@@ -36,12 +36,15 @@ func SetupServices() error {
 		return err
 	}
 
-	// TODO allow to use a local FS storage
-	sc, err := initSwiftConnection()
-	if err != nil {
-		return fmt.Errorf("Cannot access to swift: %s", err)
+	if dir := viper.GetString("fs"); dir != "" {
+		base.Storage = storage.NewFS(dir)
+	} else {
+		sc, err := initSwiftConnection()
+		if err != nil {
+			return fmt.Errorf("Cannot access to swift: %s", err)
+		}
+		base.Storage = storage.NewSwift(sc)
 	}
-	base.Storage = storage.NewSwift(sc)
 	return nil
 }
 
