@@ -41,14 +41,6 @@ func writeFile(writer *tar.Writer, path string, content []byte, attrs map[string
 	return err
 }
 
-func writeReaderFile(writer *tar.Writer, path string, reader io.Reader, attrs map[string]string) error {
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-	return writeFile(writer, path, content, attrs)
-}
-
 func exportCouchDocument(writer *tar.Writer, prefix string, db *kivik.DB, rows *kivik.Rows) error {
 	id := rows.ID()
 	if strings.HasPrefix(id, "_design") {
@@ -141,7 +133,7 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 	type entry struct {
 		name        string
 		contentType string
-		reader      io.Reader
+		content     []byte
 	}
 	toRead := make(chan entry)
 	g.Go(func() error {
@@ -162,7 +154,11 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 				if err != nil {
 					return err
 				}
-				entry.reader = reader
+				content, err := ioutil.ReadAll(reader)
+				if err != nil {
+					return err
+				}
+				entry.content = content
 				toWrite <- entry
 			}
 			return nil
@@ -178,7 +174,7 @@ func exportSwiftContainer(writer *tar.Writer, prefix string, container base.Pref
 		metadata := map[string]string{
 			contentTypeAttr: entry.contentType,
 		}
-		return writeReaderFile(writer, file, entry.reader, metadata)
+		return writeFile(writer, file, entry.content, metadata)
 	}
 
 	return g.Wait()
