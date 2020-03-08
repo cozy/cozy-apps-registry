@@ -17,6 +17,6 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
-	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
+	golang.org/x/crypto 78000ba7a073
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 )
