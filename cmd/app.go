@@ -142,6 +142,24 @@ var modifyAppCmd = &cobra.Command{
 	},
 }
 
+var rmAppCmd = &cobra.Command{
+	Use:     "rm-app [slug]",
+	Short:   `Remove an application from a space`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 1 {
+			return cmd.Help()
+		}
+
+		space, ok := space.GetSpace(appSpaceFlag)
+		if !ok {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		return registry.RemoveAppFromSpace(space, args[0])
+	},
+}
+
 var maintenanceCmd = &cobra.Command{
 	Use: "maintenance <cmd>",
 	RunE: func(cmd *cobra.Command, args []string) error {
