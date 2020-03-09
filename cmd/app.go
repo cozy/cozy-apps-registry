@@ -178,6 +178,23 @@ var overwriteAppNameCmd = &cobra.Command{
 	},
 }
 
+var overwriteAppIconCmd = &cobra.Command{
+	Use:     "overwrite-app-icon [slug] [icon-path]",
+	Short:   `Overwrite the icon of an application in a virtual space`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 2 {
+			return cmd.Help()
+		}
+
+		if !config.IsVirtualSpace(appSpaceFlag) {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		return registry.OverwriteAppIcon(appSpaceFlag, args[0], args[1])
+	},
+}
+
 var maintenanceCmd = &cobra.Command{
 	Use: "maintenance <cmd>",
 	RunE: func(cmd *cobra.Command, args []string) error {

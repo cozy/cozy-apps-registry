@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
+	"github.com/cozy/cozy-apps-registry/asset"
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/go-kivik/kivik/v3"
 )
@@ -60,6 +63,42 @@ func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
 		return err
 	}
 	overwrite["name"] = newName
+
+	id := getAppID(appSlug)
+	_, err = db.Put(context.Background(), id, overwrite)
+	return err
+}
+
+// OverwriteAppIcon tells that an app will have a different icon in the virtual
+// space.
+func OverwriteAppIcon(virtualSpaceName, appSlug, file string) error {
+	icon, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer icon.Close()
+
+	db, err := getDBForVirtualSpace(virtualSpaceName)
+	if err != nil {
+		return err
+	}
+
+	overwrite, err := findOverwrite(db, appSlug)
+	if err != nil {
+		return err
+	}
+
+	source := asset.ComputeSource(base.Prefix(virtualSpaceName), appSlug, "*")
+	a := &base.Asset{
+		Name:        filepath.Base(file),
+		AppSlug:     appSlug,
+		ContentType: getMIMEType(file, []byte{}),
+	}
+	err = base.GlobalAssetStore.Add(a, icon, source)
+	if err != nil {
+		return err
+	}
+	overwrite["icon"] = a.Shasum
 
 	id := getAppID(appSlug)
 	_, err = db.Put(context.Background(), id, overwrite)
