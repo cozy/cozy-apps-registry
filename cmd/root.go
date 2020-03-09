@@ -182,7 +182,7 @@ var serveCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", viper.GetString("host"), viper.GetInt("port"))
 		fmt.Printf("Listening on %s...\n", address)
 		errc := make(chan error)
-		router := web.Router(address)
+		router := web.Router()
 		go func() {
 			errc <- router.Start(address)
 		}()

@@ -337,7 +337,7 @@ func filterAppInVirtualSpace(handler echo.HandlerFunc, virtual *base.VirtualSpac
 }
 
 // Router sets up the HTTP routes.
-func Router(addr string) *echo.Echo {
+func Router() *echo.Echo {
 	err := initAssets()
 	if err != nil {
 		panic(err)
