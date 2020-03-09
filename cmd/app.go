@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cozy/cozy-apps-registry/auth"
+	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/spf13/cobra"
@@ -160,6 +161,23 @@ var rmAppCmd = &cobra.Command{
 	},
 }
 
+var overwriteAppNameCmd = &cobra.Command{
+	Use:     "overwrite-app-name [slug] [new-name]",
+	Short:   `Overwrite the name of an application in a virtual space`,
+	PreRunE: compose(prepareRegistry, prepareSpaces),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if len(args) != 2 {
+			return cmd.Help()
+		}
+
+		if !config.IsVirtualSpace(appSpaceFlag) {
+			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		return registry.OverwriteAppName(appSpaceFlag, args[0], args[1])
+	},
+}
+
 var maintenanceCmd = &cobra.Command{
 	Use: "maintenance <cmd>",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -176,7 +194,7 @@ var maintenanceActivateAppCmd = &cobra.Command{
 			return cmd.Help()
 		}
 		space, ok := space.GetSpace(appSpaceFlag)
-		if !ok {
+		if !ok && !config.IsVirtualSpace(appSpaceFlag) {
 			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
 		}
 
@@ -203,6 +221,9 @@ var maintenanceActivateAppCmd = &cobra.Command{
 			FlagDisallowManualExec: disallowManualExecFlag,
 			Messages:               messages,
 		}
+		if space == nil {
+			return registry.ActivateMaintenanceVirtualSpace(appSpaceFlag, args[0], opts)
+		}
 		return registry.ActivateMaintenanceApp(space, args[0], opts)
 	},
 }
@@ -216,8 +237,12 @@ var maintenanceDeactivateAppCmd = &cobra.Command{
 			return cmd.Help()
 		}
 		space, ok := space.GetSpace(appSpaceFlag)
-		if !ok {
+		if !ok && !config.IsVirtualSpace(appSpaceFlag) {
 			return fmt.Errorf("Space %q does not exist", appSpaceFlag)
+		}
+
+		if space == nil {
+			return registry.DeactivateMaintenanceVirtualSpace(appSpaceFlag, args[0])
 		}
 		return registry.DeactivateMaintenanceApp(space, args[0])
 	},
