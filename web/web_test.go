@@ -49,6 +49,7 @@ func TestListAppsFromVirtualSpace(t *testing.T) {
 	meta, ok := body["meta"].(map[string]interface{})
 	assert.True(t, ok)
 	assert.EqualValues(t, 2, meta["count"])
+	assert.NotContains(t, meta, "next_cursor")
 	data, ok := body["data"].([]interface{})
 	assert.True(t, ok)
 
@@ -67,29 +68,43 @@ func TestListAppsFromVirtualSpace(t *testing.T) {
 }
 
 func TestListKonnsFromVirtualSpace(t *testing.T) {
-	// TODO test pagination
-	u := fmt.Sprintf("%s/%s/registry/", server.URL, myKonnectorsSpace)
-	res, err := http.Get(u)
-	assert.NoError(t, err)
-	assert.Equal(t, 200, res.StatusCode)
-	defer res.Body.Close()
-	var body map[string]interface{}
-	err = json.NewDecoder(res.Body).Decode(&body)
-	assert.NoError(t, err)
-	meta, ok := body["meta"].(map[string]interface{})
-	assert.True(t, ok)
-	assert.EqualValues(t, 5, meta["count"])
-	data, ok := body["data"].([]interface{})
-	assert.True(t, ok)
-
 	konns := map[string]map[string]interface{}{} // slug -> data entry for the konnector
-	for _, entry := range data {
-		konn, ok := entry.(map[string]interface{})
+	cursor := ""
+
+	for i := 0; i < 2; i++ {
+		u := fmt.Sprintf("%s/%s/registry/?limit=4", server.URL, myKonnectorsSpace)
+		if cursor != "" {
+			u = fmt.Sprintf("%s&cursor=%s", u, cursor)
+		}
+		res, err := http.Get(u)
+		assert.NoError(t, err)
+		assert.Equal(t, 200, res.StatusCode)
+		defer res.Body.Close()
+		var body map[string]interface{}
+		err = json.NewDecoder(res.Body).Decode(&body)
+		assert.NoError(t, err)
+		meta, ok := body["meta"].(map[string]interface{})
 		assert.True(t, ok)
-		slug, ok := konn["slug"].(string)
+		if i == 0 {
+			assert.EqualValues(t, 4, meta["count"])
+			cursor, ok = meta["next_cursor"].(string)
+			assert.True(t, ok)
+		} else {
+			assert.EqualValues(t, 1, meta["count"])
+			assert.NotContains(t, meta, "next_cursor")
+		}
+		data, ok := body["data"].([]interface{})
 		assert.True(t, ok)
-		konns[slug] = konn
+
+		for _, entry := range data {
+			konn, ok := entry.(map[string]interface{})
+			assert.True(t, ok)
+			slug, ok := konn["slug"].(string)
+			assert.True(t, ok)
+			konns[slug] = konn
+		}
 	}
+
 	assert.NotContains(t, konns, fooKonn)
 	assert.Contains(t, konns, barKonn)
 	assert.Contains(t, konns, bazKonn)
