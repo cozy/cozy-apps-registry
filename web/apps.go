@@ -115,7 +115,10 @@ func getAppAttachment(c echo.Context, filename string) error {
 	channel := c.Param("channel")
 
 	var att *registry.Attachment
-	{
+	if v, ok := c.Get("virtual_name").(string); ok && v != "" {
+		att = registry.FindAppAttachmentFromOverwrite(v, appSlug, filename)
+	}
+	if att == nil {
 		if channel == "" {
 			var err error
 			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {

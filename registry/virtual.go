@@ -14,6 +14,41 @@ import (
 
 const virtualSuffix = "overwrites"
 
+// FindAppAttachmentFromOverwrite finds if the app icon was overwritten in the
+// virtual space.
+func FindAppAttachmentFromOverwrite(virtualSpaceName, appSlug, filename string) *Attachment {
+	if filename != "icon" {
+		return nil
+	}
+
+	db, err := getDBForVirtualSpace(virtualSpaceName)
+	if err != nil {
+		return nil
+	}
+
+	overwrite, err := findOverwrite(db, appSlug)
+	if err != nil {
+		return nil
+	}
+
+	shasum, ok := overwrite["icon"].(string)
+	if !ok || shasum == "" {
+		return nil
+	}
+
+	content, headers, err := base.GlobalAssetStore.Get(shasum)
+	if err != nil {
+		return nil
+	}
+
+	return &Attachment{
+		ContentType:   headers["Content-Type"],
+		Content:       content,
+		Etag:          headers["Etag"],
+		ContentLength: headers["Content-Length"],
+	}
+}
+
 // OverwriteAppName tells that an app will have a different name in the virtual
 // space.
 func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
