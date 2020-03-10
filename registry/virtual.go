@@ -12,8 +12,6 @@ import (
 	"github.com/go-kivik/kivik/v3"
 )
 
-const virtualSuffix = "overwrites"
-
 // FindAppAttachmentFromOverwrite finds if the app icon was overwritten in the
 // virtual space.
 func FindAppAttachmentFromOverwrite(virtualSpaceName, appSlug, filename string) *Attachment {
@@ -145,7 +143,7 @@ func DeactivateMaintenanceVirtualSpace(virtualSpaceName, appSlug string) error {
 }
 
 func getDBForVirtualSpace(virtualSpaceName string) (*kivik.DB, error) {
-	dbName := base.DBName(virtualSpaceName + "-" + virtualSuffix)
+	dbName := base.VirtualDBName(virtualSpaceName)
 	ok, err := base.DBClient.DBExists(context.Background(), dbName)
 	if err != nil {
 		return nil, err
