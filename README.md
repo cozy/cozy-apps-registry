@@ -607,10 +607,15 @@ You can now delete the name from your config file.
 A `virtual space` is necessarily built over an existing `space`. It allows to
 filter by selecting or rejecting applications available on the underlying space.
 
-> :warning: Please note that a `virtual space` does not have any database
-> document or associated swift object, it does only enforce filters on a
-> `space`. Therefore, **it is not possible to publish applications or versions
-> on a `virtual space`**.
+> :warning: Please note that it is not possible to publish applications or
+> versions on a `virtual space`.
+
+It is possible to change the name of an application in the virtual space,
+without changing it in the underlying space, with the `cozy-apps-registry
+overwrite-app-name` command. The same thing is possible for the icon with
+`cozy-apps-registry overwrite-app-icon`. And the maintenance status can also
+be changed in the virtual space with the `cozy-apps-registry maintenance`
+commands. That's all for the moment.
 
 ### Automation (CI)
 

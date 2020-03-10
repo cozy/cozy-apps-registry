@@ -16,16 +16,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testSpaceName = "test-space"
-const virtualSpaceName = "test-virtual"
-const appKept = "kept"
-const appRejected = "rejected"
-const appOverwritten = "overwritten"
+const (
+	allAppsSpace   = "all-apps"
+	myAppsSpace    = "my-apps"
+	keptApp        = "kept"
+	rejectedApp    = "rejected"
+	overwrittenApp = "overwritten"
+)
+
+const (
+	allKonnectorsSpace = "all-konnectors"
+	myKonnectorsSpace  = "my-konnectors"
+	fooKonn            = "foo"    // foo is rejected from the virtual space
+	barKonn            = "bar"    // bar is not in maintenance
+	bazKonn            = "baz"    // baz is not in maintenance, but its maintenance status is overwritten in my-konnectors
+	quxKonn            = "qux"    // qux is in maintenance, but is maintenance status is overwritten in my-konnectors
+	quuxKonn           = "quux"   // quux is like qux (its role is just to change the number of konnectors in maintenance)
+	courgeKonn         = "courge" // courge is in maintenance
+)
 
 var server *httptest.Server
 
 func TestListAppsFromVirtualSpace(t *testing.T) {
-	u := fmt.Sprintf("%s/%s/registry/", server.URL, virtualSpaceName)
+	u := fmt.Sprintf("%s/%s/registry/", server.URL, myAppsSpace)
 	res, err := http.Get(u)
 	assert.NoError(t, err)
 	assert.Equal(t, 200, res.StatusCode)
@@ -42,25 +55,62 @@ func TestListAppsFromVirtualSpace(t *testing.T) {
 	var kept, over map[string]interface{}
 	one := data[0].(map[string]interface{})
 	two := data[1].(map[string]interface{})
-	if one["slug"] == appKept {
+	if one["slug"] == keptApp {
 		kept = one
 		over = two
 	} else {
 		over = one
 		kept = two
 	}
-	assert.Equal(t, appKept, kept["slug"])
-	assert.Equal(t, appOverwritten, over["slug"])
+	assert.Equal(t, keptApp, kept["slug"])
+	assert.Equal(t, overwrittenApp, over["slug"])
+}
+
+func TestListKonnsFromVirtualSpace(t *testing.T) {
+	// TODO test pagination
+	u := fmt.Sprintf("%s/%s/registry/", server.URL, myKonnectorsSpace)
+	res, err := http.Get(u)
+	assert.NoError(t, err)
+	assert.Equal(t, 200, res.StatusCode)
+	defer res.Body.Close()
+	var body map[string]interface{}
+	err = json.NewDecoder(res.Body).Decode(&body)
+	assert.NoError(t, err)
+	meta, ok := body["meta"].(map[string]interface{})
+	assert.True(t, ok)
+	assert.EqualValues(t, 5, meta["count"])
+	data, ok := body["data"].([]interface{})
+	assert.True(t, ok)
+
+	konns := map[string]map[string]interface{}{} // slug -> data entry for the konnector
+	for _, entry := range data {
+		konn, ok := entry.(map[string]interface{})
+		assert.True(t, ok)
+		slug, ok := konn["slug"].(string)
+		assert.True(t, ok)
+		konns[slug] = konn
+	}
+	assert.NotContains(t, konns, fooKonn)
+	assert.Contains(t, konns, barKonn)
+	assert.Contains(t, konns, bazKonn)
+	assert.Contains(t, konns, quxKonn)
+	assert.Contains(t, konns, quuxKonn)
+	assert.Contains(t, konns, courgeKonn)
 }
 
 func TestMain(m *testing.M) {
 	config.SetDefaults()
-	viper.Set("spaces", []string{"__default__", testSpaceName})
+	viper.Set("spaces", []string{"__default__", allAppsSpace, allKonnectorsSpace})
 	viper.Set("virtual_spaces", map[string]interface{}{
-		virtualSpaceName: map[string]interface{}{
-			"source": testSpaceName,
+		myAppsSpace: map[string]interface{}{
+			"source": allAppsSpace,
+			"filter": "select",
+			"slugs":  []interface{}{overwrittenApp, keptApp},
+		},
+		myKonnectorsSpace: map[string]interface{}{
+			"source": allKonnectorsSpace,
 			"filter": "reject",
-			"slugs":  []interface{}{appRejected},
+			"slugs":  []interface{}{fooKonn},
 		},
 	})
 
@@ -98,19 +148,33 @@ func TestMain(m *testing.M) {
 }
 
 func createApps() error {
-	space, _ := space.GetSpace(testSpaceName)
 	editor := auth.NewEditorForTest("cozy")
 
-	apps := []string{appKept, appRejected, appOverwritten}
+	s, _ := space.GetSpace(allAppsSpace)
+	apps := []string{keptApp, rejectedApp, overwrittenApp}
 	for _, app := range apps {
 		opts := &registry.AppOptions{
 			Editor: "cozy",
 			Slug:   app,
 			Type:   "webapp",
 		}
-		if _, err := registry.CreateApp(space, opts, editor); err != nil {
+		if _, err := registry.CreateApp(s, opts, editor); err != nil {
 			return err
 		}
 	}
+
+	s, _ = space.GetSpace(allKonnectorsSpace)
+	konns := []string{fooKonn, barKonn, bazKonn, quxKonn, quuxKonn, courgeKonn}
+	for _, konn := range konns {
+		opts := &registry.AppOptions{
+			Editor: "cozy",
+			Slug:   konn,
+			Type:   "konnector",
+		}
+		if _, err := registry.CreateApp(s, opts, editor); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

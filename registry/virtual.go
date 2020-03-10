@@ -14,42 +14,6 @@ import (
 
 const virtualSuffix = "overwrites"
 
-func getDBForVirtualSpace(virtualSpaceName string) (*kivik.DB, error) {
-	dbName := base.DBName(virtualSpaceName + "-" + virtualSuffix)
-	ok, err := base.DBClient.DBExists(context.Background(), dbName)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		fmt.Printf("Creating database %q...", dbName)
-		if err = base.DBClient.CreateDB(context.Background(), dbName); err != nil {
-			fmt.Println("failed")
-			return nil, err
-		}
-		fmt.Println("ok.")
-	}
-	db := base.DBClient.DB(context.Background(), dbName)
-	if err = db.Err(); err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-func findOverwrite(db *kivik.DB, appSlug string) (map[string]interface{}, error) {
-	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppSlugInvalid
-	}
-
-	doc := map[string]interface{}{}
-	row := db.Get(context.Background(), getAppID(appSlug))
-	err := row.ScanDoc(&doc)
-	if err != nil && kivik.StatusCode(err) != http.StatusNotFound {
-		return nil, err
-	}
-
-	return doc, nil
-}
-
 // OverwriteAppName tells that an app will have a different name in the virtual
 // space.
 func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
@@ -143,4 +107,40 @@ func DeactivateMaintenanceVirtualSpace(virtualSpaceName, appSlug string) error {
 	id := getAppID(appSlug)
 	_, err = db.Put(context.Background(), id, overwrite)
 	return err
+}
+
+func getDBForVirtualSpace(virtualSpaceName string) (*kivik.DB, error) {
+	dbName := base.DBName(virtualSpaceName + "-" + virtualSuffix)
+	ok, err := base.DBClient.DBExists(context.Background(), dbName)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		fmt.Printf("Creating database %q...", dbName)
+		if err = base.DBClient.CreateDB(context.Background(), dbName); err != nil {
+			fmt.Println("failed")
+			return nil, err
+		}
+		fmt.Println("ok.")
+	}
+	db := base.DBClient.DB(context.Background(), dbName)
+	if err = db.Err(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func findOverwrite(db *kivik.DB, appSlug string) (map[string]interface{}, error) {
+	if !validSlugReg.MatchString(appSlug) {
+		return nil, ErrAppSlugInvalid
+	}
+
+	doc := map[string]interface{}{}
+	row := db.Get(context.Background(), getAppID(appSlug))
+	err := row.ScanDoc(&doc)
+	if err != nil && kivik.StatusCode(err) != http.StatusNotFound {
+		return nil, err
+	}
+
+	return doc, nil
 }
