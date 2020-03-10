@@ -220,6 +220,8 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, echo.Map{"ok": true})
 }
 
+// TODO: to improve the performances of pagination, we should use bookmarks for
+// the find with mango request instead of skip.
 func getAppsList(c echo.Context) error {
 	var filter map[string]string
 	var limit, cursor int
