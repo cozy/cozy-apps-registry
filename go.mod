@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/Masterminds/semver v1.5.0
-	github.com/go-kivik/couchdb/v3 v3.1.0
-	github.com/go-kivik/kivik/v3 v3.1.2
+	github.com/go-kivik/couchdb/v3 v3.2.0
+	github.com/go-kivik/kivik/v3 v3.2.0
 	github.com/go-redis/redis/v7 v7.4.0
 	github.com/h2non/filetype v1.1.0
 	github.com/hashicorp/go-multierror v1.1.0
