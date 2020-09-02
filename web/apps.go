@@ -116,7 +116,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 
 	var att *registry.Attachment
 	if v, ok := c.Get("virtual_name").(string); ok && v != "" {
-		att = registry.FindAppAttachmentFromOverwrite(v, appSlug, filename)
+		att = registry.FindAppIconAttachmentFromOverwrite(v, appSlug, filename)
 	}
 	if att == nil {
 		if channel == "" {
@@ -303,6 +303,9 @@ func getAppsList(c echo.Context) error {
 	}
 
 	for _, app := range apps {
+		if e := override(c, app.LatestVersion); e != nil {
+			return e
+		}
 		cleanApp(app)
 	}
 

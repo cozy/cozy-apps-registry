@@ -160,6 +160,7 @@ type Partnership struct {
 // the manifest that are useful to us, without manipulating maps.
 type Manifest struct {
 	Editor      string      `json:"editor"`
+	Name        string      `json:"name"`
 	Slug        string      `json:"slug"`
 	Version     string      `json:"version"`
 	Icon        string      `json:"icon"`

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -200,7 +201,7 @@ func getVersionAttachment(c echo.Context, filename string) error {
 
 	var att *registry.Attachment
 	if v, ok := c.Get("virtual_name").(string); ok && v != "" {
-		att = registry.FindAppAttachmentFromOverwrite(v, appSlug, filename)
+		att = registry.FindAppIconAttachmentFromOverwrite(v, appSlug, filename)
 	}
 	if att == nil {
 		var err error
@@ -259,6 +260,9 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
+	if e := override(c, doc); e != nil {
+		return e
+	}
 	if cacheControl(c, doc.Rev, oneYear) {
 		return c.NoContent(http.StatusNotModified)
 	}
@@ -268,6 +272,63 @@ func getVersion(c echo.Context) error {
 	doc.Rev = ""
 
 	return writeJSON(c, doc)
+}
+
+func overrideIcon(version *registry.Version, virtual string) error {
+	att, err := registry.FindAppOverride(virtual, version.Slug, "icon")
+	if err != nil {
+		return err
+	}
+	if att == nil {
+		return nil
+	}
+	version.AttachmentReferences["icon"] = *att
+	return nil
+}
+
+func overrideAppName(version *registry.Version, virtual string) error {
+	att, err := registry.FindAppOverride(virtual, version.Slug, "name")
+	if err != nil {
+		return err
+	}
+	if att == nil {
+		return nil
+	}
+	manifest := map[string]interface{}{}
+	err = json.Unmarshal(version.Manifest, &manifest)
+	if err != nil {
+		return err
+	}
+	manifest["name"] = *att
+	j, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	version.Manifest = j
+	return nil
+}
+
+func override(c echo.Context, version *registry.Version) error {
+	if version == nil {
+		return nil
+	}
+
+	v, ok := c.Get("virtual_name").(string)
+	if !ok || v == "" {
+		return nil
+	}
+
+	err := overrideIcon(version, v)
+	if err != nil {
+		return err
+	}
+
+	err = overrideAppName(version, v)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getLatestVersion(c echo.Context) error {
@@ -282,9 +343,13 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	version, err := registry.FindLatestVersion(getSpace(c), appSlug, ch)
+	space := getSpace(c)
+	version, err := registry.FindLatestVersion(space, appSlug, ch)
 	if err != nil {
 		return err
+	}
+	if e := override(c, version); e != nil {
+		return e
 	}
 
 	if cacheControl(c, version.Rev, fiveMinute) {

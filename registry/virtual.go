@@ -12,29 +12,39 @@ import (
 	"github.com/go-kivik/kivik/v3"
 )
 
-// FindAppAttachmentFromOverwrite finds if the app icon was overwritten in the
-// virtual space.
-func FindAppAttachmentFromOverwrite(virtualSpaceName, appSlug, filename string) *Attachment {
-	if filename != "icon" {
-		return nil
-	}
-
+// FindAppOverride finds if the app have overwritten value in the virtual space
+func FindAppOverride(virtualSpaceName, appSlug, name string) (*string, error) {
 	db, err := getDBForVirtualSpace(virtualSpaceName)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	overwrite, err := findOverwrite(db, appSlug)
 	if err != nil {
+		return nil, err
+	}
+
+	value, ok := overwrite[name].(string)
+	if !ok {
+		return nil, nil
+	}
+
+	return &value, nil
+}
+
+// FindAppIconAttachmentFromOverwrite finds if the app icon was overwritten in the
+// virtual space.
+func FindAppIconAttachmentFromOverwrite(virtualSpaceName, appSlug, filename string) *Attachment {
+	if filename != "icon" {
 		return nil
 	}
 
-	shasum, ok := overwrite["icon"].(string)
-	if !ok || shasum == "" {
+	shasum, err := FindAppOverride(virtualSpaceName, appSlug, filename)
+	if err != nil || shasum == nil {
 		return nil
 	}
 
-	content, headers, err := base.GlobalAssetStore.Get(shasum)
+	content, headers, err := base.GlobalAssetStore.Get(*shasum)
 	if err != nil {
 		return nil
 	}
