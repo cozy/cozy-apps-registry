@@ -144,7 +144,7 @@ func DeactivateMaintenanceVirtualSpace(virtualSpaceName, appSlug string) error {
 	if err != nil {
 		return err
 	}
-	overwrite["maintenance_activated"] = false
+	delete(overwrite, "maintenance_activated")
 	delete(overwrite, "maintenance_options")
 
 	id := getAppID(appSlug)

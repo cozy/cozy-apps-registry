@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"path"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/errshttp"
 	"github.com/cozy/cozy-apps-registry/registry"
+	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/labstack/echo/v4"
 )
 
@@ -170,13 +172,43 @@ func getMaintenanceApps(c echo.Context) error {
 	return writeJSON(c, apps)
 }
 
+func getVirtualSpace(c echo.Context) (*base.VirtualSpace, *space.Space, error) {
+	var s *space.Space
+	var virtualSpace *base.VirtualSpace = nil
+	virtualSpaceName, ok := c.Get("virtual_name").(string)
+	if ok && virtualSpaceName != "" {
+		tmp, ok := base.Config.VirtualSpaces[virtualSpaceName]
+		if !ok {
+			return nil, nil, fmt.Errorf("unable to find virtual space %s", virtualSpaceName)
+		}
+
+		virtualSpace = &tmp
+		spaceName := tmp.Source
+		if spaceName == "__default__" {
+			spaceName = ""
+		}
+		s, ok = space.Spaces[spaceName]
+		if !ok {
+			return nil, nil, fmt.Errorf("unable to find space %s", spaceName)
+		}
+	} else {
+		s = getSpace(c)
+	}
+	return virtualSpace, s, nil
+}
+
 func activateMaintenanceApp(c echo.Context) error {
 	if err := checkAuthorized(c); err != nil {
 		return err
 	}
 
+	vs, s, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
+	app, err := registry.FindApp(s, appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -187,11 +219,15 @@ func activateMaintenanceApp(c echo.Context) error {
 	}
 
 	var opts registry.MaintenanceOptions
-	if err = c.Bind(&opts); err != nil {
+	if err := c.Bind(&opts); err != nil {
 		return err
 	}
 
-	err = registry.ActivateMaintenanceApp(getSpace(c), appSlug, opts)
+	if vs != nil {
+		err = registry.ActivateMaintenanceVirtualSpace(vs.Name, appSlug, opts)
+	} else {
+		err = registry.ActivateMaintenanceApp(s, appSlug, opts)
+	}
 	if err != nil {
 		return err
 	}
@@ -204,8 +240,13 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 		return
 	}
 
+	vs, s, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
+	app, err := registry.FindApp(s, appSlug, registry.Stable)
 	if err != nil {
 		return
 	}
@@ -215,9 +256,13 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
 
-	err = registry.DeactivateMaintenanceApp(getSpace(c), appSlug)
+	if vs != nil {
+		err = registry.DeactivateMaintenanceVirtualSpace(vs.Name, appSlug)
+	} else {
+		err = registry.DeactivateMaintenanceApp(s, appSlug)
+	}
 	if err != nil {
-		return
+		return err
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"ok": true})

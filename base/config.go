@@ -33,6 +33,8 @@ type CleanParameters struct {
 // VirtualSpace is a view on another space, with a filter to restrict the list
 // of available applications.
 type VirtualSpace struct {
+	// Name of the virtual space
+	Name string
 	// Source is the name of a space
 	Source string
 	// Filter can be select (whitelist) or reject (blacklist)
