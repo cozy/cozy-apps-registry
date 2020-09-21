@@ -123,7 +123,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 	if att == nil {
 		if channel == "" {
 			var err error
-			for _, ch := range []registry.Channel{registry.Stable, registry.Beta, registry.Dev} {
+			for _, ch := range registry.Channels {
 				att, err = registry.FindAppAttachment(getSpace(c), appSlug, filename, ch)
 				if err == nil {
 					break
@@ -184,10 +184,7 @@ func getVirtualSpace(c echo.Context) (*base.VirtualSpace, *space.Space, error) {
 
 		virtualSpace = &tmp
 		spaceName := tmp.Source
-		if spaceName == "__default__" {
-			spaceName = ""
-		}
-		s, ok = space.Spaces[spaceName]
+		s, ok = space.GetSpace(spaceName)
 		if !ok {
 			return nil, nil, fmt.Errorf("unable to find space %s", spaceName)
 		}
