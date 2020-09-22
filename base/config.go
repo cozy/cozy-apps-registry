@@ -1,5 +1,11 @@
 package base
 
+import (
+	"context"
+
+	"github.com/go-kivik/kivik/v3"
+)
+
 // ConfigParameters is a list of parameters that can be configured.
 type ConfigParameters struct {
 	// CleanEnabled specifies if the app cleaning task is enabled or not.
@@ -51,6 +57,25 @@ func (v VirtualSpace) AcceptApp(slug string) bool {
 		return filtered
 	}
 	return !filtered
+}
+
+func (v VirtualSpace) Init() error {
+	db := VirtualVersionsDBName(v.Name)
+	ok, err := DBClient.DBExists(context.Background(), db)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		if err = DBClient.CreateDB(context.Background(), db); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v VirtualSpace) VersionDB() *kivik.DB {
+	name := VirtualVersionsDBName(v.Name)
+	return DBClient.DB(context.Background(), name)
 }
 
 func inList(target string, slugs []string) bool {

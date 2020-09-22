@@ -36,6 +36,12 @@ func SetupServices() error {
 		return fmt.Errorf("Cannot configure CouchDB: %w", err)
 	}
 
+	for _, c := range base.Config.VirtualSpaces {
+		if err := c.Init(); err != nil {
+			return err
+		}
+	}
+
 	if dir := viper.GetString("fs"); dir != "" {
 		base.Storage = storage.NewFS(dir)
 	} else {
@@ -60,6 +66,12 @@ func SetupForTests() error {
 		return err
 	}
 
+	for _, c := range base.Config.VirtualSpaces {
+		if err := c.Init(); err != nil {
+			return err
+		}
+	}
+
 	configureLRUCache()
 
 	// Use https://github.com/go-kivik/memorydb for CouchDB when it will be
@@ -77,6 +89,7 @@ func CleanupTests() error {
 	ctx := context.Background()
 	for name := range base.Config.VirtualSpaces {
 		_ = base.DBClient.DestroyDB(ctx, base.VirtualDBName(name))
+		_ = base.DBClient.DestroyDB(ctx, base.VirtualVersionsDBName(name))
 	}
 
 	for _, s := range space.Spaces {
@@ -127,6 +140,7 @@ func configureParameters() error {
 		DomainSpaces:   viper.GetStringMapString("domain_space"),
 		TrustedDomains: viper.GetStringMapStringSlice("trusted_domains"),
 	}
+
 	return nil
 }
 

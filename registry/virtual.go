@@ -247,8 +247,6 @@ func regenerateTarballs(virtualSpaceName string, appSlug string) (err error) {
 			continue
 		}
 
-		id := fmt.Sprintf("%s:%s-%s", virtualSpace.Name, lastVersion.Slug, lastVersion.Version)
-
 		tarball, err := getTarball(s, lastVersion)
 		if err != nil {
 			return err
@@ -274,7 +272,6 @@ func regenerateTarballs(virtualSpaceName string, appSlug string) (err error) {
 		}
 
 		newVersion := lastVersion.Clone()
-		newVersion.ID = id
 		newVersion.Rev = ""
 		newVersion.AttachmentReferences = map[string]string{"tarball": hash}
 		if icon != "" {
@@ -286,7 +283,27 @@ func regenerateTarballs(virtualSpaceName string, appSlug string) (err error) {
 		}
 		newVersion.Manifest = j
 
-		if _, err = s.VersDB().Put(context.Background(), newVersion.ID, newVersion); err != nil {
+		db := virtualSpace.VersionDB()
+		ctx := context.Background()
+		row := db.Get(ctx, newVersion.ID)
+		var t Version
+		err = row.ScanDoc(&t)
+		if err != nil && kivik.StatusCode(err) != http.StatusNotFound {
+			return err
+		}
+		if err == nil {
+			newVersion.Rev = t.Rev
+			// We already have a version, destroy the old tarball if changed
+			h, ok := t.AttachmentReferences["tarball"]
+			if ok && hash != h {
+				prefix := base.Prefix(virtualSpace.Name)
+				if err := base.Storage.Remove(prefix, hash); err != nil {
+					return err
+				}
+			}
+		}
+
+		if _, err = db.Put(context.Background(), newVersion.ID, newVersion); err != nil {
 			return err
 		}
 
