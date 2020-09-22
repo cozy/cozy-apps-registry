@@ -1009,6 +1009,13 @@ func ReadTarballManifest(tr io.Reader, url string) (*Manifest, []byte, map[strin
 
 // Expire function deletes a version from the database
 func (v *Version) Delete(c *space.Space) error {
+	// Purge overwritten versions if any
+	for _, vs := range base.Config.VirtualSpaces {
+		if err := DeleteOverwrittenVersion(vs, v); err != nil {
+			return err
+		}
+	}
+
 	// Delete attachments (swift or couchdb)
 	err := v.RemoveAllAttachments(c)
 	if err != nil {
@@ -1018,6 +1025,7 @@ func (v *Version) Delete(c *space.Space) error {
 	// Removing the CouchDB document
 	db := c.VersDB()
 	_, err = db.Delete(context.Background(), v.ID, v.Rev)
+
 	return err
 }
 
