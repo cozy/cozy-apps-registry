@@ -57,7 +57,7 @@ func (m *localFS) getPath(prefix base.Prefix, original string) (string, error) {
 	if name == "." || name == ".." || name == "/" {
 		return "", base.NewInternalError(fmt.Errorf("%s is not a valid name", name))
 	}
-	path := filepath.Join(m.baseDir, string(prefix), name)
+	path := filepath.Join(m.baseDir, string(prefix), original)
 	return path, nil
 }
 
@@ -67,6 +67,10 @@ func (m *localFS) Create(prefix base.Prefix, name, contentType string, content i
 		return err
 	}
 
+	parent := filepath.Dir(path)
+	if err := os.MkdirAll(parent, os.ModePerm); err != nil {
+		return nil
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		dir := filepath.Join(m.baseDir, string(prefix))
