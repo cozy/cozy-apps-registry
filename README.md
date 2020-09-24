@@ -57,6 +57,7 @@
       - [Config file](#config-file)
       - [Files](#files)
     - [Usage](#usage)
+  - [BI Web Auth](#biwebauth)
   - [Community](#community)
 
 
@@ -854,6 +855,18 @@ curl -X GET http://cloud.foobar.com/.well-known/apple-app-site-association
   }
 }
 ```
+
+## Budget-Insight web auth
+
+For some banks integration (Paypal, Orange Bank, Revolut…), Budget-Insight need
+something similar to universal link because they expect a static domain for
+fallback but there is a specific domain per Cozy instance.
+In contrast with universal links, query parameters (provided by BI) are propagated
+to the final fallback redirection.
+
+`http://<registry-domain>/biwebauth?fallback=http%3A%2F%2Fa.cozy%3Ffoo%3Dfoo&bar=bar`
+redirect to `http://a.cozy?foo=foo&bar=bar`, merging fallback provided query
+parameters (`foo=foo`) with webauth provided ones (`bar=bar`). 
 
 ## Community
 
