@@ -99,7 +99,8 @@ func deleteOverwrittenTarball(s base.VirtualSpace, version *Version) error {
 	return nil
 }
 
-func getOverwrittenTarball(space *space.Space, version *Version) (*bytes.Buffer, error) {
+func getOriginalTarball(space *space.Space, version *Version) (*bytes.Buffer, error) {
+	var content *bytes.Buffer
 	url, err := url.Parse(version.URL)
 	if err != nil {
 		return nil, err
@@ -107,21 +108,17 @@ func getOverwrittenTarball(space *space.Space, version *Version) (*bytes.Buffer,
 	filename := filepath.Base(url.Path)
 	hash, ok := version.AttachmentReferences[filename]
 	if !ok {
-		return nil, fmt.Errorf("unable to find attachment %s", filename)
-	}
-
-	content, _, err := base.GlobalAssetStore.Get(hash)
-	if err != nil {
-		return nil, err
-	}
-	if content == nil {
+		// Asset was not already migrate to global store
+		path := filepath.Join(version.Slug, version.Version, filename)
 		prefix := space.GetPrefix()
-		content, _, err = base.Storage.Get(prefix, hash)
-		if err != nil {
+		if content, _, err = base.Storage.Get(prefix, path); err != nil {
+			return nil, err
+		}
+	} else {
+		if content, _, err = base.GlobalAssetStore.Get(hash); err != nil {
 			return nil, err
 		}
 	}
-
 	return content, nil
 }
 
@@ -289,7 +286,7 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 			continue
 		}
 
-		tarball, err := getOverwrittenTarball(s, lastVersion)
+		tarball, err := getOriginalTarball(s, lastVersion)
 		if err != nil {
 			return err
 		}
