@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -192,25 +191,37 @@ func getVersionScreenshot(c echo.Context) error {
 }
 
 func getVersionTarball(c echo.Context) error {
-	return getVersionAttachment(c, c.Param("tarball"))
-}
-
-func getVersionAttachment(c echo.Context, filename string) error {
-	appSlug := c.Param("app")
+	virtualSpace, space, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+	slug := c.Param("app")
 	version := c.Param("version")
+	ver, err := registry.FindVersion(space, slug, version)
+	if err != nil {
+		return err
+	}
+	if ver == nil {
+		return fmt.Errorf("unable to find version %s-%s", slug, version)
+	}
+	filename := c.Param("tarball")
 
 	var att *registry.Attachment
-	if v, ok := c.Get("virtual_name").(string); ok && v != "" {
-		att = registry.FindAppIconAttachmentFromOverwrite(v, appSlug, filename)
+	if virtualSpace != nil {
+		if att, err = registry.FindOverwrittenTarball(virtualSpace, ver); err != nil {
+			return err
+		}
 	}
 	if att == nil {
-		var err error
-		att, err = registry.FindVersionAttachment(getSpace(c), appSlug, version, filename)
-		if err != nil {
+		if att, err = registry.FindVersionAttachment(space, ver, filename); err != nil {
 			return err
 		}
 	}
 
+	return sendAttachment(c, att, filename)
+}
+
+func sendAttachment(c echo.Context, att *registry.Attachment, filename string) error {
 	contentType := att.ContentType
 	// force image/svg content-type for svg assets that start with <?xml
 	if (filename == "icon" || filename == "partnership_icon") && contentType == "text/xml" {
@@ -229,6 +240,34 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	c.Response().Header().Set(echo.HeaderContentLength, att.ContentLength)
 
 	return c.Stream(http.StatusOK, contentType, att.Content)
+}
+
+func getVersionAttachment(c echo.Context, filename string) error {
+	virtualSpace, space, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+
+	slug := c.Param("app")
+	version := c.Param("version")
+	ver, err := registry.FindVersion(space, slug, version)
+	if err != nil {
+		return err
+	}
+
+	var att *registry.Attachment
+	if virtualSpace != nil {
+		if att, err = registry.FindAttachmentFromOverwrite(virtualSpace, slug, filename); err != nil {
+			return err
+		}
+	}
+	if att == nil {
+		if att, err = registry.FindVersionAttachment(space, ver, filename); err != nil {
+			return err
+		}
+	}
+
+	return sendAttachment(c, att, filename)
 }
 
 func getAppVersions(c echo.Context) error {
@@ -260,8 +299,12 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
-	if e := override(c, doc); e != nil {
+	oDoc, e := override(c, doc)
+	if e != nil {
 		return e
+	}
+	if oDoc != nil {
+		doc = oDoc
 	}
 	if cacheControl(c, doc.Rev, oneYear) {
 		return c.NoContent(http.StatusNotModified)
@@ -274,61 +317,26 @@ func getVersion(c echo.Context) error {
 	return writeJSON(c, doc)
 }
 
-func overrideIcon(version *registry.Version, virtual string) error {
-	att, err := registry.FindAppOverride(virtual, version.Slug, "icon")
-	if err != nil {
-		return err
-	}
-	if att == nil {
-		return nil
-	}
-	version.AttachmentReferences["icon"] = *att
-	return nil
-}
-
-func overrideAppName(version *registry.Version, virtual string) error {
-	att, err := registry.FindAppOverride(virtual, version.Slug, "name")
-	if err != nil {
-		return err
-	}
-	if att == nil {
-		return nil
-	}
-	manifest := map[string]interface{}{}
-	err = json.Unmarshal(version.Manifest, &manifest)
-	if err != nil {
-		return err
-	}
-	manifest["name"] = *att
-	j, err := json.Marshal(manifest)
-	if err != nil {
-		return err
-	}
-	version.Manifest = j
-	return nil
-}
-
-func override(c echo.Context, version *registry.Version) error {
+func override(c echo.Context, version *registry.Version) (*registry.Version, error) {
 	if version == nil {
-		return nil
+		return nil, nil
 	}
 
-	v, ok := c.Get("virtual_name").(string)
-	if !ok || v == "" {
-		return nil
+	virtual, _, err := getVirtualSpace(c)
+	if err != nil || virtual == nil {
+		return nil, err
 	}
 
-	err := overrideIcon(version, v)
+	overwrittenVersion, err := registry.FindOverwrittenVersion(virtual, version)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = overrideAppName(version, v)
-	if err != nil {
-		return err
+	if overwrittenVersion != nil {
+		return overwrittenVersion, nil
 	}
 
-	return nil
+	return version, nil
 }
 
 func getLatestVersion(c echo.Context) error {
@@ -348,8 +356,12 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if e := override(c, version); e != nil {
+	oVersion, e := override(c, version)
+	if e != nil {
 		return e
+	}
+	if oVersion != nil {
+		version = oVersion
 	}
 
 	if cacheControl(c, version.Rev, fiveMinute) {

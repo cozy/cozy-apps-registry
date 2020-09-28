@@ -78,6 +78,11 @@ func (v VirtualSpace) VersionDB() *kivik.DB {
 	return DBClient.DB(context.Background(), name)
 }
 
+func (v VirtualSpace) OverrideDb() *kivik.DB {
+	name := VirtualDBName(v.Name)
+	return DBClient.DB(context.Background(), name)
+}
+
 func inList(target string, slugs []string) bool {
 	for _, slug := range slugs {
 		if slug == target {

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/cozy/cozy-apps-registry/asset"
@@ -54,10 +55,10 @@ func DeleteOverwrittenVersion(s base.VirtualSpace, version *Version) error {
 	return err
 }
 
-func storeOverwrittenTarball(s base.VirtualSpace, tarball string) (hash string, err error) {
+func storeOverwrittenTarball(s base.VirtualSpace, tarball string) (hash string, length int64, err error) {
 	file, err := os.Open(tarball)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer func() {
 		cerr := file.Close()
@@ -66,26 +67,32 @@ func storeOverwrittenTarball(s base.VirtualSpace, tarball string) (hash string, 
 		}
 	}()
 
+	stats, err := file.Stat()
+	if err != nil {
+		return "", 0, err
+	}
+	length = stats.Size()
+
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	h := hasher.Sum(nil)
 	hash = hex.EncodeToString(h)
 
 	prefix := base.Prefix(s.Name)
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	if err = base.Storage.EnsureExists(prefix); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if err = base.Storage.Create(prefix, hash, "application/gzip", file); err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return hash, nil
+	return hash, length, nil
 }
 
 func deleteOverwrittenTarball(s base.VirtualSpace, version *Version) error {
@@ -99,36 +106,40 @@ func deleteOverwrittenTarball(s base.VirtualSpace, version *Version) error {
 	return nil
 }
 
-func getOriginalTarball(space *space.Space, version *Version) (*bytes.Buffer, error) {
-	var content *bytes.Buffer
+func getOriginalTarball(space *space.Space, version *Version) (io.Reader, error) {
 	url, err := url.Parse(version.URL)
 	if err != nil {
 		return nil, err
 	}
 	filename := filepath.Base(url.Path)
-	hash, ok := version.AttachmentReferences[filename]
-	if !ok {
-		// Asset was not already migrate to global store
-		path := filepath.Join(version.Slug, version.Version, filename)
-		prefix := space.GetPrefix()
-		if content, _, err = base.Storage.Get(prefix, path); err != nil {
-			return nil, err
-		}
-	} else {
-		if content, _, err = base.GlobalAssetStore.Get(hash); err != nil {
-			return nil, err
-		}
+
+	att, err := FindVersionAttachment(space, version, filename)
+	if err != nil {
+		return nil, err
 	}
-	return content, nil
+
+	return att.Content, nil
 }
 
-func generateOverwrittenTarball(version *Version, overwrite map[string]interface{}, input *bytes.Buffer) (file string, manifest map[string]interface{}, icon string, err error) {
+func generateOverwrittenTarball(version *Version, overwrite map[string]interface{}, input io.Reader) (file string, manifest map[string]interface{}, icon string, err error) {
 	var newManifest map[string]interface{}
 
-	iconFilename := manifest["icon"]
+	var originManifest Manifest
+	if err := json.Unmarshal(version.Manifest, &originManifest); err != nil {
+		return "", nil, "", err
+	}
+
+	iconFilename := originManifest.Icon
 	manifestFilename := "manifest." + version.Type
 
-	icon, iconOverwritten := overwrite["icon"].(string)
+	iconChecksum, iconOverwritten := overwrite["icon"].(string)
+	var iconContent *bytes.Buffer
+	if iconOverwritten {
+		iconContent, _, err = base.GlobalAssetStore.Get(iconChecksum)
+		if err != nil {
+			return "", nil, "", err
+		}
+	}
 	name, nameOverwritten := overwrite["name"].(string)
 
 	inputGzip, err := gzip.NewReader(input)
@@ -188,12 +199,11 @@ out:
 			switch header.Name {
 			case iconFilename:
 				if iconOverwritten {
-					bytes := []byte(icon)
-					header.Size = int64(len(bytes))
+					header.Size = int64(iconContent.Len())
 					if err = outputTar.WriteHeader(header); err != nil {
 						return file, nil, "", err
 					}
-					if _, err := outputTar.Write(bytes); err != nil {
+					if _, err := io.Copy(outputTar, iconContent); err != nil {
 						return file, nil, "", err
 					}
 				} else {
@@ -305,7 +315,7 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 			return err
 		}
 
-		hash, err := storeOverwrittenTarball(virtualSpace, file)
+		hash, size, err := storeOverwrittenTarball(virtualSpace, file)
 		if err != nil {
 			return err
 		}
@@ -313,6 +323,16 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 		newVersion := lastVersion.Clone()
 		newVersion.Rev = ""
 		newVersion.AttachmentReferences = map[string]string{"tarball": hash}
+		newVersion.Size = size
+		newVersion.Sha256 = hash
+
+		u, err := url.Parse(newVersion.URL)
+		if err != nil {
+			return err
+		}
+		u.Path = path.Join(virtualSpace.Name, u.Path)
+		newVersion.URL = u.String()
+
 		if icon != "" {
 			newVersion.AttachmentReferences["icon"] = icon
 		}
@@ -350,8 +370,8 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 }
 
 // FindAppOverride finds if the app have overwritten value in the virtual space
-func FindAppOverride(virtualSpaceName, appSlug, name string) (*string, error) {
-	db, err := getDBForVirtualSpace(virtualSpaceName)
+func FindAppOverride(virtualSpace *base.VirtualSpace, appSlug string, name string) (*string, error) {
+	db, err := getDBForVirtualSpace(virtualSpace.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -369,21 +389,19 @@ func FindAppOverride(virtualSpaceName, appSlug, name string) (*string, error) {
 	return &value, nil
 }
 
-// FindAppIconAttachmentFromOverwrite finds if the app icon was overwritten in the
-// virtual space.
-func FindAppIconAttachmentFromOverwrite(virtualSpaceName, appSlug, filename string) *Attachment {
-	if filename != "icon" {
-		return nil
+// FindAttachmentFromOverwrite finds if the app was overwritten in the virtual space.
+func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename string) (*Attachment, error) {
+	shasum, err := FindAppOverride(space, appSlug, filename)
+	if err != nil {
+		return nil, err
 	}
-
-	shasum, err := FindAppOverride(virtualSpaceName, appSlug, filename)
-	if err != nil || shasum == nil {
-		return nil
+	if shasum == nil {
+		return nil, nil
 	}
 
 	content, headers, err := base.GlobalAssetStore.Get(*shasum)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	return &Attachment{
@@ -391,7 +409,47 @@ func FindAppIconAttachmentFromOverwrite(virtualSpaceName, appSlug, filename stri
 		Content:       content,
 		Etag:          headers["Etag"],
 		ContentLength: headers["Content-Length"],
+	}, nil
+}
+
+func FindOverwrittenVersion(space *base.VirtualSpace, version *Version) (*Version, error) {
+	db := space.VersionDB()
+	row := db.Get(context.Background(), version.ID)
+
+	var doc Version
+	err := row.ScanDoc(&doc)
+	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return nil, nil
+		} else {
+			return nil, err
+		}
 	}
+	return &doc, nil
+}
+
+func FindOverwrittenTarball(space *base.VirtualSpace, version *Version) (*Attachment, error) {
+	doc, err := FindOverwrittenVersion(space, version)
+	if err != nil || doc == nil {
+		return nil, err
+	}
+	checksum, ok := doc.AttachmentReferences["tarball"]
+	if !ok {
+		return nil, nil
+	}
+
+	prefix := base.Prefix(space.Name)
+	content, headers, err := base.Storage.Get(prefix, checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Attachment{
+		ContentType:   headers["Content-Type"],
+		Content:       content,
+		Etag:          headers["Etag"],
+		ContentLength: headers["Content-Length"],
+	}, nil
 }
 
 // OverwriteAppName tells that an app will have a different name in the virtual
@@ -539,4 +597,9 @@ func findOverwrite(db *kivik.DB, appSlug string) (map[string]interface{}, error)
 	}
 
 	return doc, nil
+}
+
+func FindOverwrite(virtualSpace *base.VirtualSpace, slug string) (map[string]interface{}, error) {
+	db := virtualSpace.OverrideDb()
+	return findOverwrite(db, slug)
 }

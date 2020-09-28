@@ -116,9 +116,16 @@ func getAppAttachment(c echo.Context, filename string) error {
 	appSlug := c.Param("app")
 	channel := c.Param("channel")
 
+	virtual, _, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+
 	var att *registry.Attachment
-	if v, ok := c.Get("virtual_name").(string); ok && v != "" {
-		att = registry.FindAppIconAttachmentFromOverwrite(v, appSlug, filename)
+	if virtual != nil {
+		if att, err = registry.FindAttachmentFromOverwrite(virtual, appSlug, filename); err != nil {
+			return err
+		}
 	}
 	if att == nil {
 		if channel == "" {
@@ -345,9 +352,6 @@ func getAppsList(c echo.Context) error {
 	}
 
 	for _, app := range apps {
-		if e := override(c, app.LatestVersion); e != nil {
-			return e
-		}
 		cleanApp(app)
 	}
 

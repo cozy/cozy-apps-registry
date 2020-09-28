@@ -456,7 +456,7 @@ func Router() *echo.Echo {
 		filteredGetVersionScreenshot := filterAppInVirtualSpace(getVersionScreenshot, v)
 		g.HEAD("/:app/:version/screenshots/*", filteredGetVersionScreenshot)
 		g.GET("/:app/:version/screenshots/*", filteredGetVersionScreenshot)
-		filteredGetVersionTarball := filterAppInVirtualSpace(getVersionTarball, v)
+		filteredGetVersionTarball := applyVirtualSpace(filterAppInVirtualSpace(getVersionTarball, v), v, name)
 		g.HEAD("/:app/:version/tarball/:tarball", filteredGetVersionTarball)
 		g.GET("/:app/:version/tarball/:tarball", filteredGetVersionTarball)
 	}

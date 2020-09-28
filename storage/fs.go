@@ -67,10 +67,6 @@ func (m *localFS) Create(prefix base.Prefix, name, contentType string, content i
 		return err
 	}
 
-	parent := filepath.Dir(path)
-	if err := os.MkdirAll(parent, os.ModePerm); err != nil {
-		return nil
-	}
 	f, err := os.Create(path)
 	if err != nil {
 		dir := filepath.Join(m.baseDir, string(prefix))
