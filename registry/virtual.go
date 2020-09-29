@@ -18,33 +18,32 @@ import (
 	"path/filepath"
 
 	"github.com/cozy/cozy-apps-registry/asset"
-
-	"github.com/cozy/cozy-apps-registry/space"
-
 	"github.com/cozy/cozy-apps-registry/base"
+	"github.com/cozy/cozy-apps-registry/space"
 	"github.com/go-kivik/kivik/v3"
 )
 
-func findOverwrittenVersion(s base.VirtualSpace, version *Version) (*Version, error) {
+func findOverwrittenVersion(s base.VirtualSpace, version *Version) (*Version, bool, error) {
 	db := s.VersionDB()
 	ctx := context.Background()
-	row := db.Get(ctx, version.ID)
+	id := fmt.Sprintf("%s-%s", version.Slug, version.Version)
+	row := db.Get(ctx, id)
 	var t Version
 	if err := row.ScanDoc(&t); err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			return nil, nil
+			return nil, false, nil
 		}
-		return nil, err
+		return nil, false, err
 	}
-	return &t, nil
+	return &t, true, nil
 }
 
 func DeleteOverwrittenVersion(s base.VirtualSpace, version *Version) error {
-	overwritten, err := findOverwrittenVersion(s, version)
+	overwritten, ok, err := findOverwrittenVersion(s, version)
 	if err != nil {
 		return err
 	}
-	if overwritten == nil {
+	if !ok {
 		return nil
 	}
 	if err := deleteOverwrittenTarball(s, overwritten); err != nil {
@@ -97,13 +96,11 @@ func storeOverwrittenTarball(s base.VirtualSpace, tarball string) (hash string, 
 
 func deleteOverwrittenTarball(s base.VirtualSpace, version *Version) error {
 	h, ok := version.AttachmentReferences["tarball"]
-	if ok {
-		prefix := base.Prefix(s.Name)
-		if err := base.Storage.Remove(prefix, h); err != nil {
-			return err
-		}
+	if !ok {
+		return nil
 	}
-	return nil
+	prefix := base.Prefix(s.Name)
+	return base.Storage.Remove(prefix, h)
 }
 
 func getOriginalTarball(space *space.Space, version *Version) (io.Reader, error) {
@@ -121,12 +118,12 @@ func getOriginalTarball(space *space.Space, version *Version) (io.Reader, error)
 	return att.Content, nil
 }
 
-func generateOverwrittenTarball(version *Version, overwrite map[string]interface{}, input io.Reader) (file string, manifest map[string]interface{}, icon string, err error) {
+func generateOverwrittenTarball(version *Version, overwrite map[string]interface{}, input io.Reader, output io.Writer) (manifest map[string]interface{}, icon string, err error) {
 	var newManifest map[string]interface{}
 
 	var originManifest Manifest
 	if err := json.Unmarshal(version.Manifest, &originManifest); err != nil {
-		return "", nil, "", err
+		return nil, "", err
 	}
 
 	iconFilename := originManifest.Icon
@@ -137,31 +134,21 @@ func generateOverwrittenTarball(version *Version, overwrite map[string]interface
 	if iconOverwritten {
 		iconContent, _, err = base.GlobalAssetStore.Get(iconChecksum)
 		if err != nil {
-			return "", nil, "", err
+			return nil, "", err
 		}
 	}
 	name, nameOverwritten := overwrite["name"].(string)
 
 	inputGzip, err := gzip.NewReader(input)
 	if err != nil {
-		return "", nil, "", err
+		return nil, "", err
 	}
 	defer inputGzip.Close()
 	inputTar := tar.NewReader(inputGzip)
 
-	prefix := fmt.Sprintf("%s_%s_*.tar.gz", version.Slug, version.Version)
-	outputFile, err := ioutil.TempFile("", prefix)
+	outputGzip := gzip.NewWriter(output)
 	if err != nil {
-		return "", nil, "", err
-	}
-	file = outputFile.Name()
-	// Tricky return case from here. Never `return nil, err`.
-	// File is already created on filesystem, so we need to return it in all case to be able to clean it on the caller.
-	// We can'm `defer os.Remove` here, because caller need the file for storage…
-
-	outputGzip := gzip.NewWriter(outputFile)
-	if err != nil {
-		return "", nil, "", err
+		return nil, "", err
 	}
 	defer func() {
 		cerr := outputGzip.Close()
@@ -178,14 +165,13 @@ func generateOverwrittenTarball(version *Version, overwrite map[string]interface
 		}
 	}()
 
-out:
 	for {
 		header, err := inputTar.Next()
 		switch {
 		case err == io.EOF:
-			break out
+			return newManifest, icon, nil
 		case err != nil:
-			return file, nil, "", err
+			return nil, "", err
 		case header == nil:
 			continue
 		}
@@ -193,65 +179,77 @@ out:
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err = outputTar.WriteHeader(header); err != nil {
-				return file, nil, "", err
+				return nil, "", err
 			}
 		case tar.TypeReg:
 			switch header.Name {
 			case iconFilename:
-				if iconOverwritten {
-					header.Size = int64(iconContent.Len())
-					if err = outputTar.WriteHeader(header); err != nil {
-						return file, nil, "", err
-					}
-					if _, err := io.Copy(outputTar, iconContent); err != nil {
-						return file, nil, "", err
-					}
-				} else {
-					if err = outputTar.WriteHeader(header); err != nil {
-						return file, nil, "", err
-					}
-					if _, err = io.Copy(outputTar, inputTar); err != nil {
-						return file, nil, "", err
-					}
+				if err := overwriteIcon(inputTar, outputTar, header, iconOverwritten, iconContent); err != nil {
+					return nil, "", err
 				}
 			case manifestFilename:
-				if nameOverwritten {
-					decoder := json.NewDecoder(inputTar)
-					if err = decoder.Decode(&newManifest); err != nil {
-						return file, nil, "", err
-					}
-					newManifest["name"] = name
-					j, err := json.Marshal(newManifest)
-					if err != nil {
-						return file, nil, "", err
-					}
-					header.Size = int64(len(j))
-					if err = outputTar.WriteHeader(header); err != nil {
-						return file, nil, "", err
-					}
-					if _, err = outputTar.Write(j); err != nil {
-						return file, nil, "", err
-					}
-				} else {
-					if err = outputTar.WriteHeader(header); err != nil {
-						return file, nil, "", err
-					}
-					if _, err = io.Copy(outputTar, inputTar); err != nil {
-						return file, nil, "", err
-					}
+				if err := overwriteManifest(inputTar, outputTar, header, nameOverwritten, name, newManifest); err != nil {
+					return nil, "", err
 				}
 			default:
 				if err = outputTar.WriteHeader(header); err != nil {
-					return file, nil, "", err
+					return nil, "", err
 				}
 				if _, err = io.Copy(outputTar, inputTar); err != nil {
-					return file, nil, "", err
+					return nil, "", err
 				}
 			}
 		}
 	}
+}
 
-	return file, newManifest, icon, err
+func overwriteManifest(inputTar *tar.Reader, outputTar *tar.Writer, header *tar.Header, nameOverwritten bool, name string, newManifest map[string]interface{}) error {
+	if nameOverwritten {
+		decoder := json.NewDecoder(inputTar)
+		if err := decoder.Decode(&newManifest); err != nil {
+			return err
+		}
+		newManifest["name"] = name
+		j, err := json.Marshal(newManifest)
+		if err != nil {
+			return err
+		}
+		header.Size = int64(len(j))
+		if err = outputTar.WriteHeader(header); err != nil {
+			return err
+		}
+		if _, err = outputTar.Write(j); err != nil {
+			return err
+		}
+	} else {
+		if err := outputTar.WriteHeader(header); err != nil {
+			return err
+		}
+		if _, err := io.Copy(outputTar, inputTar); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func overwriteIcon(inputTar *tar.Reader, outputTar *tar.Writer, header *tar.Header, iconOverwritten bool, iconContent *bytes.Buffer) error {
+	if iconOverwritten {
+		header.Size = int64(iconContent.Len())
+		if err := outputTar.WriteHeader(header); err != nil {
+			return err
+		}
+		if _, err := io.Copy(outputTar, iconContent); err != nil {
+			return err
+		}
+	} else {
+		if err := outputTar.WriteHeader(header); err != nil {
+			return err
+		}
+		if _, err := io.Copy(outputTar, inputTar); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func versionOverwrittenAlreadyProcessed(versions []*Version, version *Version) bool {
@@ -290,6 +288,9 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 	for _, channel := range Channels {
 		lastVersion, err := FindLatestVersion(s, appSlug, channel)
 		if err != nil {
+			if err == ErrVersionNotFound {
+				continue
+			}
 			return err
 		}
 		if lastVersion == nil || versionOverwrittenAlreadyProcessed(regenerated, lastVersion) {
@@ -300,27 +301,33 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 		if err != nil {
 			return err
 		}
-		file, manifest, icon, err := generateOverwrittenTarball(lastVersion, overwrite, tarball)
-		// Tricky return, last part
-		// Even in case of error, we must to take care of any file returned to be sure to erase it from the fs
-		if file != "" {
-			defer func() {
-				cerr := os.Remove(file)
-				if err == nil {
-					err = cerr
-				}
-			}()
-		}
+
+		prefix := fmt.Sprintf("%s_%s_*.tar.gz", lastVersion.Slug, lastVersion.Version)
+		file, err := ioutil.TempFile("", prefix)
+		defer func() {
+			cerr := file.Close()
+			if err == nil {
+				err = cerr
+			}
+			cerr = os.Remove(file.Name())
+			if err == nil {
+				err = cerr
+			}
+		}()
+
+		manifest, icon, err := generateOverwrittenTarball(lastVersion, overwrite, tarball, file)
 		if err != nil {
 			return err
 		}
 
-		hash, size, err := storeOverwrittenTarball(virtualSpace, file)
+		hash, size, err := storeOverwrittenTarball(virtualSpace, file.Name())
 		if err != nil {
 			return err
 		}
 
 		newVersion := lastVersion.Clone()
+		id := fmt.Sprintf("%s-%s", lastVersion.Slug, lastVersion.Version)
+		newVersion.ID = id
 		newVersion.Rev = ""
 		newVersion.AttachmentReferences = map[string]string{"tarball": hash}
 		newVersion.Size = size
@@ -342,11 +349,11 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 		}
 		newVersion.Manifest = j
 
-		existingVersion, err := findOverwrittenVersion(virtualSpace, lastVersion)
+		existingVersion, ok, err := findOverwrittenVersion(virtualSpace, lastVersion)
 		if err != nil {
 			return err
 		}
-		if existingVersion != nil {
+		if ok {
 			newVersion.Rev = existingVersion.Rev
 			// We already have a version, destroy the old tarball if changed
 			h, ok := existingVersion.AttachmentReferences["tarball"]
@@ -370,23 +377,23 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 }
 
 // FindAppOverride finds if the app have overwritten value in the virtual space
-func FindAppOverride(virtualSpace *base.VirtualSpace, appSlug string, name string) (*string, error) {
+func FindAppOverride(virtualSpace *base.VirtualSpace, appSlug string, name string) (string, error) {
 	db, err := getDBForVirtualSpace(virtualSpace.Name)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	overwrite, err := findOverwrite(db, appSlug)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	value, ok := overwrite[name].(string)
 	if !ok {
-		return nil, nil
+		return "", nil
 	}
 
-	return &value, nil
+	return value, nil
 }
 
 // FindAttachmentFromOverwrite finds if the app was overwritten in the virtual space.
@@ -395,11 +402,11 @@ func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename str
 	if err != nil {
 		return nil, err
 	}
-	if shasum == nil {
+	if shasum == "" {
 		return nil, nil
 	}
 
-	content, headers, err := base.GlobalAssetStore.Get(*shasum)
+	content, headers, err := base.GlobalAssetStore.Get(shasum)
 	if err != nil {
 		return nil, err
 	}
@@ -516,11 +523,7 @@ func OverwriteAppIcon(virtualSpaceName, appSlug, file string) error {
 	id := getAppID(appSlug)
 	_, err = db.Put(context.Background(), id, overwrite)
 
-	if err := regenerateOverwrittenTarballs(virtualSpaceName, appSlug); err != nil {
-		return err
-	}
-
-	return err
+	return regenerateOverwrittenTarballs(virtualSpaceName, appSlug)
 }
 
 // ActivateMaintenanceVirtualSpace tells that an app is in maintenance in the

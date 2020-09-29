@@ -32,7 +32,7 @@ func SetupServices() error {
 	}
 
 	base.DatabaseNamespace = viper.GetString("couchdb.prefix")
-	if err := configureCouch(); err != nil {
+	if err := configureCouch(false); err != nil {
 		return fmt.Errorf("Cannot configure CouchDB: %w", err)
 	}
 
@@ -62,7 +62,7 @@ func SetupForTests() error {
 	}
 
 	base.DatabaseNamespace = "cozy-registry-test"
-	if err := configureCouch(); err != nil {
+	if err := configureCouch(true); err != nil {
 		return err
 	}
 
@@ -237,7 +237,7 @@ func configureLRUCache() {
 	base.ListVersionsCache = cache.NewLRUCache(256, base.DefaultCacheTTL)
 }
 
-func configureCouch() error {
+func configureCouch(purge bool) error {
 	client, err := newClient(
 		viper.GetString("couchdb.url"),
 		viper.GetString("couchdb.user"),
@@ -246,6 +246,21 @@ func configureCouch() error {
 		return fmt.Errorf("Could not reach CouchDB: %w", err)
 	}
 	base.DBClient = client
+
+	if purge {
+		// Purge all databases, test purpose
+		dbs, err := base.DBClient.AllDBs(context.Background())
+		if err != nil {
+			return err
+		}
+		for _, db := range dbs {
+			if strings.HasPrefix(db, base.DatabaseNamespace+"-") {
+				if err := base.DBClient.DestroyDB(context.Background(), db); err != nil {
+					return err
+				}
+			}
+		}
+	}
 
 	editorsDBName := base.DBName(editorsDBSuffix)
 	exists, err := client.DBExists(context.Background(), editorsDBName)
