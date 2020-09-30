@@ -293,7 +293,7 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 			}
 			return err
 		}
-		if lastVersion == nil || versionOverwrittenAlreadyProcessed(regenerated, lastVersion) {
+		if versionOverwrittenAlreadyProcessed(regenerated, lastVersion) {
 			continue
 		}
 
@@ -397,18 +397,18 @@ func FindAppOverride(virtualSpace *base.VirtualSpace, appSlug string, name strin
 }
 
 // FindAttachmentFromOverwrite finds if the app was overwritten in the virtual space.
-func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename string) (*Attachment, error) {
+func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename string) (*Attachment, bool, error) {
 	shasum, err := FindAppOverride(space, appSlug, filename)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if shasum == "" {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	content, headers, err := base.GlobalAssetStore.Get(shasum)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &Attachment{
@@ -416,7 +416,7 @@ func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename str
 		Content:       content,
 		Etag:          headers["Etag"],
 		ContentLength: headers["Content-Length"],
-	}, nil
+	}, true, nil
 }
 
 func FindOverwrittenVersion(space *base.VirtualSpace, version *Version) (*Version, error) {
@@ -427,7 +427,7 @@ func FindOverwrittenVersion(space *base.VirtualSpace, version *Version) (*Versio
 	err := row.ScanDoc(&doc)
 	if err != nil {
 		if kivik.StatusCode(err) == http.StatusNotFound {
-			return nil, nil
+			return nil, ErrVersionNotFound
 		} else {
 			return nil, err
 		}
@@ -435,20 +435,23 @@ func FindOverwrittenVersion(space *base.VirtualSpace, version *Version) (*Versio
 	return &doc, nil
 }
 
-func FindOverwrittenTarball(space *base.VirtualSpace, version *Version) (*Attachment, error) {
+func FindOverwrittenTarball(space *base.VirtualSpace, version *Version) (*Attachment, bool, error) {
 	doc, err := FindOverwrittenVersion(space, version)
-	if err != nil || doc == nil {
-		return nil, err
+	if err != nil {
+		if err == ErrVersionNotFound {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
 	checksum, ok := doc.AttachmentReferences["tarball"]
 	if !ok {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	prefix := base.Prefix(space.Name)
 	content, headers, err := base.Storage.Get(prefix, checksum)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &Attachment{
@@ -456,7 +459,7 @@ func FindOverwrittenTarball(space *base.VirtualSpace, version *Version) (*Attach
 		Content:       content,
 		Etag:          headers["Etag"],
 		ContentLength: headers["Content-Length"],
-	}, nil
+	}, true, nil
 }
 
 // OverwriteAppName tells that an app will have a different name in the virtual
@@ -478,11 +481,7 @@ func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
 		return err
 	}
 
-	if err := regenerateOverwrittenTarballs(virtualSpaceName, appSlug); err != nil {
-		return err
-	}
-
-	return nil
+	return regenerateOverwrittenTarballs(virtualSpaceName, appSlug)
 }
 
 // OverwriteAppIcon tells that an app will have a different icon in the virtual
@@ -521,7 +520,9 @@ func OverwriteAppIcon(virtualSpaceName, appSlug, file string) error {
 	overwrite["icon"] = a.Shasum
 
 	id := getAppID(appSlug)
-	_, err = db.Put(context.Background(), id, overwrite)
+	if _, err = db.Put(context.Background(), id, overwrite); err != nil {
+		return err
+	}
 
 	return regenerateOverwrittenTarballs(virtualSpaceName, appSlug)
 }

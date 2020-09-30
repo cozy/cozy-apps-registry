@@ -122,12 +122,13 @@ func getAppAttachment(c echo.Context, filename string) error {
 	}
 
 	var att *registry.Attachment
+	attFound := false
 	if virtual != nil {
-		if att, err = registry.FindAttachmentFromOverwrite(virtual, appSlug, filename); err != nil {
+		if att, attFound, err = registry.FindAttachmentFromOverwrite(virtual, appSlug, filename); err != nil {
 			return err
 		}
 	}
-	if att == nil {
+	if !attFound {
 		if channel == "" {
 			var err error
 			for _, ch := range registry.Channels {

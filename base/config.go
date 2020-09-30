@@ -65,12 +65,10 @@ func (v VirtualSpace) Init() error {
 	if err != nil {
 		return err
 	}
-	if !ok {
-		if err = DBClient.CreateDB(context.Background(), db); err != nil {
-			return err
-		}
+	if ok {
+		return nil
 	}
-	return nil
+	return DBClient.CreateDB(context.Background(), db)
 }
 
 func (v VirtualSpace) VersionDB() *kivik.DB {

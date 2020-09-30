@@ -201,18 +201,16 @@ func getVersionTarball(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if ver == nil {
-		return fmt.Errorf("unable to find version %s-%s", slug, version)
-	}
 	filename := c.Param("tarball")
 
-	var att *registry.Attachment
+	var att *registry.Attachment = nil
+	attFound := false
 	if virtualSpace != nil {
-		if att, err = registry.FindOverwrittenTarball(virtualSpace, ver); err != nil {
+		if att, attFound, err = registry.FindOverwrittenTarball(virtualSpace, ver); err != nil {
 			return err
 		}
 	}
-	if att == nil {
+	if !attFound {
 		if att, err = registry.FindVersionAttachment(space, ver, filename); err != nil {
 			return err
 		}
@@ -256,12 +254,13 @@ func getVersionAttachment(c echo.Context, filename string) error {
 	}
 
 	var att *registry.Attachment
+	attFound := false
 	if virtualSpace != nil {
-		if att, err = registry.FindAttachmentFromOverwrite(virtualSpace, slug, filename); err != nil {
+		if att, attFound, err = registry.FindAttachmentFromOverwrite(virtualSpace, slug, filename); err != nil {
 			return err
 		}
 	}
-	if att == nil {
+	if !attFound {
 		if att, err = registry.FindVersionAttachment(space, ver, filename); err != nil {
 			return err
 		}
@@ -299,12 +298,8 @@ func getVersion(c echo.Context) error {
 		return err
 	}
 
-	oDoc, e := override(c, doc)
-	if e != nil {
-		return e
-	}
-	if oDoc != nil {
-		doc = oDoc
+	if doc, err = override(c, doc); err != nil {
+		return err
 	}
 	if cacheControl(c, doc.Rev, oneYear) {
 		return c.NoContent(http.StatusNotModified)
@@ -329,14 +324,13 @@ func override(c echo.Context, version *registry.Version) (*registry.Version, err
 
 	overwrittenVersion, err := registry.FindOverwrittenVersion(virtual, version)
 	if err != nil {
+		if err == registry.ErrVersionNotFound {
+			return version, nil
+		}
 		return nil, err
 	}
 
-	if overwrittenVersion != nil {
-		return overwrittenVersion, nil
-	}
-
-	return version, nil
+	return overwrittenVersion, nil
 }
 
 func getLatestVersion(c echo.Context) error {
@@ -356,12 +350,8 @@ func getLatestVersion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	oVersion, e := override(c, version)
-	if e != nil {
-		return e
-	}
-	if oVersion != nil {
-		version = oVersion
+	if version, err = override(c, version); err != nil {
+		return err
 	}
 
 	if cacheControl(c, version.Rev, fiveMinute) {
