@@ -318,8 +318,11 @@ func override(c echo.Context, version *registry.Version) (*registry.Version, err
 	}
 
 	virtual, _, err := getVirtualSpace(c)
-	if err != nil || virtual == nil {
+	if err != nil {
 		return nil, err
+	}
+	if virtual == nil {
+		return version, nil
 	}
 
 	overwrittenVersion, err := registry.FindOverwrittenVersion(virtual, version)
