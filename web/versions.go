@@ -235,7 +235,9 @@ func sendAttachment(c echo.Context, att *registry.Attachment, filename string) e
 		return c.NoContent(http.StatusOK)
 	}
 
-	c.Response().Header().Set(echo.HeaderContentLength, att.ContentLength)
+	if att.ContentLength != "" {
+		c.Response().Header().Set(echo.HeaderContentLength, att.ContentLength)
+	}
 
 	return c.Stream(http.StatusOK, contentType, att.Content)
 }
