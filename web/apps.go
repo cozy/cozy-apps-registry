@@ -155,21 +155,7 @@ func getAppAttachment(c echo.Context, filename string) error {
 		}
 	}
 
-	if cacheControl(c, att.Etag, oneHour) {
-		return c.NoContent(http.StatusNotModified)
-	}
-
-	contentType := att.ContentType
-	// force image/svg content-type for svg assets that start with <?xml
-	if (filename == "icon" || filename == "partnership_icon") && contentType == "text/xml" {
-		contentType = "image/svg+xml"
-	}
-
-	if c.Request().Method == http.MethodHead {
-		c.Response().Header().Set(echo.HeaderContentType, contentType)
-		return c.NoContent(http.StatusOK)
-	}
-	return c.Stream(http.StatusOK, contentType, att.Content)
+	return sendAttachment(c, att, filename)
 }
 
 func getMaintenanceApps(c echo.Context) error {
