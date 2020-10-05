@@ -50,7 +50,7 @@ func DeleteOverwrittenVersion(s base.VirtualSpace, version *Version) error {
 		return err
 	}
 	db := s.VersionDB()
-	_, err = db.Delete(context.Background(), overwritten.ID, overwritten.Version)
+	_, err = db.Delete(context.Background(), overwritten.ID, overwritten.Rev)
 	return err
 }
 
