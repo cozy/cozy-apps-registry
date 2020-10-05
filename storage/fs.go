@@ -67,13 +67,13 @@ func (m *localFS) Create(prefix base.Prefix, name, contentType string, content i
 		return err
 	}
 
+	parent := filepath.Dir(path)
+	if err := os.MkdirAll(parent, os.ModePerm); err != nil {
+		return err
+	}
 	f, err := os.Create(path)
 	if err != nil {
-		dir := filepath.Join(m.baseDir, string(prefix))
-		if _, err := os.Stat(dir); err != nil && os.IsNotExist(err) {
-			return base.NewFileNotFoundError(err)
-		}
-		return base.NewInternalError(err)
+		return err
 	}
 	defer f.Close()
 	if _, err = io.Copy(f, content); err != nil {
