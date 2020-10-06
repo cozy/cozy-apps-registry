@@ -57,7 +57,7 @@ func patchApp(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug, registry.Stable)
+	app, err := registry.FindApp(nil, getSpace(c), appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,11 @@ func patchApp(c echo.Context) (err error) {
 
 func getApp(c echo.Context) error {
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(getSpace(c), appSlug, getVersionsChannel(c, registry.Dev))
+	virtualSpace, space, err := getVirtualSpace(c)
+	if err != nil {
+		return err
+	}
+	app, err := registry.FindApp(virtualSpace, space, appSlug, getVersionsChannel(c, registry.Dev))
 	if err != nil {
 		return err
 	}
@@ -199,7 +203,7 @@ func activateMaintenanceApp(c echo.Context) error {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(s, appSlug, registry.Stable)
+	app, err := registry.FindApp(vs, s, appSlug, registry.Stable)
 	if err != nil {
 		return err
 	}
@@ -237,7 +241,7 @@ func deactivateMaintenanceApp(c echo.Context) (err error) {
 	}
 
 	appSlug := c.Param("app")
-	app, err := registry.FindApp(s, appSlug, registry.Stable)
+	app, err := registry.FindApp(vs, s, appSlug, registry.Stable)
 	if err != nil {
 		return
 	}
