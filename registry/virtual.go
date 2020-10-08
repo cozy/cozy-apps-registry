@@ -255,7 +255,7 @@ func versionOverwrittenAlreadyProcessed(versions []*Version, version *Version) b
 	return false
 }
 
-func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err error) {
+func RegenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err error) {
 	db, err := getDBForVirtualSpace(virtualSpaceName)
 	if err != nil {
 		return err
@@ -477,7 +477,7 @@ func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
 		return err
 	}
 
-	return regenerateOverwrittenTarballs(virtualSpaceName, appSlug)
+	return RegenerateOverwrittenTarballs(virtualSpaceName, appSlug)
 }
 
 // OverwriteAppIcon tells that an app will have a different icon in the virtual
@@ -520,7 +520,7 @@ func OverwriteAppIcon(virtualSpaceName, appSlug, file string) error {
 		return err
 	}
 
-	return regenerateOverwrittenTarballs(virtualSpaceName, appSlug)
+	return RegenerateOverwrittenTarballs(virtualSpaceName, appSlug)
 }
 
 // ActivateMaintenanceVirtualSpace tells that an app is in maintenance in the
