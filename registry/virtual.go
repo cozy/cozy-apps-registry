@@ -26,7 +26,7 @@ import (
 func findOverwrittenVersion(s base.VirtualSpace, version *Version) (*Version, bool, error) {
 	db := s.VersionDB()
 	ctx := context.Background()
-	id := fmt.Sprintf("%s-%s", version.Slug, version.Version)
+	id := getVersionID(version.Slug, version.Version)
 	row := db.Get(ctx, id)
 	var t Version
 	if err := row.ScanDoc(&t); err != nil {
@@ -320,7 +320,7 @@ func regenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 		}
 
 		newVersion := lastVersion.Clone()
-		id := fmt.Sprintf("%s-%s", lastVersion.Slug, lastVersion.Version)
+		id := getVersionID(lastVersion.Slug, lastVersion.Version)
 		newVersion.ID = id
 		newVersion.Rev = ""
 		newVersion.AttachmentReferences = map[string]string{"tarball": hash}
@@ -416,7 +416,7 @@ func FindAttachmentFromOverwrite(space *base.VirtualSpace, appSlug, filename str
 func FindOverwrittenVersion(space *base.VirtualSpace, version *Version) (*Version, error) {
 	db := space.VersionDB()
 	// Sometime version is already cleared and so `.ID` is empty…
-	id := fmt.Sprintf("%s-%s", version.Slug, version.Version)
+	id := getVersionID(version.Slug, version.Version)
 	row := db.Get(context.Background(), id)
 
 	var doc Version
