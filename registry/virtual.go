@@ -272,9 +272,12 @@ func RegenerateOverwrittenTarballs(virtualSpaceName string, appSlug string) (err
 		return fmt.Errorf("unable to find %s space", spaceName)
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, found, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return err
+	}
+	if !found {
+		return nil
 	}
 
 	var regenerated []*Version
@@ -377,9 +380,12 @@ func FindAppOverride(virtualSpace *base.VirtualSpace, appSlug string, name strin
 		return "", err
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, ok, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return "", err
+	}
+	if !ok {
+		return "", nil
 	}
 
 	value, ok := overwrite[name].(string)
@@ -466,7 +472,7 @@ func OverwriteAppName(virtualSpaceName, appSlug, newName string) error {
 		return err
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, _, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return err
 	}
@@ -499,7 +505,7 @@ func OverwriteAppIcon(virtualSpaceName, appSlug, file string) error {
 		return err
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, _, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return err
 	}
@@ -531,7 +537,7 @@ func ActivateMaintenanceVirtualSpace(virtualSpaceName, appSlug string, opts Main
 		return err
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, _, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return err
 	}
@@ -551,7 +557,7 @@ func DeactivateMaintenanceVirtualSpace(virtualSpaceName, appSlug string) error {
 		return err
 	}
 
-	overwrite, err := findOverwrite(db, appSlug)
+	overwrite, _, err := findOverwrite(db, appSlug)
 	if err != nil {
 		return err
 	}
@@ -584,22 +590,20 @@ func getDBForVirtualSpace(virtualSpaceName string) (*kivik.DB, error) {
 	return db, nil
 }
 
-func findOverwrite(db *kivik.DB, appSlug string) (map[string]interface{}, error) {
+func findOverwrite(db *kivik.DB, appSlug string) (map[string]interface{}, bool, error) {
 	if !validSlugReg.MatchString(appSlug) {
-		return nil, ErrAppSlugInvalid
+		return nil, false, ErrAppSlugInvalid
 	}
 
 	doc := map[string]interface{}{}
 	row := db.Get(context.Background(), getAppID(appSlug))
 	err := row.ScanDoc(&doc)
-	if err != nil && kivik.StatusCode(err) != http.StatusNotFound {
-		return nil, err
+	if err != nil {
+		if kivik.StatusCode(err) == http.StatusNotFound {
+			return doc, false, nil
+		}
+		return nil, false, err
 	}
 
-	return doc, nil
-}
-
-func FindOverwrite(virtualSpace *base.VirtualSpace, slug string) (map[string]interface{}, error) {
-	db := virtualSpace.OverrideDb()
-	return findOverwrite(db, slug)
+	return doc, true, nil
 }
