@@ -44,7 +44,7 @@ jobs:
           git config --global user.email "github@spam.cozycloud.cc"
           git config --global user.name "github actions"
           curl -X PUT http://127.0.0.1:5984/{_users,_replicator}
-          echo ::add-path::$(go env GOPATH)/bin
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
           make install
       - name: Lint
         run: make lint
