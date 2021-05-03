@@ -29,7 +29,7 @@
     - [4) Create an editor](#4-create-an-editor)
     - [5) Configure `cozy-stack` with the registry](#5-configure-cozy-stack-with-the-registry)
   - [Publish your application on the registry](#publish-your-application-on-the-registry)
-    - [1) Prepare your application](#1-prepare-your-application)
+    - [1) Define your application manifest](#1-define-your-application-manifest)
       - [For an application](#for-an-application)
       - [For a connector](#for-a-connector)
       - [Properties meaning (reference)](#properties-meaning-reference)
@@ -202,7 +202,7 @@ If you need more details about the registry you can go to [the official registry
 
 __:warning: Important:__ In this whole documentation, by the term `application`, we mean a web application or a konnector. Indeed, for the registry, all entities are applications and they can be either `webapp` or `konnector` type.
 
-### 1) Prepare your application
+### 1) Define your application manifest
 
 To be publishable, your application requires some informations in its `manifest.webapp`, the manifest of a Cozy application.
 
