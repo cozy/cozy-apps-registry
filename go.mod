@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/labstack/echo/v4 v4.6.1
-	github.com/ncw/swift v1.0.53
+	github.com/ncw/swift/v2 v2.0.1
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect
 	github.com/pkg/xattr v0.4.3
