@@ -7,7 +7,7 @@ require (
 	github.com/go-kivik/couchdb/v3 v3.2.8
 	github.com/go-kivik/kivik/v3 v3.2.3
 	github.com/go-redis/redis/v7 v7.4.1
-	github.com/h2non/filetype v1.1.1
+	github.com/h2non/filetype v1.1.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/labstack/echo/v4 v4.6.1
