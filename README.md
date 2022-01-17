@@ -233,6 +233,7 @@ Field              | Description
 `locales`          | an object with language slug as property, each name property is an object of localized informations (see the second part below)
 `manifest_version` | The current manifest version used. This is a versioning for the manifest and allow better retrocompatiblity when processing app manifest
 `messages`         | _(konnector specific)_ Array of message identifiers, which can be used by application to display information at known areas. See [example below](#konnectors-message-property).
+`mobile`           | _(application specific)_ JSON object containing information about app's mobile version (see [cozy-stack routes doc](https://docs.cozy.io/en/cozy-stack/apps/#mobile) for more details)
 `name`             | the name to display on the home (__REQUIRED__)
 `name_prefix`      | the prefix to display with the name
 `oauth`            | _(konnector specific)_ JSON object containing oAuth information, like `scope`. If a manifest provides an `oauth` property, it is considered as an OAuth konnector. Note: scope can be a string or an array. If it is an array, its values will be joined with a space. A `false` or `null` value in scope will remove any scope parameter in the request sent to the oauth provider.
