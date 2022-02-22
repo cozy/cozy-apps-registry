@@ -516,10 +516,10 @@ __Here we will show the classical way to add a version using `curl` as reference
 > - For this step, you will need your editor token access generated when you created your editor (see [below](#4-create-an-editor)). You have to replace all `{{EDITOR_TOKEN}}` in this documentation by this token.
 > - The communication with the registry is done through HTTP requests for now. So we will use the `curl` command line tool to register our application here.
 
-To add a new application, you have to do a `POST` request which all the informations needed to the route `registryAddress/registry/:appSlug`
-with `registryAddress` your registry address (for example here `http://localhost:8081`), `:appName` your application slug (here `drive`).
+To add a new version for a registered application, you have to do a `POST` request with all needed information to the route `registryAddress/registry/:appSlug` to publish in default space or `registryAddress/:space/registry/:appSlug` for a named space (see [Spaces & Virtual Spaces](#spaces--virtual-spaces) below)
+with `registryAddress` your registry address (for example here `http://localhost:8081`), `:appName` your application slug (here `drive`) and `:space` your registry space.
 
-Let's add the version 1.0.1 of the Collect application as example:
+Let's add the version 1.0.1 of the Collect application for example:
 
 ```shell
 # {{EDITOR_TOKEN}} -> your generated editor access token
@@ -530,8 +530,6 @@ curl -X "POST" "http://localhost:8081/registry/collect" \
   "url": "https://github.com/cozy/cozy-collect/archive/1.0.1.tar.gz",
   "sha256": "96212bf53ab618808da0a92c7b6d9f2867b1f9487ba7c1c29606826b107041b5",
   "version": "1.0.1",
-  "type": "webapp",
-  "editor": "{{EDITOR}}"
 }'
 ```
 
@@ -540,8 +538,6 @@ Field         | Description
 url           | the archive source of your application, it will be downloaded and checked with the sha256 property
 sha256        | the sha256 hash of your source archive matching the archive in `url` (see the notice below)
 version       | version of the application, must match the one in the manifest (see the notice below)
-type          | kind of application (it can be only `webapp` or `konnector`)
-editor        | Name of the editor matching the `{{EDITOR_TOKEN}}`
 
 > __:warning: Important notices:__
 >
@@ -867,7 +863,7 @@ to the final fallback redirection.
 
 `http://<registry-domain>/biwebauth?fallback=http%3A%2F%2Fa.cozy%3Ffoo%3Dfoo&bar=bar`
 redirect to `http://a.cozy?foo=foo&bar=bar`, merging fallback provided query
-parameters (`foo=foo`) with webauth provided ones (`bar=bar`). 
+parameters (`foo=foo`) with webauth provided ones (`bar=bar`).
 
 ## Community
 
