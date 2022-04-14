@@ -30,17 +30,19 @@
     - [5) Configure `cozy-stack` with the registry](#5-configure-cozy-stack-with-the-registry)
   - [Publish your application on the registry](#publish-your-application-on-the-registry)
     - [1) Define your application manifest](#1-define-your-application-manifest)
-      - [For an application](#for-an-application)
-      - [For a connector](#for-a-connector)
-      - [Properties meaning (reference)](#properties-meaning-reference)
-      - [Translated manifest fields](#translated-manifest-fields)
-      - [Application terms](#application-terms)
-      - [Konnectors folders handling](#konnectors-folders-handling)
+        - [Properties meaning (reference)](#properties-meaning-reference)
+      - [Available manifest’s features list :](#available-manifests-features-list-)
+        - [Translated manifest fields](#translated-manifest-fields)
+        - [Application terms](#application-terms)
+        - [Konnectors folders handling](#konnectors-folders-handling)
+        - [Konnectors fields property](#konnectors-fields-property)
+        - [Konnectors message property](#konnectors-message-property)
+        - [Categories and Data types](#categories-and-data-types)
     - [2) Add a new application in the registry](#2-add-a-new-application-in-the-registry)
       - [Our official apps registry](#our-official-apps-registry)
       - [Custom registry](#custom-registry)
     - [3) Add a new version of a registered application](#3-add-a-new-version-of-a-registered-application)
-      - [Via [`cozy-app-publish`][cozy-app-publish] (highly recommanded)](#via-cozy-app-publishcozy-app-publish-highly-recommanded)
+      - [Via `cozy-app-publish` (highly recommanded)](#via-cozy-app-publish-highly-recommanded)
       - [Via `curl`](#via-curl)
     - [Spaces & Virtual Spaces](#spaces--virtual-spaces)
       - [Spaces](#spaces)
@@ -50,14 +52,14 @@
     - [Automation (CI)](#automation-ci)
   - [Access control and tokens](#access-control-and-tokens)
   - [Maintenance](#maintenance)
-  - [Import/export](#import-export)
+  - [Import/export](#importexport)
   - [Application confidence grade / labelling](#application-confidence-grade--labelling)
   - [Universal links](#universal-links)
     - [Configuration](#configuration)
       - [Config file](#config-file)
       - [Files](#files)
     - [Usage](#usage)
-  - [BI Web Auth](#biwebauth)
+  - [Budget-Insight web auth](#budget-insight-web-auth)
   - [Community](#community)
 
 
@@ -251,6 +253,70 @@ Field              | Description
 `type`             | type of application (`konnector` or `webapp`) (__REQUIRED__)
 `version`          | the current version number (__REQUIRED__)
 `vendor_link`      | _(konnector specific)_ URL to editor or service website
+`qualification_labels` | (konnector specific) Array of one or more labels from the [Cozy Client’s qualifications list](https://github.com/cozy/cozy-client/blob/master/packages/cozy-client/src/assets/qualifications.json) to associate with the files the konnector will receive from the website.
+`features` | (konnector specific) Array of features added in the konnector from the list below.
+
+#### Available manifest’s features list :
+
+ - **2FA**
+
+    Two Factors identification.
+
+- **BILLS**
+
+    Import bills documents, doctype “io.cozy.bills”.
+
+ - **FILES**
+
+    Import files documents, doctype “io.cozy.files”.
+
+ - **CAPTCHA_RESOLUTION**
+
+    The konnector using a captcha resolution process.
+
+ - **CARBON_COPY**
+
+    The konnector import legally true copy of the original files.
+
+ - **DOC_QUALIFICATION**
+
+    The konnector uses the first version of files qualifications, you may stumble upon on some konnectors wich hasn’t been treated.
+
+ - **DOC_QUALIFICATION_V2**
+
+    The konnector uses new version (last one for now) of files qualifications.
+
+ - **ELECTRONIC_SAFE**
+
+    Files comes from a known electronic safe.
+
+ - **HEALTH**
+
+    The konnector treat health documents
+
+ - **HTML_TO_PDF**
+
+    The konnector needs to convert HTML page(s) to make pdf files.
+
+ - **IDENTITY**
+
+    The konnector create identity(ies) for doctype “io.cozy.identities”
+
+ - **LOGIN_OK**
+
+    The konnector deactivate the auto-notification 
+
+ - **METADATA_DEDUP**
+
+    The konnector uses a fileIdAttribute as detection to avoid deduplication.
+
+ - **VENDOR_REF**
+
+    The konnector uses.
+
+ - **SENTRY_V2**
+
+    The konnector had been migrated (or packaged) to sentry V2 (errors.cozycloud.cc)
 
 > __Notices:__
 >
