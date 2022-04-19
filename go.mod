@@ -14,7 +14,7 @@ require (
 	github.com/ncw/swift v1.0.53
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect
-	github.com/pkg/xattr v0.4.6
+	github.com/pkg/xattr v0.4.7
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
