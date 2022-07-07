@@ -3,3 +3,6 @@
 cozy-registry.yml
 /cozy-apps-registry*
 /.storage
+/go
+/git-log.txt
+/debian/changelog
