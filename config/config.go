@@ -20,6 +20,7 @@ func SetDefaults() {
 	viper.AutomaticEnv()
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("host", "localhost")
+	viper.SetDefault("network_topology", "direct") // Direct connection from internet
 	viper.SetDefault("couchdb.url", "http://localhost:5984/")
 	viper.SetDefault("couchdb.prefix", "cozyregistry")
 	viper.SetDefault("conservation.enable_background_cleaning", false)
