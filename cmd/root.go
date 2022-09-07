@@ -57,6 +57,9 @@ func Root() *cobra.Command {
 	flags.Int("port", 8080, "port to listen on")
 	checkNoErr(viper.BindPFlag("port", flags.Lookup("port")))
 
+	flags.String("access_topology", "direct", "access topology in front of application")
+	checkNoErr(viper.BindPFlag("access_topology", flags.Lookup("access_topology")))
+
 	flags.String("couchdb-url", "http://localhost:5984", "address of couchdb")
 	checkNoErr(viper.BindPFlag("couchdb.url", flags.Lookup("couchdb-url")))
 
