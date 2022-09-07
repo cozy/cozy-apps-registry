@@ -169,7 +169,11 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		config.SetDefaults()
-		return config.ReadFile(cfgFileFlag, "cozy-registry")
+		if err := config.ReadFile(cfgFileFlag, "cozy-registry"); err != nil {
+			return err
+		}
+		return config.Validate()
+
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()

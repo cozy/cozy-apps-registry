@@ -29,6 +29,16 @@ func SetDefaults() {
 	viper.SetDefault("conservation.month", 2)
 }
 
+// Validate the config items loaded in viper requiring validation.
+func Validate() error {
+	topology := viper.GetString("access_topology")
+	if (topology != "direct") && (topology != "xff") && (topology != "xrip") {
+		return fmt.Errorf("Unknown access_topology value in configuration: %s", topology)
+	}
+
+	return nil
+}
+
 // ReadFile reads the config file, parses it, and loads the values in viper.
 func ReadFile(file, defaultFile string) error {
 	if file == "" {
