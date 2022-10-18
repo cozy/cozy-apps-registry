@@ -830,7 +830,7 @@ Registry data are exported as below:
  * `registry/swift/{file/path}`: Swift document, with the following tar custom metadata
     * `COZY.content-type`: associated content type
 
-The generated archive can be imported with `cozy-apps-registry import -d <dump.tar.gz>`.
+The generated archive can be imported with `cozy-apps-registry import -d <dump.tar.gz>`.
 The `-d` option will drop CouchDB databases and Swift containers related to declared spaces on the registry configuration.
 
 ## Application confidence grade / labelling
