@@ -22,11 +22,11 @@ jobs:
         include:
           # Recommended version
           - go-version: 1.18.x
-            couchdb-version: 2.3.1
+            couchdb-version: 3.2.2
             lint: true
           # More exotic version
           - go-version: 1.16.x
-            couchdb-version: 3.2.2
+            couchdb-version: 3.2.0
     steps:
       - name: Install CouchDB
         run: |
