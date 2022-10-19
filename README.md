@@ -546,10 +546,10 @@ __:warning: Here the `slug` is the unique ID of the application in the registry,
 
 ### 3) Add a new version of a registered application
 
-    > :warning: Please note that an application bundle cannot be larger than 20MB (hardcoded value).
-    This limitation has been implemented to encourage better web application development practices
-    because in general the larger the application bundle is, the worst the performance and
-    user experience will be.
+> :warning: Please note that an application bundle cannot be larger than 20MB (hardcoded value).
+> This limitation has been implemented to encourage better web application development practices
+> because in general the larger the application bundle is, the worst the performance and
+> user experience will be.
 
 #### Via [`cozy-app-publish`][cozy-app-publish] (highly recommanded)
 
