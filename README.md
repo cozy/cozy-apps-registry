@@ -613,6 +613,8 @@ version       | version of the application, must match the one in the manifest (
 > __:warning: Important notices:__
 >
 > - The version must match the one in the `manifest.webapp` file for stable release. For beta (X.X.X-betaX) or dev releases (X.X.X-dev.hash256), the version before the cyphen must match the one in the `manifest.webapp`.
+> - If version starts with the `v` letter (like ` v1.2.3`), then the `v` letter is silently stripped from version, allowing you to simply publish according to tag name
+>   if your tags are labelled `vx.y.z`.
 > - For better integrity, the `sha256` provided must match the sha256 of the archive provided in `url`. If it's not the case, that will be considered as an error and the version won't be registered.
 
 ### Spaces & Virtual Spaces
