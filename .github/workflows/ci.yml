@@ -50,7 +50,7 @@ jobs:
           echo "COZY_REGISTRY_COUCHDB_USER=admin" >> $GITHUB_ENV
           echo "COZY_REGISTRY_COUCHDB_PASSWORD=password" >> $GITHUB_ENV
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
       - name: Checkout code
