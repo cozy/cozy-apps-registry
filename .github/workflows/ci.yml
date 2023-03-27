@@ -26,11 +26,11 @@ jobs:
             lint: true
           # More exotic version
           - go-version: '1.18.x'
-            couchdb-version: '3.2.0'
+            couchdb-version: '3.3.1'
     steps:
       - name: Install CouchDB
         run: |
-          curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | sudo tee /usr/share/keyrings/couchdb-archive-keyring.gpg
+          curl -s https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | sudo cat > /usr/share/keyrings/couchdb-archive-keyring.gpg
           source /etc/os-release
           echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ ${VERSION_CODENAME} main" | sudo tee /etc/apt/sources.list.d/couchdb.list
           sudo apt-get update
@@ -46,7 +46,7 @@ jobs:
                 couchdb couchdb/cookie string elmo
                 couchdb couchdb/cookie seen true
           EOF
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes couchdb=${{ matrix.couchdb-version }}*
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --allow-remove-essential --allow-change-held-packages couchdb=${{ matrix.couchdb-version }}*
           echo "COZY_REGISTRY_COUCHDB_USER=admin" >> $GITHUB_ENV
           echo "COZY_REGISTRY_COUCHDB_PASSWORD=password" >> $GITHUB_ENV
       - name: Install Go
