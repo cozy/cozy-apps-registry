@@ -121,7 +121,7 @@ func getPendingVersions(c echo.Context) (err error) {
 	}
 
 	slugFilter := c.QueryParam("filter[slug]")
-	filteredVersions := versions[:]
+	filteredVersions := make([]*registry.Version, 0)
 	for _, version := range versions {
 		if slugFilter == "" || version.Slug == slugFilter {
 			cleanVersion(version)
