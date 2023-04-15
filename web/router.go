@@ -91,6 +91,23 @@ func checkPermissions(c echo.Context, editorName string, appName string, master 
 	return editor, nil
 }
 
+func checkEditorMasterPermissions(c echo.Context, editorName string) error {
+	token, err := extractAuthHeader(c)
+	if err != nil {
+		return err
+	}
+
+	editor, err := auth.Editors.GetEditor(editorName)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, "Could not find editor: %s", editorName)
+	}
+
+	if !editor.VerifyMasterToken(base.SessionSecret, token) {
+		return errshttp.NewError(http.StatusUnauthorized, "Token could not be verified")
+	}
+	return nil
+}
+
 func extractAuthHeader(c echo.Context) ([]byte, error) {
 	authHeader := c.Request().Header.Get(echo.HeaderAuthorization)
 	if !strings.HasPrefix(authHeader, authTokenScheme) {

@@ -111,9 +111,17 @@ func getPendingVersions(c echo.Context) (err error) {
 	}
 
 	editorName := c.QueryParam("editor")
-	_, err = checkPermissions(c, editorName, "", true /* = master */)
-	if err != nil {
-		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	tokenEditor := editorName
+	// Only token for editor cozy can show pending version from all editors
+	if editorName == "" {
+		tokenEditor = "cozy"
+	}
+
+	// Master tokens for "cozy" editor is valid for all other editors
+	if err = checkEditorMasterPermissions(c, tokenEditor); err != nil {
+		if err = checkEditorMasterPermissions(c, "cozy"); err != nil {
+			return errshttp.NewError(http.StatusUnauthorized, err.Error())
+		}
 	}
 
 	versions, err := registry.GetPendingVersions(getSpace(c))
@@ -140,7 +148,7 @@ func approvePendingVersion(c echo.Context) (err error) {
 
 	// only allow approving versions from editor cozy
 	editorName := "cozy"
-	_, err = checkPermissions(c, editorName, "", true /* = master */)
+	err = checkEditorMasterPermissions(c, editorName)
 	if err != nil {
 		return errshttp.NewError(http.StatusUnauthorized, err.Error())
 	}
