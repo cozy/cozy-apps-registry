@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/cozy/cozy-apps-registry/base"
 	"github.com/cozy/cozy-apps-registry/errshttp"
@@ -123,7 +124,7 @@ func getPendingVersions(c echo.Context) (err error) {
 	slugFilter := c.QueryParam("filter[slug]")
 	filteredVersions := make([]*registry.Version, 0)
 	for _, version := range versions {
-		if slugFilter == "" || version.Slug == slugFilter {
+		if (slugFilter == "" || version.Slug == slugFilter) && (editorName == "" || strings.EqualFold(version.Editor, editorName)) {
 			cleanVersion(version)
 			filteredVersions = append(filteredVersions, version)
 		}
