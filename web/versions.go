@@ -143,7 +143,9 @@ func approvePendingVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	// only allow approving versions from editor cozy
+	// Only allow approving versions from editor cozy
+	// Previous comment line is mainly incorrect as any master token tied to any editor will be valid
+	// and we ignore editor returned by checkPermissions()
 	editorName := "cozy"
 	_, err = checkPermissions(c, editorName, "", true /* = master */)
 	if err != nil {
@@ -175,6 +177,45 @@ func approvePendingVersion(c echo.Context) (err error) {
 	cleanVersion(version)
 
 	return c.JSON(http.StatusCreated, version)
+}
+
+func deletePendingVersion(c echo.Context) (err error) {
+	if err = checkAuthorized(c); err != nil {
+		return err
+	}
+
+	// Only allow delete versions from editor cozy
+	// Previous comment line is mainly incorrect as any master token tied to any editor will be valid
+	// and we ignore editor returned by checkPermissions()
+	editorName := "cozy"
+	_, err = checkPermissions(c, editorName, "", true /* = master */)
+	if err != nil {
+		return errshttp.NewError(http.StatusUnauthorized, err.Error())
+	}
+
+	appSlug := c.Param("app")
+	if appSlug == "" {
+		return errshttp.NewError(http.StatusNotFound, "App is missing in the URL")
+	}
+	app, err := registry.FindApp(nil, getSpace(c), appSlug, registry.Stable)
+	if err != nil {
+		return err
+	}
+
+	ver := stripVersion(c.Param("version"))
+	if ver == "" {
+		return errshttp.NewError(http.StatusNotFound, "Version is missing in the URL")
+	}
+	version, err := registry.FindPendingVersion(getSpace(c), appSlug, ver)
+	if err != nil {
+		return err
+	}
+
+	if err = registry.DeletePendingVersion(getSpace(c), version, app); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func getVersionIcon(c echo.Context) error {
