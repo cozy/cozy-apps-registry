@@ -1156,7 +1156,9 @@ func RemoveAppFromSpace(s *space.Space, appSlug string) error {
 	}
 
 	// Then remove all live versions
-	app.Versions, err = FindAppVersionsCacheMiss(s, appSlug, Dev, Concatenated)
+	// NotConcatenated here to avoid trying to delete a stable version 3 times
+	// (one for stable, one for beta and one for dev channel)
+	app.Versions, err = FindAppVersionsCacheMiss(s, appSlug, Dev, NotConcatenated)
 	if err != nil {
 		return err
 	}
