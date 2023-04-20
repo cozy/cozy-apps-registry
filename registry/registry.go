@@ -1142,6 +1142,20 @@ func RemoveAppFromSpace(s *space.Space, appSlug string) error {
 		return err
 	}
 
+	// First remove all pending versions for that app
+	pendingVersions, err := GetAppPengindVersions(s, appSlug)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range pendingVersions {
+		if err = DeletePendingVersion(s, v); err != nil {
+			fmt.Printf("Unable to delete pending version %s/%s: %s\n", v.Slug, v.Version, err)
+			continue
+		}
+	}
+
+	// Then remove all live versions
 	app.Versions, err = FindAppVersionsCacheMiss(s, appSlug, Dev, Concatenated)
 	if err != nil {
 		return err
@@ -1151,6 +1165,7 @@ func RemoveAppFromSpace(s *space.Space, appSlug string) error {
 		return err
 	}
 
+	// And finally remove the app
 	db := s.AppsDB()
 	_, err = db.Delete(context.Background(), app.ID, app.Rev)
 	return err
