@@ -197,10 +197,6 @@ func deletePendingVersion(c echo.Context) (err error) {
 	if appSlug == "" {
 		return errshttp.NewError(http.StatusNotFound, "App is missing in the URL")
 	}
-	app, err := registry.FindApp(nil, getSpace(c), appSlug, registry.Stable)
-	if err != nil {
-		return err
-	}
 
 	ver := stripVersion(c.Param("version"))
 	if ver == "" {
@@ -211,7 +207,7 @@ func deletePendingVersion(c echo.Context) (err error) {
 		return err
 	}
 
-	if err = registry.DeletePendingVersion(getSpace(c), version, app); err != nil {
+	if err = registry.DeletePendingVersion(getSpace(c), version); err != nil {
 		return err
 	}
 

@@ -464,7 +464,7 @@ func ApprovePendingVersion(c *space.Space, pending *Version, app *App) (*Version
 	return release, nil
 }
 
-func DeletePendingVersion(c *space.Space, version *Version, app *App) error {
+func DeletePendingVersion(c *space.Space, version *Version) error {
 	// Delete attachments (swift or couchdb)
 	err := version.RemoveAllAttachments(c)
 	if err != nil {
