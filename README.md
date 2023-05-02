@@ -440,6 +440,7 @@ Example:
 ##### Categories and Data types
 
 Categories are slugs from the following list:
+
 * `energy`
 * `insurance`
 * `isp`
@@ -457,6 +458,7 @@ Categories are slugs from the following list:
 * `social`
 
 Data types are slugs from the following list:
+
 * `activity`
 * `appointment`
 * `bankTransactions`
