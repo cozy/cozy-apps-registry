@@ -292,3 +292,11 @@ func createApps() error {
 
 	return registry.DeactivateMaintenanceVirtualSpace(myKonnectorsSpace, quuxKonn)
 }
+
+func TestIsHostInTheTrustedDomains(t *testing.T) {
+	assert.True(t, isHostInTheTrustedDomains("example.mycozy.cloud", []string{"mycozy.cloud"}))
+	assert.True(t, isHostInTheTrustedDomains("manager.cozycloud.cc", []string{"manager.cozycloud.cc"}))
+
+	assert.False(t, isHostInTheTrustedDomains("cozycloud.cc", []string{"cozycloud.cc.evil.com"}))
+	assert.False(t, isHostInTheTrustedDomains("cozycloud.cc", []string{"evilcozycloud.cc"}))
+}
