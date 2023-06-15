@@ -78,10 +78,8 @@ func universalLinkRedirect(c echo.Context) error {
 
 	spaceTrustedDomains := base.Config.TrustedDomains
 	if domains, ok := spaceTrustedDomains[spacePrefix.String()]; ok {
-		for _, domain := range domains {
-			if strings.Contains(parsedRedirect.Host, domain) {
-				return c.Redirect(http.StatusSeeOther, fallback)
-			}
+		if isHostInTheTrustedDomains(parsedRedirect.Host, domains) {
+			return c.Redirect(http.StatusSeeOther, fallback)
 		}
 	}
 	return echo.NewHTTPError(http.StatusBadRequest, "This domain is not allowed to be redirected")
@@ -116,11 +114,18 @@ func webAuthRedirect(c echo.Context) error {
 
 	spaceTrustedDomains := base.Config.TrustedDomains
 	if domains, ok := spaceTrustedDomains[spacePrefix.String()]; ok {
-		for _, domain := range domains {
-			if strings.Contains(parsedRedirect.Host, domain) {
-				return c.Redirect(http.StatusSeeOther, parsedRedirect.String())
-			}
+		if isHostInTheTrustedDomains(parsedRedirect.Host, domains) {
+			return c.Redirect(http.StatusSeeOther, parsedRedirect.String())
 		}
 	}
 	return echo.NewHTTPError(http.StatusBadRequest, "This domain is not allowed to be redirected")
+}
+
+func isHostInTheTrustedDomains(host string, domains []string) bool {
+	for _, domain := range domains {
+		if host == domain || strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
 }
