@@ -226,7 +226,7 @@ Field              | Description
 `editor`           | the editor's name to display on the cozy-bar (__REQUIRED__)
 `fields`           | _(konnector specific)_ JSON object describing the fields need by the konnector (__except folder path__). Used to generate a form. See [below](#konnectors-fields-property)
 `folders`          | _(konnector specific)_ A list of folders required by the konnector to store files according to datatype (see the [specific documentation below](#konnectors-folders-handling))
-`frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, indicating the interval of time between two runs of the konnector. Default: `weekly`.
+`frequency`        | _(konnector specific)_ A human readable value between `monthly`, `weekly`, `daily`, `hourly`, indicating the interval of time between two runs of the konnector. Default: `weekly`.
 `icon`             | path to the icon for the home (path in the build)
 `intents`          | _(application specific)_ a list of intents provided by this app (see [cozy-stack intents doc](https://docs.cozy.io/en/cozy-stack/intents/) for more details)
 `langs`            | Languages available in your app (can be different from locales)
