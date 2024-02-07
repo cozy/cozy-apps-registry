@@ -71,6 +71,7 @@ described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
 To work properly, it requires:
 
+- Go >= 1.18
 - Couchdb >= 3.2
 - Redis
 - Openstack Object Storage (Swift)
