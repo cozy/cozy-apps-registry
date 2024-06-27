@@ -442,21 +442,29 @@ Example:
 
 Categories are slugs from the following list:
 
-* `energy`
-* `insurance`
-* `isp`
-* `shopping`
-* `telecom`
-* `transport`
 * `banking`
+* `clouds`
+* `cozy`
+* `education`
+* `energy`
+* `finance`
 * `health`
 * `host_provider`
+* `insurance`
+* `isp`
+* `mes_infos`
 * `online_services`
 * `partners`
 * `press`
+* `pro`
 * `productivity`
+* `ptnb`
 * `public_service`
+* `shopping`
 * `social`
+* `tech`
+* `telecom`
+* `transport`
 
 Data types are slugs from the following list:
 
