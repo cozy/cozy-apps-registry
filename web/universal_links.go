@@ -132,6 +132,15 @@ func checkRedirectIsTrusted(parsedRedirect *url.URL, spacePrefix string, cfg bas
 		}
 	}
 
+	if urls, ok := cfg.TrustedUrls[spacePrefix]; ok {
+		redirectURL := parsedRedirect.String()
+		for _, trustedURL := range urls {
+			if redirectURL == trustedURL {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
