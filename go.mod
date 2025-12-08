@@ -1,6 +1,6 @@
 module github.com/cozy/cozy-apps-registry
 
-go 1.18
+go 1.24.0
 
 require (
 	github.com/Masterminds/semver v1.5.0
@@ -18,7 +18,7 @@ require (
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.33.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.19.0
 )
 
 require (
