@@ -37,6 +37,22 @@ func isChatInvite(c echo.Context) bool {
 	return strings.HasPrefix(requestPath, chatInvitePrefix)
 }
 
+func createDirectChatURL(baseURL, path string) string {
+	parsedURL := url.URL{
+		Scheme: "https",
+		Host:   baseURL,
+		Path:   "/",
+	}
+
+	query := parsedURL.Query()
+	query.Set("redirect", "true")
+	query.Set("slug", "chat")
+	query.Set("path", path)
+
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
+
 func redirectChatInvite(c echo.Context) (bool, error) {
 	userAgent := c.Request().UserAgent()
 	platform := GetPlatformFromUserAgent(userAgent)
@@ -47,8 +63,10 @@ func redirectChatInvite(c echo.Context) (bool, error) {
 		redirectURL = ChatIOSRedirectURL
 	case "android":
 		redirectURL = ChatAndroidRedirectURL
-		// case "web":
-		// 	redirectURL = ""
+	case "web":
+		// Get the path from the request and create direct URL
+		requestPath := c.Request().URL.Path
+		redirectURL = createDirectChatURL(c.Request().Host, requestPath)
 	}
 
 	return true, c.Redirect(http.StatusSeeOther, redirectURL)
