@@ -35,7 +35,7 @@ func isChatInvite(c echo.Context) bool {
 	return strings.HasPrefix(requestPath, ChatInvitePrefix)
 }
 
-func createDirectChatURL(baseURL, path string) string {
+func createDirectChatURL(baseURL, requestPath string) string {
 	parsedURL := url.URL{
 		Scheme: "https",
 		Host:   baseURL,
@@ -45,7 +45,7 @@ func createDirectChatURL(baseURL, path string) string {
 	query := parsedURL.Query()
 	query.Set("redirect", "true")
 	query.Set("slug", "chat")
-	query.Set("path", path)
+	query.Set("path", "/#/bridge/web/#"+requestPath)
 
 	parsedURL.RawQuery = query.Encode()
 	return parsedURL.String()
