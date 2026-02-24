@@ -13,8 +13,6 @@ import (
 // universalLinkFolder is the FS folder name containing the universal link files
 const universalLinkFolder = "universallink"
 
-const chatInvitePrefix = "/chat/@"
-
 func universalLink(c echo.Context) error {
 	space, err := getSpaceFromHost(c)
 	if err != nil {
@@ -34,7 +32,7 @@ func universalLink(c echo.Context) error {
 
 func isChatInvite(c echo.Context) bool {
 	requestPath := c.Request().URL.Path
-	return strings.HasPrefix(requestPath, chatInvitePrefix)
+	return strings.HasPrefix(requestPath, ChatInvitePrefix)
 }
 
 func createDirectChatURL(baseURL, path string) string {
@@ -64,9 +62,29 @@ func redirectChatInvite(c echo.Context) (bool, error) {
 	case "android":
 		redirectURL = ChatAndroidRedirectURL
 	case "web":
-		// Get the path from the request and create direct URL
+		// Extract Matrix ID and domain to determine the sign-up URL
 		requestPath := c.Request().URL.Path
-		redirectURL = createDirectChatURL(c.Request().Host, requestPath)
+		matrixID := ExtractMatrixID(requestPath)
+		if matrixID == "" {
+			redirectURL = ChatFallbackURL
+			break
+		}
+
+		domain := ExtractDomainFromMatrixID(matrixID)
+		if domain == "" {
+			redirectURL = ChatFallbackURL
+			break
+		}
+
+		signUpURL := GetSignUpURLForDomain(domain)
+		if signUpURL == "" {
+			redirectURL = ChatFallbackURL
+			break
+		}
+
+		redirectURL = createDirectChatURL(signUpURL, requestPath)
+	default:
+		redirectURL = ChatFallbackURL
 	}
 
 	return true, c.Redirect(http.StatusSeeOther, redirectURL)
