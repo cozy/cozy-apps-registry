@@ -17,6 +17,12 @@ func TestCreateDirectChatURL(t *testing.T) {
 			path:    "/chat/@jdoe:twake.app",
 			want:    "https://sign-up.twake.app/?path=%2Fchat%2F%40jdoe%3Atwake.app&redirect=true&slug=chat",
 		},
+		{
+			name:    "Staging chat invite URL",
+			baseURL: "sign-up.stg.lin-saas.com",
+			path:    "/chat/@jdoe:stg.lin-saas.com",
+			want:    "https://sign-up.stg.lin-saas.com/?path=%2Fchat%2F%40jdoe%3Astg.lin-saas.com&redirect=true&slug=chat",
+		},
 	}
 
 	for _, tt := range tests {
