@@ -224,6 +224,7 @@ Field                            | Description
 `accept_documents_from_flagship` | an object defining properties of accepted files when `accept_from_flagship` is `true`. See [Accept from Flagship](https://github.com/cozy/cozy-stack/blob/master/docs/accept-from-flagship.md) documentation.
 `aggregator`                     | Object containing aggregator data. Typically `{ accountId: 'aggregator-service' }`.
 `categories`                     | array of categories for your apps (see authorized categories), it will be `['others']` by default if empty
+`client_url_flag`                | the name of the feature flag whose value is the client URL to use for intents when the app is not hosted on a cozy subdomain. (ex: `mail.embedded-app-url`)
 `data_types`                     | _(konnector specific)_ Array of the data type the konnector will manage
 `developer`                      | `name` and `url` for the developer
 `editor`                         | the editor's name to display on the cozy-bar (__REQUIRED__)
