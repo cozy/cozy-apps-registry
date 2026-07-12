@@ -12,7 +12,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/ncw/swift v1.0.53
-	github.com/pkg/xattr v0.4.9
+	github.com/pkg/xattr v0.4.12
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.14.0
