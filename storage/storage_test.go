@@ -100,12 +100,19 @@ func TestS3(t *testing.T) {
 		t.Fatalf("Cannot create the S3 client: %s", err)
 	}
 
-	// These tests need a real server. CI runs MinIO as a service; a plain
-	// development environment has nothing to talk to, and skipping keeps
-	// `make tests` usable there.
+	// These tests need a real server. A plain development environment has
+	// nothing to talk to, and skipping keeps `make tests` usable there.
+	//
+	// CI sets MINIO_REQUIRED, which turns that skip into a failure. Without it,
+	// a MinIO that failed to start would leave these tests silently skipped and
+	// the build still green, since `make tests` does not run go test in verbose
+	// mode.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := client.ListBuckets(ctx); err != nil {
+		if os.Getenv("MINIO_REQUIRED") != "" {
+			t.Fatalf("MINIO_REQUIRED is set but no S3 server answers on %s: %s", endpoint, err)
+		}
 		t.Skipf("No S3 server reachable on %s: %s", endpoint, err)
 	}
 
