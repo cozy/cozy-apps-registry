@@ -87,4 +87,8 @@ jobs:
           docker logs minio >&2
           exit 1
       - name: Unit tests
+        # Makes the S3 storage tests fail rather than skip if MinIO is not
+        # answering, so that a green build means they really ran.
+        env:
+          MINIO_REQUIRED: '1'
         run: make tests
