@@ -1,0 +1,35 @@
+version: "2"
+
+linters:
+  # Keep golangci-lint's standard set (errcheck, govet, ineffassign,
+  # staticcheck, unused) and add the extra checks this project has always
+  # enabled on the command line.
+  default: standard
+  enable:
+    - bidichk
+    - misspell
+    - unconvert
+    - whitespace
+
+  settings:
+    staticcheck:
+      # v2 merged the stylecheck (ST*) and quickfix (QF*) linters into
+      # staticcheck. Neither was enabled before, and ST1005 in particular
+      # contradicts this project: the capitalized error strings in
+      # base/errors.go are sent to API clients, so they are deliberate.
+      checks:
+        - all
+        - -ST*
+        - -QF*
+
+  exclusions:
+    # Replaces v1's issues.exclude-use-default, which was on by default and
+    # ignored unchecked errors on Close, Flush, print and similar calls.
+    presets:
+      - std-error-handling
+
+formatters:
+  # gofmt used to be enabled as a linter. golangci-lint v2 moved formatting
+  # checks out of the linters section into their own.
+  enable:
+    - gofmt
