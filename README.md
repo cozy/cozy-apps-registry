@@ -28,6 +28,8 @@
     - [3) Run the registry to serve the apps](#3-run-the-registry-to-serve-the-apps)
     - [4) Create an editor](#4-create-an-editor)
     - [5) Configure `cozy-stack` with the registry](#5-configure-cozy-stack-with-the-registry)
+  - [Using an S3 storage](#using-an-s3-storage)
+    - [Migrating from Swift to S3](#migrating-from-swift-to-s3)
   - [Publish your application on the registry](#publish-your-application-on-the-registry)
     - [1) Define your application manifest](#1-define-your-application-manifest)
         - [Properties meaning (reference)](#properties-meaning-reference)
@@ -71,16 +73,20 @@ described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
 To work properly, it requires:
 
-- Go >= 1.18
+- Go >= 1.21 (the `go.mod` requires Go 1.25, which `GOTOOLCHAIN=auto` fetches on its own)
 - Couchdb >= 3.2
 - Redis
-- Openstack Object Storage (Swift)
+- Openstack Object Storage (Swift), or an S3-compatible object store
 
 ## How to develop with a `cozy-apps-registry` working in local environment
 
 Before starting, you will need to have a couchdb running already. That can be the one used by the local `cozy-stack` if you have one. For this tutorial, couchdb will be running on the default port 5984.
 
-You also must have redis and an OpenStack Object Storage (Swift) up and running. You can follow install instructions on [the official website](https://docs.openstack.org/swift/latest/install/index.html)
+You also must have redis and a storage up and running. For the storage, pick one of:
+
+- OpenStack Object Storage (Swift), following the install instructions on [the official website](https://docs.openstack.org/swift/latest/install/index.html)
+- an S3-compatible object store, see [Using an S3 storage](#using-an-s3-storage) below
+- a plain directory of the local file system, which is the easiest for development: set `fs` to that path
 
 ### 1) Install and configure the local `cozy-apps-registry`
 
@@ -198,6 +204,89 @@ registries:
 ```
 
 Now restart your local `cozy-stack` to take this new configuration in consideration (stop and run again `cozy-stack serve`) and you're ready to work with the `cozy-apps-registry`!
+
+## Using an S3 storage
+
+The registry can store its files in any S3-compatible object store (OVH,
+Scaleway, MinIO) instead of Swift. A deployment uses one or the other: the `fs`
+configuration parameter selects the backend, and an `s3://` URL selects S3.
+
+```yaml
+fs: s3://s3.gra.io.cloud.ovh.net?access_key=ACCESS&secret_key=SECRET&region=gra
+
+s3:
+  bucket: cozy-registry
+  prefix: registry           # optional
+  auto_create_bucket: true   # default
+```
+
+The endpoint, the credentials and the region go in the URL as query parameters:
+`access_key`, `secret_key`, `region` and `use_ssl` (which defaults to `true`).
+URL-encode any value containing reserved characters such as `!`, `&`, `+`, `/`
+or `=`, otherwise authentication fails with an unhelpful signature error.
+
+A single bucket holds every space. Each container becomes a key prefix, so a
+space named `myspace` has its files under `myspace/`, the default space under
+`__default__/` and the shared assets under `__assets__/`. The optional `prefix`
+nests all of them under a common path, which lets the bucket be shared with
+another use.
+
+`auto_create_bucket` creates the bucket at start-up when it does not exist. With
+`auto_create_bucket: false`, create it beforehand; start-up then only checks
+that it is reachable and fails if it is not.
+
+The credentials must allow `HeadBucket` on the bucket, plus listing, reads,
+writes, deletes and multipart uploads on its objects. Permission to create
+buckets is only needed when `auto_create_bucket` is left on.
+
+Two behaviours differ from Swift, both harmless for normal use:
+
+- Writing to a space that was never declared succeeds instead of failing, since
+  there is no container to be missing.
+- Listing objects does not report their content type, because the S3 list
+  response has no such field. Exports remain faithful: they read it from the
+  object itself.
+
+For local development, MinIO is enough. Note the image: the upstream Quay one no
+longer allows anonymous pulls, and `minio/minio` has no tags left on Docker Hub,
+so this is the mirror cozy-stack settled on.
+
+```shell
+docker run -d --name minio -p 9000:9000 \
+  -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin \
+  pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
+```
+
+```yaml
+fs: s3://localhost:9000?access_key=minioadmin&secret_key=minioadmin&use_ssl=false
+s3:
+  bucket: cozy-registry
+```
+
+The storage tests use the same server, and skip when nothing answers on
+`localhost:9000`. `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY` and `MINIO_SECRET_KEY`
+override where they look.
+
+### Migrating from Swift to S3
+
+There is no read fallback from S3 to Swift, so the files must be copied before
+the switch, and no write must happen in between.
+
+1. Create the bucket, or let `auto_create_bucket` do it.
+2. Stop the registry, so that nothing is written during the copy.
+3. Copy each container to its key prefix, for `__assets__`, `__default__` and
+   every named space:
+
+   ```shell
+   rclone copy swift:__assets__ s3:cozy-registry/__assets__
+   rclone copy swift:__default__ s3:cozy-registry/__default__
+   rclone copy swift:myspace s3:cozy-registry/myspace
+   ```
+
+   With a `prefix` configured, target `s3:cozy-registry/<prefix>/<container>`.
+4. Switch `fs` to the `s3://` URL, add the `s3` section, and start the registry.
+5. Check `/status` and download an application attachment.
 
 ## Publish your application on the registry
 
@@ -846,15 +935,18 @@ curl -XPUT \
 
 ## Import/export
 
-CouchDB & Swift can be exported into a single archive with `cozy-apps-registry export <dump.tar.gz>`.
+CouchDB & the storage can be exported into a single archive with `cozy-apps-registry export <dump.tar.gz>`.
 Registry data are exported as below:
 
  * `registry/couchdb/{db}/{uuid}.json`: CouchDB document exported as JSON
- * `registry/swift/{file/path}`: Swift document, with the following tar custom metadata
+ * `registry/swift/{file/path}`: stored file, with the following tar custom metadata
     * `COZY.content-type`: associated content type
 
+The `swift` path is kept whatever the storage backend is, so that archives stay
+readable across a Swift to S3 migration.
+
 The generated archive can be imported with `cozy-apps-registry import -d <dump.tar.gz>`.
-The `-d` option will drop CouchDB databases and Swift containers related to declared spaces on the registry configuration.
+The `-d` option will drop CouchDB databases and storage containers related to declared spaces on the registry configuration.
 
 ## Application confidence grade / labelling
 
