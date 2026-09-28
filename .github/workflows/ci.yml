@@ -64,5 +64,27 @@ jobs:
       - name: Lint
         if: ${{ matrix.lint }}
         run: make lint
+      # The S3 storage tests skip themselves when no server answers, so this is
+      # what makes them actually run. MinIO needs a command, which the services
+      # block cannot provide, hence a plain docker run.
+      #
+      # The image is the Docker Hub mirror cozy-stack settled on: the upstream
+      # Quay one no longer allows anonymous pulls, and minio/minio has no tags
+      # left on Docker Hub.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready in time" >&2
+          docker logs minio >&2
+          exit 1
       - name: Unit tests
         run: make tests
