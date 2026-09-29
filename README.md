@@ -1005,6 +1005,25 @@ Place your files (e.g `apple-app-site-association`) in the space container. The 
 > For the `foobar` space and file `apple-app-site-association`, the file has to be named
 `universallink/apple-app-site-association` and placed in the `foobar` container
 
+On an S3 storage there is no container to place the file in: the space is a key
+prefix inside the single bucket, so the object key is
+`foobar/universallink/apple-app-site-association`, nested under the configured
+`s3.prefix` when there is one.
+
+**Set the content type explicitly when uploading to S3.** The endpoint serves
+back whatever content type the stored object carries, and
+`apple-app-site-association` has no file extension, so a plain
+`aws s3 cp` stores it as `binary/octet-stream` and iOS gets the wrong type:
+
+```shell
+aws s3 cp apple-app-site-association \
+  s3://cozy-registry/foobar/universallink/apple-app-site-association \
+  --content-type application/json
+```
+
+Copying an existing Swift container with `rclone` carries the content types
+over, so a migration needs nothing special here.
+
 ### Usage
 The following endpoint is available to get any file:
 > `http://<yourdomain>/.well-known/:filename`
