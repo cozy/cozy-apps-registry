@@ -1,16 +1,12 @@
 package storage
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cozy/cozy-apps-registry/base"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/cozy/cozy-apps-registry/internal/testutils"
 	"github.com/ncw/swift"
 	"github.com/ncw/swift/swifttest"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +22,10 @@ type storageOpts struct {
 	// bucket holds every container as a key prefix, so a write to an unknown
 	// prefix has nothing to fail on.
 	hasContainers bool
+	// hasEtag tells whether Get reports an Etag header. Swift and S3 do; the
+	// local file system and the in-memory storage do not. It matters because
+	// web/router.go uses it to answer conditional requests.
+	hasEtag bool
 }
 
 func TestSwift(t *testing.T) {
@@ -43,7 +43,7 @@ func TestSwift(t *testing.T) {
 		t.Fatalf("Cannot authenticate to Swift: %s", err)
 	}
 	swift := &swiftFS{conn: conn}
-	testStorage(t, swift, storageOpts{hasContainers: true})
+	testStorage(t, swift, storageOpts{hasContainers: true, hasEtag: true})
 }
 
 func TestLocal(t *testing.T) {
@@ -87,59 +87,12 @@ func TestS3Keys(t *testing.T) {
 }
 
 func TestS3(t *testing.T) {
-	endpoint := envOr("MINIO_ENDPOINT", "localhost:9000")
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds: credentials.NewStaticV4(
-			envOr("MINIO_ACCESS_KEY", "minioadmin"),
-			envOr("MINIO_SECRET_KEY", "minioadmin"),
-			"",
-		),
-		Secure: false,
-	})
-	if err != nil {
-		t.Fatalf("Cannot create the S3 client: %s", err)
-	}
-
-	// These tests need a real server. A plain development environment has
-	// nothing to talk to, and skipping keeps `make tests` usable there.
-	//
-	// CI sets MINIO_REQUIRED, which turns that skip into a failure. Without it,
-	// a MinIO that failed to start would leave these tests silently skipped and
-	// the build still green, since `make tests` does not run go test in verbose
-	// mode.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, err := client.ListBuckets(ctx); err != nil {
-		if os.Getenv("MINIO_REQUIRED") != "" {
-			t.Fatalf("MINIO_REQUIRED is set but no S3 server answers on %s: %s", endpoint, err)
-		}
-		t.Skipf("No S3 server reachable on %s: %s", endpoint, err)
-	}
-
-	bucket := fmt.Sprintf("registry-test-%d", time.Now().UnixNano())
-	if err := ensureBucket(context.Background(), client, bucket, ""); err != nil {
-		t.Fatalf("Cannot create the test bucket: %s", err)
-	}
-	t.Cleanup(func() {
-		if err := deletePrefixObjects(context.Background(), client, bucket, ""); err != nil {
-			t.Logf("Cannot empty the test bucket %s: %s", bucket, err)
-		}
-		if err := client.RemoveBucket(context.Background(), bucket); err != nil {
-			t.Logf("Cannot remove the test bucket %s: %s", bucket, err)
-		}
-	})
+	client, bucket := testutils.MinioBucket(t)
 
 	// A global prefix is configured, so that the suite also exercises the
 	// nested layout rather than only the bare one.
 	s3 := &s3FS{client: client, bucket: bucket, globalPrefix: "registry"}
-	testStorage(t, s3, storageOpts{hasContainers: false})
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
+	testStorage(t, s3, storageOpts{hasContainers: false, hasEtag: true})
 }
 
 func testStorage(t *testing.T, storage base.VirtualStorage, opts storageOpts) {
@@ -180,6 +133,10 @@ func testStorage(t *testing.T, storage base.VirtualStorage, opts storageOpts) {
 		assert.NoError(t, err)
 		assert.Equal(t, "some bytes", buf.String())
 		assert.Equal(t, "text/plain", headers["Content-Type"])
+		if opts.hasEtag {
+			// Etag, not ETag: the callers read Go's canonical header form.
+			assert.NotEmpty(t, headers["Etag"])
+		}
 
 		_, _, err = storage.Get(fooPrefix, "no-such-file")
 		if assert.Error(t, err) {
