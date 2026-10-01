@@ -13,6 +13,7 @@ require (
 	github.com/labstack/echo/v4 v4.16.0
 	github.com/minio/minio-go/v7 v7.0.99
 	github.com/ncw/swift v1.0.53
+	github.com/ncw/swift/v2 v2.0.5
 	github.com/pkg/xattr v0.4.9
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
