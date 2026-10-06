@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,6 +19,7 @@ import (
 	"github.com/cozy/cozy-apps-registry/config"
 	"github.com/cozy/cozy-apps-registry/registry"
 	"github.com/cozy/cozy-apps-registry/space"
+	"github.com/labstack/echo/v4"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -298,6 +301,45 @@ func createApps() error {
 	}
 
 	return registry.DeactivateMaintenanceVirtualSpace(myKonnectorsSpace, quuxKonn)
+}
+
+func TestCreateVersionUpload(t *testing.T) {
+	// Larger than the 100K body limit applied to the other requests
+	content := bytes.Repeat([]byte("x"), 200<<10)
+	newRequest := func() *http.Request {
+		body := &bytes.Buffer{}
+		w := multipart.NewWriter(body)
+		require.NoError(t, w.WriteField("metadata", `{"version":"1.0.0","sha256":"abc"}`))
+		fw, err := w.CreateFormFile("tarball", "../../evil.tar.gz")
+		require.NoError(t, err)
+		_, _ = fw.Write(content)
+		require.NoError(t, w.Close())
+		req := httptest.NewRequest(http.MethodPost, server.URL+"/registry/"+keptApp, body)
+		req.Header.Set(echo.HeaderContentType, w.FormDataContentType())
+		return req
+	}
+
+	c := echo.New().NewContext(newRequest(), httptest.NewRecorder())
+	opts := &registry.VersionOptions{}
+	require.NoError(t, bindUpload(c, opts))
+	assert.Equal(t, "1.0.0", opts.Version)
+	assert.Equal(t, content, opts.Tarball)
+	assert.Equal(t, "tarball.tar.gz", opts.URL)
+
+	// The route accepts large multipart bodies: it fails on auth, not on
+	// Content-Type or body size
+	req := newRequest()
+	req.RequestURI = ""
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+	// JSON bodies keep the 100K limit
+	res2, err := http.Post(server.URL+"/registry/"+keptApp, echo.MIMEApplicationJSON, bytes.NewReader(content))
+	require.NoError(t, err)
+	defer res2.Body.Close()
+	assert.Equal(t, http.StatusRequestEntityTooLarge, res2.StatusCode)
 }
 
 func TestCheckRedirectIsTrusted(t *testing.T) {

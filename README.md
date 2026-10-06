@@ -715,6 +715,15 @@ url           | the archive source of your application, it will be downloaded an
 sha256        | the sha256 hash of your source archive matching the archive in `url` (see the notice below)
 version       | version of the application, must match the one in the manifest (see the notice below)
 
+Instead of giving a `url`, you can upload the archive with a `multipart/form-data` request: the `metadata` field holds the same JSON (without `url`) and the `tarball` field holds the archive:
+
+```shell
+curl -X "POST" "http://localhost:8081/registry/collect" \
+     -H "Authorization: Token {{EDITOR_TOKEN}}" \
+     -F 'metadata={"sha256": "96212bf53ab618808da0a92c7b6d9f2867b1f9487ba7c1c29606826b107041b5", "version": "1.0.1"}' \
+     -F "tarball=@collect-1.0.1.tar.gz"
+```
+
 > __:warning: Important notices:__
 >
 > - The version must match the one in the `manifest.webapp` file for stable release. For beta (X.X.X-betaX) or dev releases (X.X.X-dev.hash256), the version before the cyphen must match the one in the `manifest.webapp`.
