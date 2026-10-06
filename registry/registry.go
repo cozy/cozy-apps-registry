@@ -34,7 +34,7 @@ import (
 
 const (
 	maxApplicationSizeInMB = 20
-	maxApplicationSize     = maxApplicationSizeInMB * 1024 * 1024 // 20 Mo
+	MaxApplicationSize     = maxApplicationSizeInMB * 1024 * 1024 // 20 Mo
 )
 
 var (
@@ -132,6 +132,8 @@ type VersionOptions struct {
 	Icon        string          `json:"icon"`
 	Partnership Partnership     `json:"partnership"`
 	Screenshots []string        `json:"screenshots"`
+	// Tarball holds an archive uploaded with the request, used instead of URL
+	Tarball     []byte `json:"-"`
 	SpacePrefix base.Prefix
 	RegistryURL *url.URL
 }
@@ -486,7 +488,8 @@ func DeletePendingVersion(c *space.Space, version *Version) error {
 	return err
 }
 
-func downloadRequest(rawURL string, shasum string) (reader *bytes.Reader, contentType string, err error) {
+func downloadRequest(opts *VersionOptions, rawURL string) (reader *bytes.Reader, contentType string, err error) {
+	shasum := opts.Sha256
 	url, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, "", err
@@ -495,12 +498,17 @@ func downloadRequest(rawURL string, shasum string) (reader *bytes.Reader, conten
 	buf := new(bytes.Buffer)
 	var bytesRead int64
 
-	if url.Scheme == "file" {
-		f, err := os.Open(url.EscapedPath())
-		if err != nil {
-			return nil, "", err
+	if opts.Tarball != nil || url.Scheme == "file" {
+		var src io.Reader = bytes.NewReader(opts.Tarball)
+		if opts.Tarball == nil {
+			f, err := os.Open(url.EscapedPath())
+			if err != nil {
+				return nil, "", err
+			}
+			defer f.Close()
+			src = f
 		}
-		bytesRead, err = io.Copy(buf, io.LimitReader(f, maxApplicationSize))
+		bytesRead, err = io.Copy(buf, io.LimitReader(src, MaxApplicationSize))
 		if err != nil {
 			return nil, "", err
 		}
@@ -531,7 +539,7 @@ func downloadRequest(rawURL string, shasum string) (reader *bytes.Reader, conten
 			return nil, "", err
 		}
 
-		bytesRead, err = io.Copy(buf, io.LimitReader(resp.Body, maxApplicationSize))
+		bytesRead, err = io.Copy(buf, io.LimitReader(resp.Body, MaxApplicationSize))
 		if err != nil {
 			err = errshttp.NewError(http.StatusUnprocessableEntity,
 				"Could not reach version on specified url %s: %s",
@@ -542,7 +550,7 @@ func downloadRequest(rawURL string, shasum string) (reader *bytes.Reader, conten
 		contentType = resp.Header.Get("content-type")
 	}
 
-	if bytesRead >= maxApplicationSize {
+	if bytesRead >= MaxApplicationSize {
 		err = errshttp.NewError(http.StatusUnprocessableEntity,
 			"Application is larger than max allowed %dMB", maxApplicationSizeInMB)
 		return
@@ -650,7 +658,7 @@ func downloadTarball(opts *VersionOptions, url string) (*Tarball, error) {
 	tryCount := 0
 	for {
 		tryCount++
-		buf, contentType, err = downloadRequest(url, opts.Sha256)
+		buf, contentType, err = downloadRequest(opts, url)
 		if err == nil {
 			break
 		} else if tryCount <= 3 {

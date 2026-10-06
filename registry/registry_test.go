@@ -98,6 +98,28 @@ func TestDownloadVersion(t *testing.T) {
 	assert.Equal(t, "1.0.0", ver.Version)
 }
 
+func TestDownloadVersionFromUpload(t *testing.T) {
+	manifest := defaultManifest()
+	tmpFile, shasum, err := generateTarball(&manifest, defaultPackage())
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile)
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	opts := &VersionOptions{
+		URL:         "tarball.tar.gz",
+		Tarball:     content,
+		Sha256:      shasum,
+		Version:     "1.0.0",
+		RegistryURL: &url.URL{Scheme: "http", Host: "foobar.com", Path: "/registry/"},
+		SpacePrefix: base.Prefix(testSpaceName),
+	}
+
+	ver, _, err := DownloadVersion(opts)
+	assert.NoError(t, err)
+	assert.Equal(t, "1.0.0", ver.Version)
+}
+
 func TestDownloadVersionWithoutEditor(t *testing.T) {
 	// Generating a bad tarball with a missing editor in the manifest
 	manifest := defaultManifest()

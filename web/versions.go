@@ -1,7 +1,9 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -29,7 +31,12 @@ func createVersion(c echo.Context) (err error) {
 	}
 
 	opts := &registry.VersionOptions{}
-	if err = c.Bind(opts); err != nil {
+	if isMultipart(c) {
+		err = bindUpload(c, opts)
+	} else {
+		err = c.Bind(opts)
+	}
+	if err != nil {
 		return err
 	}
 	opts.Version = stripVersion(opts.Version)
@@ -103,6 +110,39 @@ func createVersion(c echo.Context) (err error) {
 
 	cleanVersion(ver)
 	return c.JSON(http.StatusCreated, ver)
+}
+
+func isMultipart(c echo.Context) bool {
+	return strings.HasPrefix(c.Request().Header.Get(echo.HeaderContentType), echo.MIMEMultipartForm)
+}
+
+// bindUpload reads a multipart/form-data request: the "metadata" field holds
+// the same JSON as a regular request (without url), and the "tarball" field
+// holds the archive itself.
+func bindUpload(c echo.Context, opts *registry.VersionOptions) error {
+	req := c.Request()
+	req.Body = http.MaxBytesReader(c.Response(), req.Body, registry.MaxApplicationSize+1<<20)
+	if err := req.ParseMultipartForm(32 << 20); err != nil {
+		return errshttp.NewError(http.StatusBadRequest, "Invalid multipart body: %s", err)
+	}
+	if err := json.Unmarshal([]byte(req.FormValue("metadata")), opts); err != nil {
+		return errshttp.NewError(http.StatusBadRequest, "Invalid metadata field: %s", err)
+	}
+	fh, err := c.FormFile("tarball")
+	if err != nil {
+		return errshttp.NewError(http.StatusBadRequest, "Missing tarball field: %s", err)
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if opts.Tarball, err = io.ReadAll(f); err != nil {
+		return err
+	}
+	// The uploaded file name is not trusted: the stored tarball gets a fixed one
+	opts.URL = "tarball.tar.gz"
+	return nil
 }
 
 func getPendingVersions(c echo.Context) (err error) {
