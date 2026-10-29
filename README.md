@@ -73,7 +73,7 @@ described to work with the [cozy-stack](https://github.com/cozy/cozy-stack).
 
 To work properly, it requires:
 
-- Go >= 1.21 (the `go.mod` requires Go 1.25, which `GOTOOLCHAIN=auto` fetches on its own)
+- Go >= 1.21 (the `go.mod` requires Go 1.27, which `GOTOOLCHAIN=auto` fetches on its own)
 - Couchdb >= 3.2
 - Redis
 - Openstack Object Storage (Swift), or an S3-compatible object store
