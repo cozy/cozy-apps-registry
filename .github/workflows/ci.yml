@@ -89,3 +89,13 @@ jobs:
         env:
           MINIO_REQUIRED: '1'
         run: make tests
+  docker:
+    needs: test
+    uses: ./.github/workflows/docker.yml
+    with:
+      # Pull requests only check that the image builds: it is published once
+      # merged into master.
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

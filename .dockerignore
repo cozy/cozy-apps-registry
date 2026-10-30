@@ -1,0 +1,8 @@
+# Allowlist: everything is excluded, and only what the build needs is let back
+# in. The working directory can hold files that must never reach an image, like
+# sessionsecret.key, cozy-registry.yml or .storage.
+*
+!go.mod
+!go.sum
+!**/*.go
+**/*_test.go
