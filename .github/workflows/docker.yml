@@ -1,7 +1,7 @@
 name: Docker image
 
-# Reusable workflow, called by ci.yml once the tests pass. It always builds the
-# image, and pushes it to Docker Hub only when the caller asks for it.
+# Reusable workflow, called by ci.yml once the tests pass. It builds the image,
+# and pushes it to Docker Hub only when the caller asks for it.
 on:
   workflow_call:
     inputs:
@@ -22,15 +22,37 @@ env:
   IMAGE: docker.io/cozy/cozy-apps-registry
 
 jobs:
+  # Only checks that the image builds, and gets no secret.
   build:
+    if: ${{ !inputs.push }}
     runs-on: ubuntu-24.04
-    # Builds of the same branch run one after the other, so that latest cannot
-    # end up on an older commit when two merges land close together.
+    steps:
+      # Actions are pinned by commit, as a tag can be moved to other code.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+
+  # The Docker Hub secrets live in the dockerhub environment, which only master
+  # can use, so pull requests and other branches never get them.
+  push:
+    if: ${{ inputs.push }}
+    runs-on: ubuntu-24.04
+    environment: dockerhub
+    # Pushes run one after the other, so that latest cannot end up on an older
+    # commit when two merges land close together.
     concurrency:
       group: docker-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      # Actions are pinned by commit, as a tag can be moved to other code.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,7 +70,6 @@ jobs:
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
       - name: Log in to Docker Hub
-        if: ${{ inputs.push }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -60,7 +81,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          push: ${{ inputs.push }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
