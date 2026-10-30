@@ -28,7 +28,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:18f4cc26c9ffa7f20a359298be
 
 LABEL org.opencontainers.image.title="cozy-apps-registry" \
       org.opencontainers.image.description="Registry of the applications and connectors that can be installed on a cozy-stack" \
-      org.opencontainers.image.source="https://github.com/cozy/cozy-apps-registry" \
+      org.opencontainers.image.source="https://github.com/linagora/cozy-apps-registry" \
       org.opencontainers.image.licenses="AGPL-3.0"
 
 COPY --from=build /out/cozy-registry /usr/local/bin/cozy-registry

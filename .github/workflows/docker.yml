@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE: docker.io/cozy/cozy-apps-registry
+  IMAGE: docker.io/linagora/cozy-apps-registry
 
 jobs:
   # Only checks that the image builds, and gets no secret.
